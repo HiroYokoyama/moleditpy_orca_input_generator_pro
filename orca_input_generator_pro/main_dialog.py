@@ -16,7 +16,7 @@ from rdkit.Chem import rdMolTransforms
 
 from .highlighter import OrcaSyntaxHighlighter
 from .keyword_builder import OrcaKeywordBuilderDialog
-from . import PLUGIN_NAME, SETTINGS_FILE
+from . import PLUGIN_NAME, PLUGIN_VERSION, SETTINGS_FILE
 
 class OrcaSetupDialogPro(QDialog):
     """
@@ -24,7 +24,7 @@ class OrcaSetupDialogPro(QDialog):
     """
     def __init__(self, parent=None, mol=None, filename=None, persistent_settings=None):
         super().__init__(parent)
-        self.setWindowTitle(PLUGIN_NAME)
+        self.setWindowTitle(f"{PLUGIN_NAME} v{PLUGIN_VERSION}")
         self.resize(1100, 800)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowMinMaxButtonsHint)
         self.setSizeGripEnabled(True)
@@ -207,11 +207,21 @@ class OrcaSetupDialogPro(QDialog):
         
         main_layout.addLayout(content_layout)
 
-        # --- Save Button ---
+        # --- Bottom Buttons ---
+        btn_layout = QHBoxLayout()
+        self.btn_close = QPushButton("Close")
+        self.btn_close.clicked.connect(self.reject)
+        self.btn_close.setStyleSheet("padding: 8px; font-size: 14px;")
+        
         self.save_btn = QPushButton("Save ORCA Input File...")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setStyleSheet("font-weight: bold; padding: 8px; font-size: 14px;")
-        main_layout.addWidget(self.save_btn)
+        
+        btn_layout.addWidget(self.btn_close)
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.save_btn)
+        
+        main_layout.addLayout(btn_layout)
         
         self.setLayout(main_layout)
         self.update_preview()

@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QSpinBox, 
     QPushButton, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
     QTabWidget, QCheckBox, QWidget, QFormLayout, QTableWidget, 
-    QTableWidgetItem, QCompleter, QPlainTextEdit, QGridLayout)
+    QTableWidgetItem, QCompleter, QPlainTextEdit, QGridLayout, QSizePolicy)
 from PyQt6.QtCore import Qt, QRegularExpression
 from rdkit.Chem import rdMolTransforms
 
@@ -84,12 +84,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         btn_layout = QHBoxLayout()
         self.btn_cancel = QPushButton("Close")
         self.btn_cancel.clicked.connect(self.reject)
+        self.btn_cancel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
-        self.btn_ok = QPushButton("Save and Close")
+        self.btn_ok = QPushButton("Apply")
         self.btn_ok.clicked.connect(self.accept)
+        self.btn_ok.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         btn_layout.addWidget(self.btn_cancel)
-        btn_layout.addStretch()
         btn_layout.addWidget(self.btn_ok)
         layout.addLayout(btn_layout)
 
@@ -964,6 +965,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.solv_model.setCurrentText("None")
         self.rijcosx.setChecked(False)
         self.pop_nbo.setChecked(False)
+        self.tddft_enable.setChecked(False)
+        self.constraint_table.setRowCount(0)
         
         # Normalize route
         cleaned_route = route.strip()
@@ -1077,59 +1080,83 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         # 2. Parse Blocks (%geom, %tddft)
         import re
         
-        # TD-DFT
-        tddft_match = re.search(r"%tddft\s+(.*?)\s+end", route, re.I | re.S)
-        if tddft_match:
-            self.tddft_enable.setChecked(True)
-            content = tddft_match.group(1)
-            nr = re.search(r"NRoots\s+(\d+)", content, re.I)
-            if nr: self.tddft_nroots.setValue(int(nr.group(1)))
-            ir = re.search(r"IRoot\s+(\d+)", content, re.I)
-            if ir: self.tddft_iroot.setValue(int(ir.group(1)))
-            self.tddft_singlets.setChecked("singlets true" in content.lower())
-            self.tddft_triplets.setChecked("triplets true" in content.lower())
-            self.tddft_tda.setChecked("tda true" in content.lower())
+        # Split by % to get blocks (e.g. ['! ...', '%geom ...', '%scf ...'])
+        block_sections = re.split(r'(?=%[a-zA-Z])', route)
+        for section in block_sections:
+            section = section.strip()
+            if not section.startswith("%"): 
+                # Check for MaxIter 256 in the ! line or comments just in case
+                if re.search(r"MaxIter\s+256", section, re.I):
+                    self.iter256_chk.setChecked(True)
+                continue
             
-        # Geom (Constraints & Scan)
-        geom_match = re.search(r"%geom\s+(.*?)\s+end", route, re.I | re.S)
-        if geom_match:
-            geom_content = geom_match.group(1)
-            self.constraint_table.setRowCount(0)
+            # Extract block name and content
+            m_block = re.match(r"%(\w+)\s+(.*)", section, re.S | re.I)
+            if not m_block: continue
             
-            # Constraints sub-block
-            const_match = re.search(r"Constraints\s+(.*?)\s+end", geom_content, re.I | re.S)
-            if const_match:
-                for line in const_match.group(1).splitlines():
-                    # { B 0 1 1.5 C }
-                    m = re.search(r"\{\s*(\w)\s+(.*?)\s+C\s*\}", line, re.I)
-                    if m:
-                        c_type_char = m.group(1).upper()
-                        indices_and_val = m.group(2).split()
-                        if indices_and_val:
+            bname = m_block.group(1).lower()
+            bcontent = m_block.group(2).strip()
+            
+            # Strip the final 'end' of the block if it exists
+            if bcontent.lower().endswith("end"):
+                # Be careful not to strip 'end' of a sub-block if that's all there is
+                # But since we split by %, this section should be exactly one block.
+                # Find the LAST 'end' and strip it.
+                last_end_idx = bcontent.lower().rfind("end")
+                if last_end_idx != -1:
+                    bcontent = bcontent[:last_end_idx].strip()
+            
+            if bname == "tddft":
+                self.tddft_enable.setChecked(True)
+                nr = re.search(r"NRoots\s+(\d+)", bcontent, re.I)
+                if nr: self.tddft_nroots.setValue(int(nr.group(1)))
+                ir = re.search(r"IRoot\s+(\d+)", bcontent, re.I)
+                if ir: self.tddft_iroot.setValue(int(ir.group(1)))
+                self.tddft_singlets.setChecked("singlets true" in bcontent.lower())
+                self.tddft_triplets.setChecked("triplets true" in bcontent.lower())
+                self.tddft_tda.setChecked("tda true" in bcontent.lower())
+                
+            elif bname == "geom":
+                if re.search(r"MaxIter\s+256", bcontent, re.I):
+                    self.iter256_chk.setChecked(True)
+                
+                # Constraints sub-block
+                const_match = re.search(r"Constraints\s+(.*?)\s+end", bcontent, re.I | re.S)
+                if const_match:
+                    for line in const_match.group(1).splitlines():
+                        line = line.strip()
+                        if not line: continue
+                        # { B 0 1 1.5 C } or { C 0 C }
+                        m = re.search(r"\{\s*(\w)\s+(.*?)\s+C\s*\}", line, re.I)
+                        if m:
+                            c_type_char = m.group(1).upper()
+                            parts = m.group(2).split()
+                            if parts:
+                                c_type = {"B": "Distance", "A": "Angle", "D": "Dihedral", "C": "Position"}.get(c_type_char, "Distance")
+                                if c_type == "Position":
+                                    idx_str = " ".join(parts)
+                                    val = "0.0"
+                                else:
+                                    val = parts[-1]
+                                    idx_str = " ".join(parts[:-1])
+                                self._add_parsed_constraint(c_type, idx_str, val, False)
+                
+                # Scan sub-block
+                scan_match = re.search(r"Scan\s+(.*?)\s+end", bcontent, re.I | re.S)
+                if scan_match:
+                    for line in scan_match.group(1).splitlines():
+                        line = line.strip()
+                        if not line: continue
+                        # B 0 1 = 1.0, 2.0, 10
+                        m = re.search(r"^([BADC])\s+(.*?)\s*=\s*([^,]+),\s*([^,]+),\s*(\d+)", line, re.I)
+                        if m:
+                            c_type_char = m.group(1).upper()
+                            idx_str = m.group(2).strip()
+                            start = m.group(3).strip()
+                            end = m.group(4).strip()
+                            steps = m.group(5).strip()
                             c_type = {"B": "Distance", "A": "Angle", "D": "Dihedral", "C": "Position"}.get(c_type_char, "Distance")
-                            # Last part might be the value
-                            val = indices_and_val[-1]
-                            indices_str = " ".join(indices_and_val[:-1])
-                            if c_type == "Position": # Position might not have value
-                                indices_str = " ".join(indices_and_val)
-                                val = "0.0"
-                                
-                            self._add_parsed_constraint(c_type, indices_str, val, False)
-                            
-            # Scan sub-block
-            scan_match = re.search(r"Scan\s+(.*?)\s+end", geom_content, re.I | re.S)
-            if scan_match:
-                for line in scan_match.group(1).splitlines():
-                    # B 0 1 = 1.0, 2.0, 10
-                    m = re.search(r"(\w)\s+(.*?)\s*=\s*(.*?),\s*(.*?),\s*(\d+)", line, re.I)
-                    if m:
-                        c_type_char = m.group(1).upper()
-                        indices_str = m.group(2).strip()
-                        start = m.group(3).strip()
-                        end = m.group(4).strip()
-                        steps = m.group(5).strip()
-                        c_type = {"B": "Distance", "A": "Angle", "D": "Dihedral", "C": "Position"}.get(c_type_char, "Distance")
-                        self._add_parsed_constraint(c_type, indices_str, start, True, end, steps)
+                            self._add_parsed_constraint(c_type, idx_str, start, True, end, steps)
 
         self.ui_ready = True
         self.update_ui_state()

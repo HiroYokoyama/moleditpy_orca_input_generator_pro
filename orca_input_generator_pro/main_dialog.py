@@ -212,13 +212,14 @@ class OrcaSetupDialogPro(QDialog):
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.reject)
         self.btn_close.setStyleSheet("padding: 8px; font-size: 14px;")
+        self.btn_close.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         self.save_btn = QPushButton("Save ORCA Input File...")
         self.save_btn.clicked.connect(self.save_file)
         self.save_btn.setStyleSheet("font-weight: bold; padding: 8px; font-size: 14px;")
+        self.save_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         btn_layout.addWidget(self.btn_close)
-        btn_layout.addStretch()
         btn_layout.addWidget(self.save_btn)
         
         main_layout.addLayout(btn_layout)

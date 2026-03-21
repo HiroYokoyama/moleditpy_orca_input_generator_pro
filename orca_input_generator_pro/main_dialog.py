@@ -691,7 +691,17 @@ class OrcaSetupDialogPro(QDialog):
         if coord_lines:
             final_lines.append("") # Spacer
         final_lines.extend(coord_lines)
-        return "\n".join(final_lines)
+        
+        # Final pass: Ensure no multiple blank lines
+        result_lines = []
+        for l in final_lines:
+            if not l.strip():
+                if result_lines and result_lines[-1].strip():
+                    result_lines.append("")
+            else:
+                result_lines.append(l)
+                
+        return "\n".join(result_lines).strip() + "\n"
 
     # --- Preset Management ---
     def load_presets_from_file(self):

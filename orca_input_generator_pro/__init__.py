@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "1.0.1"
+PLUGIN_VERSION = "1.0.2"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")

@@ -1,5 +1,4 @@
 from PyQt6 import QtCore
-from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QSpinBox, 
     QPushButton, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
@@ -511,8 +510,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.tab_constraints.setLayout(layout)
 
     def on_tab_changed(self, index):
-        # Index 5 is Constraints/Scan
-        if index == 5:
+        # Index 4 is Constraints/Scan (recently changed from 5)
+        if self.tabs.currentWidget() == self.tab_constraints:
             self.enable_picking()
         else:
             self.disable_picking()

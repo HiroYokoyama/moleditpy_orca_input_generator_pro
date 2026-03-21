@@ -4,6 +4,8 @@ An advanced **ORCA Input Generator** plugin for **moleditpy**, designed to strea
 
 ![main](img/main.png)
 
+Repo: https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro
+
 ---
 
 ## Key Features

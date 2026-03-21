@@ -3,6 +3,7 @@
 An advanced **ORCA Input Generator** plugin for **MoleditPy**, designed to streamline the creation of high-quality ORCA calculation files with a focus on usability, automation, and interactive 3D tools.
 
 ![main](img/main.png)
+![builder](img/builder.png)
 
 Repo: https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro
 
@@ -25,7 +26,7 @@ Repo: https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro
 ## Installation
 
 1. Ensure you have MoleditPy installed.
-2. Download [the plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=ORCA+Input+Generator+Pro) into your MoleditPy` plugins directory.
+2. Download the [plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=ORCA+Input+Generator+Pro) into your MoleditPy plugins directory.
 3. Restart MoleditPy, and the **ORCA Input Generator Pro** will be available in the plugins menu.
 
 ---

@@ -22,7 +22,7 @@ class OrcaSetupDialogPro(QDialog):
     """
     ORCA Input Generator Pro
     """
-    def __init__(self, parent=None, mol=None, filename=None):
+    def __init__(self, parent=None, mol=None, filename=None, persistent_settings=None):
         super().__init__(parent)
         self.setWindowTitle(PLUGIN_NAME)
         self.resize(1100, 800)
@@ -30,8 +30,10 @@ class OrcaSetupDialogPro(QDialog):
         self.setSizeGripEnabled(True)
         self.mol = mol
         self.filename = filename
+        self.persistent_settings = persistent_settings
         self.ui_ready = False
         self.setup_ui()
+        self.load_persistent_settings()
         self.ui_ready = True
         self.load_presets_from_file()
         self.calc_initial_charge_mult()
@@ -217,7 +219,40 @@ class OrcaSetupDialogPro(QDialog):
     def update_preview(self):
         if not getattr(self, 'ui_ready', False):
             return
+            
+        # Update persistent settings
+        if self.persistent_settings is not None:
+            p = self.persistent_settings
+            p["nproc"] = self.nproc_spin.value()
+            p["maxcore"] = self.mem_spin.value()
+            p["route"] = self.keywords_edit.toPlainText()
+            p["adv"] = self.adv_edit.toPlainText()
+            p["adv_post"] = self.post_adv_edit.toPlainText()
+            p["comment"] = self.comment_edit.text()
+            p["charge"] = self.charge_spin.value()
+            p["mult"] = self.mult_spin.value()
+            p["coord_format"] = self.coord_format_combo.currentText()
+
         self.preview_text.setText(self.generate_input_content())
+
+    def load_persistent_settings(self):
+        if not self.persistent_settings:
+            return
+        # Temporarily block signals to avoid redundant updates
+        self.blockSignals(True)
+        try:
+            p = self.persistent_settings
+            if "nproc" in p: self.nproc_spin.setValue(p["nproc"])
+            if "maxcore" in p: self.mem_spin.setValue(p["maxcore"])
+            if "route" in p: self.keywords_edit.setText(p["route"])
+            if "adv" in p: self.adv_edit.setPlainText(p["adv"])
+            if "adv_post" in p: self.post_adv_edit.setPlainText(p["adv_post"])
+            if "comment" in p: self.comment_edit.setText(p["comment"])
+            if "charge" in p: self.charge_spin.setValue(p["charge"])
+            if "mult" in p: self.mult_spin.setValue(p["mult"])
+            if "coord_format" in p: self.coord_format_combo.setCurrentText(p["coord_format"])
+        finally:
+            self.blockSignals(False)
 
     def auto_detect_nproc(self):
         try:
@@ -784,7 +819,12 @@ class OrcaSetupDialogPro(QDialog):
 
     # --- Charge/Mult Logic ---
     def calc_initial_charge_mult(self):
+        """Auto-detect charge/mult from molecule if no persistent state exists."""
         if not self.mol: return
+        # Skip if we already loaded from project
+        if self.persistent_settings and ("charge" in self.persistent_settings or "mult" in self.persistent_settings):
+            return
+            
         try:
             try: charge = Chem.GetFormalCharge(self.mol)
             except: charge = 0

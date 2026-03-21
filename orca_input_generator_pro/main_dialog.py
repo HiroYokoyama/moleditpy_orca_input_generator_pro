@@ -642,19 +642,26 @@ class OrcaSetupDialogPro(QDialog):
             idx += 1
 
         # Deduplicate keywords within merged %geom parts
-        final_lines = []
-        if last_pal: final_lines.append(last_pal)
-        if last_maxcore: final_lines.append(last_maxcore)
-        
-        # Keep keywords (starting with !) and comments at top
+        comment_lines = []
         header_lines = []
         coord_lines = []
+        
         for l in others:
             s_l = l.strip()
-            if s_l.startswith("!") or s_l.startswith("#") or not s_l:
+            if s_l.startswith("#"):
+                comment_lines.append(l)
+            elif s_l.startswith("!") or not s_l:
                 header_lines.append(l)
             else:
                 coord_lines.append(l)
+
+        final_lines = []
+        if comment_lines:
+            final_lines.extend(comment_lines)
+            final_lines.append("") # Spacer after comments
+
+        if last_pal: final_lines.append(last_pal)
+        if last_maxcore: final_lines.append(last_maxcore)
         
         final_lines.extend(header_lines)
         
@@ -677,6 +684,12 @@ class OrcaSetupDialogPro(QDialog):
             final_lines.extend(filtered)
             final_lines.append("end")
         
+        # Ensure single blank line before coordinates
+        while final_lines and not final_lines[-1].strip():
+            final_lines.pop()
+            
+        if coord_lines:
+            final_lines.append("") # Spacer
         final_lines.extend(coord_lines)
         return "\n".join(final_lines)
 

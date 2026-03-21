@@ -1063,6 +1063,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.disable_picking()
         super().closeEvent(event)
 
+    def accept(self):
+        self.disable_picking()
+        super().accept()
+
     def reject(self):
         self.disable_picking()
         super().reject()

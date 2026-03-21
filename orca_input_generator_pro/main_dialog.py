@@ -861,6 +861,11 @@ class OrcaSetupDialogPro(QDialog):
             self.builder_dialog.close()
         super().closeEvent(event)
 
+    def accept(self):
+        if hasattr(self, "builder_dialog") and self.builder_dialog:
+            self.builder_dialog.close()
+        super().accept()
+
     def reject(self):
         if hasattr(self, "builder_dialog") and self.builder_dialog:
             self.builder_dialog.close()

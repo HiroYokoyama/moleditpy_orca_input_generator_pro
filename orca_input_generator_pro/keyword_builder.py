@@ -700,6 +700,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             res += "  Constraints\n" + "\n".join(const_lines) + "\n  end\n"
         if scan_lines:
             res += "  Scan\n" + "\n".join(scan_lines) + "\n  end\n"
+        
+        if res:
+            pass # Remove the previously added blank line
         return res
 
     def connect_signals(self):

@@ -388,7 +388,7 @@ class OrcaSetupDialogPro(QDialog):
         elif "%casscf" in txt:
              template = "%casscf\n Nel 2\n Norb 2\n Mult 1\nend\n"
         elif "%eprnmr" in txt:
-             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL} # Required for J-coupling (nmrsim)\nend\n"
+             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL}\nend\n"
              # Switch to Post-Coordinate tab automatically
              self.adv_tabs.setCurrentWidget(self.post_adv_edit)
         
@@ -709,7 +709,10 @@ class OrcaSetupDialogPro(QDialog):
                         i += 1
                         while i < len(zone_lines):
                             l_inner = zone_lines[i]
-                            if l_inner.strip().lower() == "end": i += 1; break
+                            # Heuristic: only a non-indented 'end' closes a %-block
+                            # This allows nested sub-blocks like Constraints...end to be captured correctly.
+                            if l_inner.strip().lower() == "end" and (not l_inner or not l_inner[0].isspace()):
+                                i += 1; break
                             blocks[bname].append(l_inner)
                             i += 1
                         continue
@@ -780,7 +783,8 @@ class OrcaSetupDialogPro(QDialog):
             
             if h: pieces.append("\n".join(h))
             for bname in sorted(blocks.keys()):
-                pieces.append(f"%{bname}\n" + "\n".join(blocks[bname]) + "\nend")
+                inner_content = "\n".join(blocks[bname])
+                pieces.append(f"%{bname}\n{inner_content}\nend")
             if others: pieces.append("\n".join(others))
             return pieces
 

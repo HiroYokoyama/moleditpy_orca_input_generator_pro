@@ -70,9 +70,3 @@ The **Keyword Builder** provides powerful 3D interactive tools for defining stru
 
 This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.
 
----
-
-## Author
-
-**HiroYokoyama**
-- Advanced Chem-Informatics and Computational Chemistry Tools.

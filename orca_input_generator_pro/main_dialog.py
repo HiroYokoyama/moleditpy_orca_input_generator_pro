@@ -33,10 +33,10 @@ class OrcaSetupDialogPro(QDialog):
         self.persistent_settings = persistent_settings
         self.ui_ready = False
         self.setup_ui()
-        self.load_persistent_settings()
-        self.ui_ready = True
         self.load_presets_from_file()
+        self.load_persistent_settings()
         self.calc_initial_charge_mult()
+        self.ui_ready = True
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -303,17 +303,22 @@ class OrcaSetupDialogPro(QDialog):
         default_base = "orca_job.inp"
         
         if self.filename:
-            # Check if it's an absolute path
+            # If it's an absolute path, use its directory as default
             if os.path.isabs(self.filename):
                 default_dir = os.path.dirname(self.filename)
-                default_base = os.path.splitext(os.path.basename(self.filename))[0] + ".inp"
-            else:
-                # It might be a title or relative path
-                default_base = os.path.splitext(os.path.basename(self.filename))[0] + ".inp"
+            
+            # Normalize and extract filename to avoid leading underscores from path separators
+            norm_name = self.filename.replace('\\', '/')
+            base_name = norm_name.split('/')[-1]
+            if base_name:
+                # Remove extension and append .inp
+                default_base = os.path.splitext(base_name)[0] + ".inp"
         
         # Ensure default_base doesn't have invalid chars
         import re
         default_base = re.sub(r'[\\/*?:"<>|]', "_", default_base).strip()
+        # Remove any leading underscores that might have come from path separators
+        default_base = default_base.lstrip("_")
         if not default_base: default_base = "orca_job.inp"
 
         # Combine
@@ -757,7 +762,8 @@ class OrcaSetupDialogPro(QDialog):
         if "Default" not in self.presets_data:
             self.presets_data["Default"] = {
                 "nproc": 4, "maxcore": 2000, 
-                "route": "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq", "adv": "", "adv_post": ""
+                "route": "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq", "adv": "", "adv_post": "",
+                "charge": 0, "mult": 1
             }
         
         self.update_preset_combo()
@@ -783,6 +789,11 @@ class OrcaSetupDialogPro(QDialog):
         self.keywords_edit.setText(data.get("route", "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq"))
         self.adv_edit.setPlainText(data.get("adv", ""))
         self.post_adv_edit.setPlainText(data.get("adv_post", ""))
+        
+        # Load charge/mult if present in preset
+        if "charge" in data: self.charge_spin.setValue(int(data["charge"]))
+        if "mult" in data: self.mult_spin.setValue(int(data["mult"]))
+        
         self.update_preview()
 
     def save_preset_dialog(self):
@@ -793,7 +804,9 @@ class OrcaSetupDialogPro(QDialog):
                 "maxcore": self.mem_spin.value(),
                 "route": self.keywords_edit.toPlainText(),
                 "adv": self.adv_edit.toPlainText(),
-                "adv_post": self.post_adv_edit.toPlainText()
+                "adv_post": self.post_adv_edit.toPlainText(),
+                "charge": self.charge_spin.value(),
+                "mult": self.mult_spin.value()
             }
             self.save_presets_to_file()
             self.update_preset_combo()
@@ -819,11 +832,8 @@ class OrcaSetupDialogPro(QDialog):
 
     # --- Charge/Mult Logic ---
     def calc_initial_charge_mult(self):
-        """Auto-detect charge/mult from molecule if no persistent state exists."""
+        """Auto-detect charge/mult from molecule. Always runs as requested."""
         if not self.mol: return
-        # Skip if we already loaded from project
-        if self.persistent_settings and ("charge" in self.persistent_settings or "mult" in self.persistent_settings):
-            return
             
         try:
             try: charge = Chem.GetFormalCharge(self.mol)

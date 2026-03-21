@@ -849,9 +849,16 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         
         # Opt Options
         if self.opt_group.isVisible():
-            if self.opt_tight.isChecked(): route_parts.append("TightOpt")
-            if self.opt_verytight.isChecked(): route_parts.append("VeryTightOpt")
-            if self.opt_loose.isChecked(): route_parts.append("LooseOpt")
+            if self.opt_tight.isChecked():
+                if "Opt" in route_parts: route_parts[route_parts.index("Opt")] = "TightOpt"
+                else: route_parts.append("TightOpt")
+            elif self.opt_verytight.isChecked():
+                if "Opt" in route_parts: route_parts[route_parts.index("Opt")] = "VeryTightOpt"
+                else: route_parts.append("VeryTightOpt")
+            elif self.opt_loose.isChecked():
+                if "Opt" in route_parts: route_parts[route_parts.index("Opt")] = "LooseOpt"
+                else: route_parts.append("LooseOpt")
+
             if self.opt_cart.isChecked(): route_parts.append("COpt")
             if self.opt_calcfc.isChecked(): route_parts.append("CalcFC")
         
@@ -1000,7 +1007,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 continue
             
             # 2. Job Types
-            if tu == "OPT":
+            if tu in ["OPT", "TIGHTOPT", "VERYTIGHTOPT", "LOOSEOPT"]:
                  if self.job_type.currentText() == "Frequency Only (Freq)":
                       self.job_type.setCurrentText("Optimization + Freq (Opt Freq)")
                  else:

@@ -62,7 +62,6 @@ The **Keyword Builder** provides powerful 3D interactive tools for defining stru
 
 ## Dependencies
 
-- **Python 3.8+**
 - **PyQt6**: For the modern graphical user interface.
 - **RDKit**: For molecular geometry and property handling.
 - **NumPy**: For coordinate calculations and analysis.

@@ -1059,6 +1059,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         chk_scan.setChecked(is_scan)
         sync_scan_state()
 
+    def closeEvent(self, event):
+        self.disable_picking()
+        super().closeEvent(event)
+
+    def reject(self):
+        self.disable_picking()
+        super().reject()
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             focused = self.focusWidget()

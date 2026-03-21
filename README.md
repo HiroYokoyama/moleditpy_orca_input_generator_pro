@@ -1,9 +1,8 @@
 # ORCA Input Generator Pro
 
-[![Plugin for moleditpy](https://img.shields.io/badge/Plugin-moleditpy-blue.svg)](https://github.com/HiroYokoyama/moleditpy)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
 An advanced **ORCA Input Generator** plugin for **moleditpy**, designed to streamline the creation of high-quality ORCA calculation files with a focus on usability, automation, and interactive 3D tools.
+
+![main](img/main.png)
 
 ---
 
@@ -24,8 +23,8 @@ An advanced **ORCA Input Generator** plugin for **moleditpy**, designed to strea
 ## Installation
 
 1. Ensure you have MoleditPy installed.
-2. Download [plugin](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro) into your `moleditpy` plugins directory.
-3. Restart `moleditpy`, and the **ORCA Input Generator Pro** will be available in the plugins menu.
+2. Download [the plugin](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=ORCA+Input+Generator+Pro) into your MoleditPy` plugins directory.
+3. Restart MoleditPy, and the **ORCA Input Generator Pro** will be available in the plugins menu.
 
 ---
 
@@ -69,7 +68,7 @@ The **Keyword Builder** provides powerful 3D interactive tools for defining stru
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.
 
 ---
 

@@ -82,13 +82,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         # --- Buttons ---
         btn_layout = QHBoxLayout()
-        self.btn_ok = QPushButton("Apply to Job")
-        self.btn_ok.clicked.connect(self.accept)
-        self.btn_cancel = QPushButton("Cancel")
+        self.btn_cancel = QPushButton("Close")
         self.btn_cancel.clicked.connect(self.reject)
+        
+        self.btn_ok = QPushButton("Save and Close")
+        self.btn_ok.clicked.connect(self.accept)
+        
+        btn_layout.addWidget(self.btn_cancel)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_ok)
-        btn_layout.addWidget(self.btn_cancel)
         layout.addLayout(btn_layout)
 
         self.setLayout(layout)
@@ -96,6 +98,97 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.connect_signals()
         self.ui_ready = True
         self.update_ui_state() # Initial UI state update
+        self.update_preview()
+
+    def reject(self):
+        self.restore_state()
+        super().reject()
+
+    def _capture_constraints(self):
+        data = []
+        for r in range(self.constraint_table.rowCount()):
+            c_type = self.constraint_table.item(r, 0).text()
+            idx_str = self.constraint_table.item(r, 1).text()
+            val = self.constraint_table.item(r, 2).text()
+            chk_widget = self.constraint_table.cellWidget(r, 3)
+            is_scan = chk_widget.findChild(QCheckBox).isChecked() if chk_widget else False
+            start = self.constraint_table.item(r, 4).text()
+            end = self.constraint_table.item(r, 5).text()
+            steps = self.constraint_table.item(r, 6).text()
+            data.append((c_type, idx_str, val, is_scan, start, end, steps))
+        return data
+
+    def _restore_constraints(self, data):
+        self.constraint_table.setRowCount(0)
+        for row_data in data:
+            c_type, idx_str, val, is_scan, start, end, steps = row_data
+            row = self.constraint_table.rowCount()
+            self.constraint_table.insertRow(row)
+            
+            def create_centered_item(text):
+                item = QTableWidgetItem(text)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                return item
+                
+            self.constraint_table.setItem(row, 0, create_centered_item(c_type))
+            self.constraint_table.setItem(row, 1, create_centered_item(idx_str))
+            self.constraint_table.setItem(row, 2, create_centered_item(val))
+            
+            chk_scan = QCheckBox()
+            chk_scan.setChecked(is_scan)
+            chk_widget = QWidget()
+            chk_layout = QHBoxLayout(chk_widget)
+            chk_layout.addWidget(chk_scan)
+            chk_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            chk_layout.setContentsMargins(0,0,0,0)
+            self.constraint_table.setCellWidget(row, 3, chk_widget)
+            
+            self.constraint_table.setItem(row, 4, create_centered_item(start))
+            self.constraint_table.setItem(row, 5, create_centered_item(end))
+            self.constraint_table.setItem(row, 6, create_centered_item(steps))
+
+            def sync_scan_state(r=row, chk=chk_scan):
+                is_on = chk.isChecked()
+                for col in [4, 5, 6]:
+                    it = self.constraint_table.item(r, col)
+                    if it:
+                        if is_on:
+                            it.setFlags(it.flags() | Qt.ItemFlag.ItemIsEnabled)
+                            it.setForeground(Qt.GlobalColor.black)
+                        else:
+                            it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+                            it.setForeground(Qt.GlobalColor.gray)
+                self.update_preview()
+
+            chk_scan.stateChanged.connect(sync_scan_state)
+            sync_scan_state()
+
+    def store_state(self):
+        self._saved_state = {}
+        for name, widget in self.__dict__.items():
+            if isinstance(widget, QComboBox):
+                self._saved_state[name] = widget.currentText()
+            elif isinstance(widget, QCheckBox):
+                self._saved_state[name] = widget.isChecked()
+            elif isinstance(widget, QSpinBox):
+                self._saved_state[name] = widget.value()
+        self._saved_constraints = self._capture_constraints()
+
+    def restore_state(self):
+        if not hasattr(self, "_saved_state"): return
+        self.ui_ready = False
+        for name, val in self._saved_state.items():
+            widget = getattr(self, name, None)
+            if not widget: continue
+            if isinstance(widget, QComboBox):
+                widget.setCurrentText(val)
+            elif isinstance(widget, QCheckBox):
+                widget.setChecked(val)
+            elif isinstance(widget, QSpinBox):
+                widget.setValue(val)
+        if hasattr(self, "_saved_constraints"):
+            self._restore_constraints(self._saved_constraints)
+        self.ui_ready = True
         self.update_preview()
 
     def get_inferred_category(self, text):
@@ -846,6 +939,31 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
     def parse_route(self, route):
         if not route: return
         self.ui_ready = False 
+        
+        # Reset defaults before parsing so we don't accumulate old checks
+        self.opt_tight.setChecked(False)
+        self.opt_verytight.setChecked(False)
+        self.opt_loose.setChecked(False)
+        self.opt_cart.setChecked(False)
+        self.opt_calcfc.setChecked(False)
+        
+        self.freq_num.setChecked(False)
+        self.freq_raman.setChecked(False)
+        
+        self.job_type.setCurrentText("Single Point Energy (SP)")
+        
+        self.scf_sloppy.setChecked(False)
+        self.scf_loose.setChecked(False)
+        self.scf_normal.setChecked(False)
+        self.scf_strong.setChecked(False)
+        self.scf_tight.setChecked(False)
+        self.scf_verytight.setChecked(False)
+        self.scf_extreme.setChecked(False)
+        
+        self.dispersion.setCurrentText("None")
+        self.solv_model.setCurrentText("None")
+        self.rijcosx.setChecked(False)
+        self.pop_nbo.setChecked(False)
         
         # Normalize route
         cleaned_route = route.strip()

@@ -389,15 +389,16 @@ class OrcaSetupDialogPro(QDialog):
     def open_keyword_builder(self):
         # Pass mol and main_window (self.parent()) for picking
         if hasattr(self, "builder_dialog") and self.builder_dialog is not None:
-            # If it already exists, just show it. 
-            # We don't want to re-create it as it would lose 
-            # the constraint table state (unless we re-parse everything perfectly).
+            # Sync builder with current keywords
+            self.builder_dialog.parse_route(self.keywords_edit.toPlainText())
+            self.builder_dialog.store_state()
             self.builder_dialog.show()
             self.builder_dialog.raise_()
             self.builder_dialog.activateWindow()
             return
 
         self.builder_dialog = OrcaKeywordBuilderDialog(self, self.keywords_edit.toPlainText(), mol=self.mol, main_window=self.parent())
+        self.builder_dialog.store_state()
         self.builder_dialog.finished.connect(lambda r: self.on_builder_finished(r))
         self.builder_dialog.show()
 

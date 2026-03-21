@@ -766,9 +766,14 @@ class OrcaSetupDialogPro(QDialog):
         # Reconstruct
         def rebuild_zone(c, h, pal, mc, blocks, others):
             pieces = []
-            if c: pieces.append("\n".join(c))
-            if pal: pieces.append(pal)
-            if mc: pieces.append(mc)
+            
+            # Combine comments, pal and maxcore into one piece to keep them connected
+            header_p = []
+            if c: header_p.append("\n".join(c))
+            if pal: header_p.append(pal)
+            if mc: header_p.append(mc)
+            if header_p: pieces.append("\n".join(header_p))
+            
             if h: pieces.append("\n".join(h))
             for bname in sorted(blocks.keys()):
                 pieces.append(f"%{bname}\n" + "\n".join(blocks[bname]) + "\nend")

@@ -777,13 +777,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.opt_group.setVisible(is_opt)
         self.freq_group.setVisible(is_freq)
         
-        # Ensure TightOpt is the default if no opt-convergence is selected
-        if is_opt:
-            if not self.opt_tight.isChecked() and not self.opt_verytight.isChecked() and not self.opt_loose.isChecked():
-                self.opt_tight.blockSignals(True)
-                self.opt_tight.setChecked(True)
-                self.opt_tight.blockSignals(False)
-
         # 4. TD-DFT (Removed from Route Builder, handled via blocks)
 
     def enforce_scf_mutual_exclusion(self):
@@ -842,30 +835,35 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 if "Def2/J" in aux: route_parts.append("Def2/J")
                 elif "Def2/JK" in aux: route_parts.append("Def2/JK")
 
-        # Job Type
+        # Job Type and Opt Options
         job_txt = self.job_type.currentText()
-        if "Opt Freq" in job_txt: route_parts.extend(["Opt", "Freq"])
-        elif "Opt Only" in job_txt: route_parts.append("Opt")
-        elif "OptTS" in job_txt: route_parts.append("OptTS")
+        is_opt_job = "Opt" in job_txt or "Scan" in job_txt
+        
+        # Determine convergence level
+        opt_conv = ""
+        if self.opt_tight.isChecked(): opt_conv = "TightOpt"
+        elif self.opt_verytight.isChecked(): opt_conv = "VeryTightOpt"
+        elif self.opt_loose.isChecked(): opt_conv = "LooseOpt"
+
+        if "Opt Freq" in job_txt: 
+            route_parts.append(opt_conv if opt_conv else "Opt")
+            route_parts.append("Freq")
+        elif "Opt Only" in job_txt: 
+            route_parts.append(opt_conv if opt_conv else "Opt")
+        elif "OptTS" in job_txt: 
+            route_parts.append("OptTS")
+            if opt_conv: route_parts.append(opt_conv)
         elif "Freq Only" in job_txt: route_parts.append("Freq")
-        elif "Scan" in job_txt: route_parts.append("Scan")
+        elif "Scan" in job_txt: 
+            route_parts.append("Scan")
+            if opt_conv: route_parts.append(opt_conv)
         elif "Gradient" in job_txt: route_parts.append("Gradient")
         elif "Hessian" in job_txt: route_parts.append("Hessian")
         elif "NMR" in job_txt: route_parts.append("NMR")
         elif "SP" in job_txt: pass # No keyword
         
-        # Opt Options
-        if self.opt_group.isVisible():
-            if self.opt_tight.isChecked():
-                if "Opt" in route_parts: route_parts[route_parts.index("Opt")] = "TightOpt"
-                else: route_parts.append("TightOpt")
-            elif self.opt_verytight.isChecked():
-                if "Opt" in route_parts: route_parts[route_parts.index("Opt")] = "VeryTightOpt"
-                else: route_parts.append("VeryTightOpt")
-            elif self.opt_loose.isChecked():
-                if "Opt" in route_parts: route_parts[route_parts.index("Opt")] = "LooseOpt"
-                else: route_parts.append("LooseOpt")
-
+        # Other Opt Options (only if it's an opt job)
+        if is_opt_job:
             if self.opt_cart.isChecked(): route_parts.append("COpt")
             if self.opt_calcfc.isChecked(): route_parts.append("CalcFC")
         

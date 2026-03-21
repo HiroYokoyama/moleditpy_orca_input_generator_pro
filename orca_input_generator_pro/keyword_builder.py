@@ -53,20 +53,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.setup_solvation_tab()
         self.tabs.addTab(self.tab_solvation, "Solvation/Dispersion")
         
-        # --- Tab 4: Properties ---
-        self.tab_props = QWidget()
-        self.setup_props_tab()
-        self.tabs.addTab(self.tab_props, "Properties")
-        
-        # --- Tab 5: TD-DFT ---
+        # --- Tab 4: TD-DFT ---
         self.tab_tddft = QWidget()
         self.setup_tddft_tab()
         self.tabs.addTab(self.tab_tddft, "TD-DFT")
         
-        # --- Tab 6: Constraints/Scan ---
+        # --- Tab 5: Constraints/Scan ---
         self.tab_constraints = QWidget()
         self.setup_constraints_tab()
         self.tabs.addTab(self.tab_constraints, "Constraints/Scan")
+
+        # --- Tab 6: Advanced (formerly Properties) ---
+        self.tab_props = QWidget()
+        self.setup_props_tab()
+        self.tabs.addTab(self.tab_props, "Advanced")
 
         layout.addWidget(self.tabs)
 

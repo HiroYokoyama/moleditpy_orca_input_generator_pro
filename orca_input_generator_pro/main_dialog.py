@@ -636,130 +636,153 @@ class OrcaSetupDialogPro(QDialog):
 
     def consolidate_orca_blocks(self, text):
         """
-        Final pass to merge redundant %geom blocks and deduplicate MaxIter.
-        Only merges top-level blocks.
+        Merge redundant % blocks, deduplicate keywords, and ensure blank line spacing.
+        Distinguishes between pre-coordinate and post-coordinate blocks.
         """
         import re
         lines = text.splitlines()
         
-        last_pal = None
-        last_maxcore = None
-        all_geom_inner = []
-        others = []
+        # 1. Split into Pre-Coord, Coords, and Post-Coord zones
+        coord_start = -1
+        coord_end = -1
+        for idx, line in enumerate(lines):
+            if line.strip().startswith("*"):
+                if coord_start == -1: coord_start = idx
+                coord_end = idx
         
-        idx = 0
-        while idx < len(lines):
-            line = lines[idx]
-            s = line.strip()
-            
-            # --- %pal / %maxcore ---
-            if s.lower().startswith("%pal"):
-                # Handle one-liner: %pal nprocs 4 end
-                if " end" in s.lower() or s.lower().endswith("end"):
-                    last_pal = s
-                    idx += 1
-                    continue
-                # Handle multi-liner (rare for %pal but possible)
-                last_pal = line
-                idx += 1
-                while idx < len(lines):
-                    l_inner = lines[idx]
-                    last_pal += "\n" + l_inner
-                    if l_inner.strip().lower() == "end" and not l_inner.startswith(" "):
-                        break
-                    idx += 1
-                idx += 1
-                continue
-                
-            if s.lower().startswith("%maxcore"):
-                last_maxcore = s
-                idx += 1
-                continue
-            
-            # --- %geom (Merge targets) ---
-            if s.lower().startswith("%geom"):
-                # One-liner?
-                if " end" in s.lower() or s.lower().endswith("end"):
-                    m = re.match(r"^%geom\s+(.*)\s+end", s, re.I)
-                    if m: all_geom_inner.append(m.group(1))
-                    idx += 1
-                    continue
-                # Multi-liner
-                idx += 1
-                while idx < len(lines):
-                    l_inner = lines[idx]
-                    if l_inner.strip().lower() == "end" and not l_inner.startswith(" "):
-                        break
-                    all_geom_inner.append(l_inner)
-                    idx += 1
-                idx += 1
-                continue
-            
-            # --- Default ---
-            others.append(line)
-            idx += 1
+        if coord_start != -1:
+            pre_lines = lines[:coord_start]
+            coord_part = lines[coord_start:coord_end+1]
+            post_lines = lines[coord_end+1:]
+        else:
+            pre_lines = lines
+            coord_part = []
+            post_lines = []
 
-        # Deduplicate keywords within merged %geom parts
-        comment_lines = []
-        header_lines = []
-        coord_lines = []
-        
-        for l in others:
-            s_l = l.strip()
-            if s_l.startswith("#"):
-                comment_lines.append(l)
-            elif s_l.startswith("!") or not s_l:
-                header_lines.append(l)
+        def parse_zone(zone_lines):
+            comments = []
+            headers = []
+            pal = None
+            maxcore = None
+            blocks = {}
+            others = []
+            i = 0
+            while i < len(zone_lines):
+                l = zone_lines[i]
+                s = l.strip()
+                if not s: 
+                    i += 1
+                    continue
+                if s.startswith("#"):
+                    comments.append(l)
+                    i += 1
+                    continue
+                if s.startswith("!"):
+                    headers.append(l)
+                    i += 1
+                    continue
+                if s.lower().startswith("%pal"):
+                    if " end" in s.lower() or s.lower().endswith("end"):
+                        pal = s; i += 1
+                    else:
+                        pal = l; i += 1
+                        while i < len(zone_lines):
+                            pal += "\n" + zone_lines[i]
+                            if zone_lines[i].strip().lower() == "end": i += 1; break
+                            i += 1
+                    continue
+                if s.lower().startswith("%maxcore"):
+                    maxcore = s; i += 1; continue
+                if s.startswith("%"):
+                    # One-liner
+                    m_single = re.match(r"^%(\w+)\s+(.*)\s+end", s, re.I)
+                    if m_single:
+                        bname = m_single.group(1).lower()
+                        if bname not in blocks: blocks[bname] = []
+                        blocks[bname].append(m_single.group(2))
+                        i += 1; continue
+                    # Multi-liner
+                    m_start = re.match(r"^%(\w+)", s, re.I)
+                    if m_start:
+                        bname = m_start.group(1).lower()
+                        if bname not in blocks: blocks[bname] = []
+                        i += 1
+                        while i < len(zone_lines):
+                            l_inner = zone_lines[i]
+                            if l_inner.strip().lower() == "end": i += 1; break
+                            blocks[bname].append(l_inner)
+                            i += 1
+                        continue
+                others.append(l)
+                i += 1
+            return comments, headers, pal, maxcore, blocks, others
+
+        pre_c, pre_h, pre_pal, pre_mc, pre_b, pre_o = parse_zone(pre_lines)
+        post_c, post_h, post_pal, post_mc, post_b, post_o = parse_zone(post_lines)
+
+        # Merge blocks (Move post to pre if they share name, or keep separate?)
+        # For simplicity and to satisfy "merge", we merge them. 
+        # But we keep track of which blocks should stay post-coord if they were ONLY there.
+        final_pre_blocks = pre_b
+        final_post_blocks = {}
+        for bname in post_b:
+            if bname in final_pre_blocks:
+                final_pre_blocks[bname].extend(post_b[bname])
             else:
-                coord_lines.append(l)
+                final_post_blocks[bname] = post_b[bname]
 
-        final_lines = []
-        if comment_lines:
-            final_lines.extend(comment_lines)
-            final_lines.append("") # Spacer after comments
-
-        if last_pal: final_lines.append(last_pal)
-        if last_maxcore: final_lines.append(last_maxcore)
-        
-        final_lines.extend(header_lines)
-        
-        # Process merged geom block
-        if all_geom_inner:
-            final_lines.append("%geom")
-            # Deduplicate MaxIter only
+        # Deduplicate keywords in merged blocks
+        def dedup_block(bname, lines):
+            d_keys = []
+            if bname in ["scf", "geom"]: d_keys.append("maxiter")
+            if bname in ["tddft", "cis"]: d_keys.append("nroots")
+            if bname == "tddft": d_keys.extend(["maxdim", "iroot"])
+            if not d_keys: return lines
             k_map = {}
             filtered = []
-            for l in all_geom_inner:
-                m = re.match(r"^\s*(maxiter|nroots|maxdim)\b\s+(.*)$", l, re.I)
-                if m:
-                    k = m.group(1).lower()
-                    k_map[k] = l # keep last
-                else:
-                    filtered.append(l)
-            
-            # Add deduped keys
-            for k in k_map: final_lines.append(k_map[k])
-            final_lines.extend(filtered)
-            final_lines.append("end")
+            for l in lines:
+                m = re.match(r"^\s*(" + "|".join(d_keys) + r")\b\s+(.*)$", l, re.I)
+                if m: k_map[m.group(1).lower()] = l
+                else: filtered.append(l)
+            return list(k_map.values()) + filtered
+
+        for bn in final_pre_blocks: final_pre_blocks[bn] = dedup_block(bn, final_pre_blocks[bn])
+        for bn in final_post_blocks: final_post_blocks[bn] = dedup_block(bn, final_post_blocks[bn])
+
+        # Deduplicate ! keywords
+        def dedup_h(h_lines):
+            res = []
+            for l in h_lines:
+                tokens = l.split(); unique = []; seen = set()
+                for t in tokens:
+                    tu = t.upper()
+                    if tu == "!": unique.append(t)
+                    elif tu not in seen: unique.append(t); seen.add(tu)
+                res.append(" ".join(unique))
+            return res
+
+        final_h = dedup_h(pre_h + post_h)
+
+        # Reconstruct
+        def rebuild_zone(c, h, pal, mc, blocks, others):
+            pieces = []
+            if c: pieces.append("\n".join(c))
+            if pal: pieces.append(pal)
+            if mc: pieces.append(mc)
+            if h: pieces.append("\n".join(h))
+            for bname in sorted(blocks.keys()):
+                pieces.append(f"%{bname}\n" + "\n".join(blocks[bname]) + "\nend")
+            if others: pieces.append("\n".join(others))
+            return pieces
+
+        final_pre_pieces = rebuild_zone(pre_c, final_h, pre_pal or post_pal, pre_mc or post_mc, final_pre_blocks, pre_o)
+        final_post_pieces = rebuild_zone(post_c, [], None, None, final_post_blocks, post_o)
+
+        all_pieces = final_pre_pieces
+        if coord_part: all_pieces.append("\n".join(coord_part))
+        all_pieces.extend(final_post_pieces)
         
-        # Ensure single blank line before coordinates
-        while final_lines and not final_lines[-1].strip():
-            final_lines.pop()
-            
-        if coord_lines:
-            final_lines.append("") # Spacer
-        final_lines.extend(coord_lines)
-        
-        # Final pass: Ensure no multiple blank lines
-        result_lines = []
-        for l in final_lines:
-            if not l.strip():
-                if result_lines and result_lines[-1].strip():
-                    result_lines.append("")
-            else:
-                result_lines.append(l)
-                
-        return "\n".join(result_lines).strip() + "\n"
+        return "\n\n".join(all_pieces).strip() + "\n"
 
     # --- Preset Management ---
     def load_presets_from_file(self):

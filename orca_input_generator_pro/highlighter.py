@@ -8,7 +8,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
 
         # Keywords (!)
         keyword_format = QTextCharFormat()
-        keyword_format.setForeground(QColor("#D32F2F")) # Red
+        keyword_format.setForeground(QColor("#8B0000")) # Dark Red
         keyword_format.setFontWeight(QFont.Weight.Bold)
         self.rules.append((QRegularExpression(r"^!.*"), keyword_format))
         # Highlight tokens like B3LYP, Opt, Freq, etc.

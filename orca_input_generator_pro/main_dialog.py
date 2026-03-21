@@ -792,6 +792,11 @@ class OrcaSetupDialogPro(QDialog):
             self.builder_dialog.close()
         super().closeEvent(event)
 
+    def reject(self):
+        if hasattr(self, "builder_dialog") and self.builder_dialog:
+            self.builder_dialog.close()
+        super().reject()
+
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             focused = self.focusWidget()

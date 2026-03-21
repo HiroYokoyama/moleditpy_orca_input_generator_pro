@@ -33,12 +33,28 @@ An advanced **ORCA Input Generator** plugin for **moleditpy**, designed to strea
 
 1. Open a molecule in `moleditpy`.
 2. Launch the **ORCA Input Generator Pro** from the menu.
-3. Use the **Keyword Builder** tabs to configure your calculation:
-   - **Method/Basis**: Select your level of theory.
-   - **Job Type**: Choose between Optimization, Frequency, NMR, etc.
-   - **Constraints/Scan**: Select atoms in the 3D view to add constraints or scans.
-4. Review the **Input Preview** to verify your setup.
-5. Click **Apply to Job** and save your `.inp` file.
+4.  Review the **Input Preview** to verify your setup.
+5.  Click **Save ORCA Input File...** to finalize your job.
+
+---
+
+## Interactive Constraints & Scans
+
+The **Keyword Builder** provides powerful 3D interactive tools for defining structural constraints and coordinate scans:
+
+1.  Navigate to the **Scan/Constraint** tab in the Keyword Builder.
+2.  Picking mode is automatically enabled for this tab.
+3.  **Click atoms** in the MoleditPy 3D viewer to select them:
+    -   **1 Atom**: Position Constraint (Fixed atom).
+    -   **2 Atoms**: Distance Constraint/Scan.
+    -   **3 Atoms**: Angle Constraint/Scan.
+    -   **4 Atoms**: Dihedral Constraint/Scan.
+4.  Selected atoms are highlighted with labels in the 3D scene.
+5.  Click **Add Constraint** to insert the selection into the table.
+6.  **Coordinate Scans**: 
+    -   Check the **Scan?** column for any constraint.
+    -   Define the **Start**, **End**, and **Steps** for the scan.
+    -   The plugin automatically generates the correct `%geom ... Scan ... end` blocks.
 
 ---
 

@@ -64,7 +64,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
                     self.setFormat(m.capturedStart(), m.capturedLength(), format)
                 continue
 
-            # 3. Route Keywords: Only on ! lines
+            # 3. Keywords: Only on ! lines
             if "\\b(" in p_str: # Keyword list token matching
                 if is_route:
                     match_it = pattern.globalMatch(text)
@@ -73,7 +73,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
                         self.setFormat(m.capturedStart(), m.capturedLength(), format)
                 continue
             
-            # 4. Route line anchor (^!): Only if starts with !
+            # 4. Keywords line anchor (^!): Only if starts with !
             if p_str.startswith("^!"):
                 if is_route:
                     match_it = pattern.globalMatch(text)

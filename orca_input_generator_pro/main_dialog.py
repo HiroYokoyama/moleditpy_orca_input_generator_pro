@@ -754,9 +754,12 @@ class OrcaSetupDialogPro(QDialog):
             res = []
             for l in h_lines:
                 tokens = l.split(); unique = []; seen = set()
+                # Remove redundant Opt if more specific keyword exists
+                has_specific_opt = any(x in seen for x in ["TIGHTOPT", "VERYTIGHTOPT", "LOOSEOPT"])
                 for t in tokens:
                     tu = t.upper()
                     if tu == "!": unique.append(t)
+                    elif tu == "OPT" and has_specific_opt: continue
                     elif tu not in seen: unique.append(t); seen.add(tu)
                 res.append(" ".join(unique))
             return res

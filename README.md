@@ -14,7 +14,7 @@ Repo: https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro
 - **Intuitive Job Builder**: A tabbed interface for easy configuration of Methods, Basis Sets, Job Types, Solvation, and Properties.
 - **Extensive Libraries**: Built-in support for a vast range of DFT (GGA, Hybrid, Meta, Range-Separated, Double Hybrid), Wavefunction (HF, MP2, Coupled Cluster, Multireference), and Semi-empirical methods.
 - **Interactive Constraints & Scans**: Use the 3D viewer to pick 1-4 atoms and instantly define constraints (Position, Distance, Angle, Dihedral) or coordinate scans.
-- **Real-time Preview**: Instantly see the generated job route and the full ORCA input file as you make changes.
+- **Real-time Preview**: Instantly see the generated job keywords and the full ORCA input file as you make changes.
 - **Intelligent Automation**:
   - Automatically deduplicates keywords.
   - Handles specialized resource blocks like `%pal` and `%maxcore`.

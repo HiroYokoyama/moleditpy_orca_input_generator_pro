@@ -13,7 +13,7 @@ from .mixins import Dialog3DPickingMixin
 
 class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
     """
-    Dialog to construct the ORCA Job Route line.
+    Dialog to construct the ORCA Job keywords line.
     """
     def __init__(self, parent=None, current_route="", mol=None, main_window=None):
         QDialog.__init__(self, parent)
@@ -776,6 +776,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         
         self.opt_group.setVisible(is_opt)
         self.freq_group.setVisible(is_freq)
+        
+        # Ensure TightOpt is the default if no opt-convergence is selected
+        if is_opt:
+            if not self.opt_tight.isChecked() and not self.opt_verytight.isChecked() and not self.opt_loose.isChecked():
+                self.opt_tight.blockSignals(True)
+                self.opt_tight.setChecked(True)
+                self.opt_tight.blockSignals(False)
 
         # 4. TD-DFT (Removed from Route Builder, handled via blocks)
 

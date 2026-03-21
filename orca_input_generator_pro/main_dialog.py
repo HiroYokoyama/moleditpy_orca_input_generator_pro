@@ -268,8 +268,8 @@ class OrcaSetupDialogPro(QDialog):
                 default_dir = os.path.dirname(self.filename)
                 default_base = os.path.splitext(os.path.basename(self.filename))[0] + ".inp"
             else:
-                # It might be just a filename/title
-                default_base = os.path.splitext(self.filename)[0] + ".inp"
+                # It might be a title or relative path
+                default_base = os.path.splitext(os.path.basename(self.filename))[0] + ".inp"
         
         # Ensure default_base doesn't have invalid chars
         import re
@@ -537,11 +537,6 @@ class OrcaSetupDialogPro(QDialog):
         if adv:
             content.append(f"\n{adv}")
             
-        # 4. Post-Coordinate Blocks (%)
-        adv_post = self.post_adv_edit.toPlainText().strip()
-        if adv_post:
-            content.append(f"\n{adv_post}")
-
         # --- Coordinates ---
         is_cartesian = "Cartesian" in self.coord_format_combo.currentText()
         content.append("") # Spacer
@@ -571,6 +566,11 @@ class OrcaSetupDialogPro(QDialog):
                 content.append(f"{header} {charge} {mult}")
                 content.extend(zmat_lines)
                 content.append("*")
+
+        # 4. Post-Coordinate Blocks (%) - Move here
+        adv_post = self.post_adv_edit.toPlainText().strip()
+        if adv_post:
+            content.append(f"\n{adv_post}")
 
         # 5. Final Consolidation (Merge blocks, dedup MaxIter etc.)
         full_text = "\n".join(content)

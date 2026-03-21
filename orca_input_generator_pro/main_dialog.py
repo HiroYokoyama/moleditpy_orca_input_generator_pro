@@ -273,7 +273,7 @@ class OrcaSetupDialogPro(QDialog):
         
         # Ensure default_base doesn't have invalid chars
         import re
-        default_base = re.sub(r'[\\/*?Source:"<>|]', "_", default_base).strip()
+        default_base = re.sub(r'[\\/*?:"<>|]', "_", default_base).strip()
         if not default_base: default_base = "orca_job.inp"
 
         # Combine

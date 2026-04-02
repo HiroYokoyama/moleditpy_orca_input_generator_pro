@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "1.0.3"
+PLUGIN_VERSION = "2.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -21,12 +21,28 @@ def get_default_settings():
 current_settings = get_default_settings()
 
 def run(mw):
+    if hasattr(mw, 'host'):
+        mw = mw.host
     from .main_dialog import OrcaSetupDialogPro
-    mol = getattr(mw, 'current_mol', None)
+    mol = None
+    try:
+        if hasattr(mw, "view_3d_manager"):
+            mol = mw.view_3d_manager.current_mol
+        elif hasattr(mw, "current_mol"):
+            mol = mw.current_mol
+    except Exception:
+        mol = None
     if not mol:
         QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
         return
-    filename = getattr(mw, 'current_file_path', None)
+    filename = None
+    try:
+        if hasattr(mw, "init_manager"):
+            filename = getattr(mw.init_manager, "current_file_path", None)
+        if not filename:
+            filename = getattr(mw, 'current_file_path', None)
+    except Exception:
+        filename = None
     if not filename:
          filename = getattr(mw, 'current_file_name', None)
     if not filename and hasattr(mw, 'windowTitle'):

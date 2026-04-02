@@ -549,17 +549,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         all_to_label.append((idx, f"C{row+1}:A{i+1}"))
                 except: pass
         
-        if all_to_label and self.main_window and hasattr(self.main_window, 'atom_positions_3d'):
+        v3d = getattr(self.main_window, "view_3d_manager", None) if self.main_window else None
+        atom_positions_3d = getattr(v3d, "atom_positions_3d", None) if v3d else None
+        plotter = getattr(v3d, "plotter", None) if v3d else None
+        if all_to_label and atom_positions_3d is not None and plotter is not None:
             positions = []
             texts = []
             # Keep unique to avoid overlapping labels on same atom? 
             # VTK handles overlapping somewhat, but let's just add them.
             for idx, txt in all_to_label:
-                if 0 <= idx < len(self.main_window.atom_positions_3d):
-                    positions.append(self.main_window.atom_positions_3d[idx])
+                if 0 <= idx < len(atom_positions_3d):
+                    positions.append(atom_positions_3d[idx])
                     texts.append(txt)
             if positions:
-                label_actor = self.main_window.plotter.add_point_labels(positions, texts, always_visible=True, text_color="yellow")
+                label_actor = plotter.add_point_labels(positions, texts, always_visible=True, text_color="yellow")
                 self.selection_labels.append(label_actor)
 
         n = len(self.selected_atoms)

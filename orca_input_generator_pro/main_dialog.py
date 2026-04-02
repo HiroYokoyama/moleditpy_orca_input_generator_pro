@@ -226,6 +226,18 @@ class OrcaSetupDialogPro(QDialog):
         
         self.setLayout(main_layout)
         self.update_preview()
+
+    def _resolve_live_mol(self):
+        """Prefer the currently active molecule in the 3D manager."""
+        try:
+            mw = self.parent()
+            if mw and hasattr(mw, "view_3d_manager"):
+                live = mw.view_3d_manager.current_mol
+                if live is not None:
+                    self.mol = live
+        except Exception:
+            pass
+        return self.mol
         
     def update_preview(self):
         if not getattr(self, 'ui_ready', False):
@@ -398,10 +410,12 @@ class OrcaSetupDialogPro(QDialog):
             cursor.insertText(template)
 
     def open_keyword_builder(self):
+        self._resolve_live_mol()
         # Pass mol and main_window (self.parent()) for picking
         if hasattr(self, "builder_dialog") and self.builder_dialog is not None:
             # Sync builder with current keywords
             self.builder_dialog.parse_route(self.keywords_edit.toPlainText())
+            self.builder_dialog.mol = self.mol
             self.builder_dialog.store_state()
             self.builder_dialog.show()
             self.builder_dialog.raise_()
@@ -421,7 +435,7 @@ class OrcaSetupDialogPro(QDialog):
         self.update_preview()
 
     def get_coords_lines(self):
-        if not self.mol: return []
+        if not self._resolve_live_mol(): return []
         lines = []
         try:
             conf = self.mol.GetConformer()
@@ -435,7 +449,7 @@ class OrcaSetupDialogPro(QDialog):
 
     def _build_zmatrix_data(self):
         """Helper to build Z-Matrix connectivity and values."""
-        if not self.mol: return None
+        if not self._resolve_live_mol(): return None
         try:
             atoms = list(self.mol.GetAtoms())
             conf = self.mol.GetConformer()
@@ -881,7 +895,7 @@ class OrcaSetupDialogPro(QDialog):
     # --- Charge/Mult Logic ---
     def calc_initial_charge_mult(self):
         """Auto-detect charge/mult from molecule. Always runs as requested."""
-        if not self.mol: return
+        if not self._resolve_live_mol(): return
             
         try:
             try: charge = Chem.GetFormalCharge(self.mol)
@@ -894,7 +908,7 @@ class OrcaSetupDialogPro(QDialog):
         except: pass
 
     def validate_charge_mult(self):
-        if not self.mol: return
+        if not self._resolve_live_mol(): return
         try:
             charge = self.charge_spin.value()
             mult = self.mult_spin.value()

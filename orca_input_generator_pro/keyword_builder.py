@@ -148,16 +148,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.constraint_table.setItem(row, 6, create_centered_item(steps))
 
             def sync_scan_state(r=row, chk=chk_scan):
-                is_on = chk.isChecked()
-                for col in [4, 5, 6]:
-                    it = self.constraint_table.item(r, col)
-                    if it:
-                        if is_on:
-                            it.setFlags(it.flags() | Qt.ItemFlag.ItemIsEnabled)
-                            it.setForeground(Qt.GlobalColor.black)
-                        else:
-                            it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-                            it.setForeground(Qt.GlobalColor.gray)
+                self.on_scan_checkbox_state_changed(r, chk)
                 self.update_preview()
 
             chk_scan.stateChanged.connect(sync_scan_state)
@@ -630,16 +621,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.constraint_table.setItem(row, 6, steps_item)
 
         def sync_scan_state():
-            is_on = chk_scan.isChecked()
-            for col in [4, 5, 6]:
-                it = self.constraint_table.item(row, col)
-                if it:
-                    if is_on:
-                        it.setFlags(it.flags() | Qt.ItemFlag.ItemIsEnabled)
-                        it.setForeground(Qt.GlobalColor.black)
-                    else:
-                        it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-                        it.setForeground(Qt.GlobalColor.gray)
+            self.on_scan_checkbox_state_changed(row, chk_scan)
             self.update_preview()
 
         chk_scan.stateChanged.connect(sync_scan_state)
@@ -860,8 +842,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             if opt_conv: route_parts.append(opt_conv)
         elif "Freq Only" in job_txt: route_parts.append("Freq")
         elif "Scan" in job_txt: 
-            route_parts.append("Scan")
-            if opt_conv: route_parts.append(opt_conv)
+            # Relaxed Surface Scan in ORCA should use Opt header with %geom Scan block
+            route_parts.append(opt_conv if opt_conv else "Opt")
         elif "Gradient" in job_txt: route_parts.append("Gradient")
         elif "Hessian" in job_txt: route_parts.append("Hessian")
         elif "NMR" in job_txt: route_parts.append("NMR")
@@ -1205,21 +1187,34 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.constraint_table.setItem(row, 6, create_centered_item(steps))
 
         def sync_scan_state():
-            is_on = chk_scan.isChecked()
-            for col in [4, 5, 6]:
-                it = self.constraint_table.item(row, col)
-                if it:
-                    if is_on:
-                        it.setFlags(it.flags() | Qt.ItemFlag.ItemIsEnabled)
-                        it.setForeground(Qt.GlobalColor.black)
-                    else:
-                        it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEnabled)
-                        it.setForeground(Qt.GlobalColor.gray)
+            self.on_scan_checkbox_state_changed(row, chk_scan)
             self.update_preview()
 
         chk_scan.stateChanged.connect(sync_scan_state)
         chk_scan.setChecked(is_scan)
         sync_scan_state()
+
+    def on_scan_checkbox_state_changed(self, row, chk_scan):
+        is_on = chk_scan.isChecked()
+        for col in [4, 5, 6]:
+            it = self.constraint_table.item(row, col)
+            if it:
+                if is_on:
+                    it.setFlags(it.flags() | Qt.ItemFlag.ItemIsEnabled)
+                    it.setForeground(Qt.GlobalColor.black)
+                else:
+                    it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+                    it.setForeground(Qt.GlobalColor.gray)
+        
+        # If a scan is enabled, automatically switch the Job Type to "Scan"
+        if is_on and getattr(self, "ui_ready", False):
+            current_job = self.job_type.currentText()
+            scan_text = "Scan (Relaxed Surface)"
+            if current_job != scan_text:
+                self.job_type.blockSignals(True)
+                self.job_type.setCurrentText(scan_text)
+                self.job_type.blockSignals(False)
+                # Keep other groups updated (though handled by update_preview)
 
     def closeEvent(self, event):
         self.disable_picking()

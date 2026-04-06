@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "2.1.0"
+PLUGIN_VERSION = "2.1.1"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -39,12 +39,8 @@ def run(mw):
     try:
         if hasattr(mw, "init_manager"):
             filename = getattr(mw.init_manager, "current_file_path", None)
-        if not filename:
-            filename = getattr(mw, 'current_file_path', None)
     except Exception:
         filename = None
-    if not filename:
-         filename = getattr(mw, 'current_file_name', None)
     if not filename and hasattr(mw, 'windowTitle'):
          title = mw.windowTitle()
          filename = title.split(" - ")[0].strip() if " - " in title else title.strip()

@@ -1,6 +1,7 @@
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
 import numpy as np
+import logging
 
 # --- 3D Picking Mixin (Simplified for Plugin) ---
 class Dialog3DPickingMixin:
@@ -37,7 +38,7 @@ class Dialog3DPickingMixin:
                         return True
             except Exception as e: print(f"Picking Error: {e}")
         elif (obj == v3d.plotter.interactor and event.type() == QtCore.QEvent.Type.MouseMove):
-            if hasattr(self, "_mouse_press_pos") and self._mouse_press_pos is not None:
+            if getattr(self, "_mouse_press_pos", None) is not None and self._mouse_press_pos is not None:
                 if (event.pos() - self._mouse_press_pos).manhattanLength() > 3:
                     self._mouse_moved = True
         elif (obj == v3d.plotter.interactor and event.type() == QtCore.QEvent.Type.MouseButtonRelease):
@@ -66,5 +67,6 @@ class Dialog3DPickingMixin:
                 v3d = getattr(self.main_window, "view_3d_manager", None)
                 if v3d and getattr(v3d, "plotter", None):
                     v3d.plotter.remove_actor(label_actor)
-            except: pass
+            except Exception as _e:
+                logging.warning("[mixins.py:69] silenced: %s", _e)
         self.selection_labels = []

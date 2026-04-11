@@ -4,11 +4,12 @@ from PyQt6.QtWidgets import (
     QPushButton, QGroupBox, QHBoxLayout, QComboBox, QTextEdit, 
     QTabWidget, QCheckBox, QWidget, QFormLayout, QTableWidget, 
     QTableWidgetItem, QCompleter, QPlainTextEdit, QGridLayout, QSizePolicy)
-from PyQt6.QtCore import Qt, QRegularExpression
+from PyQt6.QtCore import Qt
 from rdkit.Chem import rdMolTransforms
 
 from .constants import ALL_ORCA_METHODS, ALL_ORCA_BASIS_SETS
 from .mixins import Dialog3DPickingMixin
+import logging
 
 class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
     """
@@ -100,10 +101,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.update_ui_state() # Initial UI state update
         self.update_preview()
 
-    def reject(self):
-        self.restore_state()
-        super().reject()
-
     def _capture_constraints(self):
         data = []
         for r in range(self.constraint_table.rowCount()):
@@ -166,7 +163,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self._saved_constraints = self._capture_constraints()
 
     def restore_state(self):
-        if not hasattr(self, "_saved_state"): return
+        if getattr(self, "_saved_state", None) is None: return
         self.ui_ready = False
         for name, val in self._saved_state.items():
             widget = getattr(self, name, None)
@@ -177,7 +174,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 widget.setChecked(val)
             elif isinstance(widget, QSpinBox):
                 widget.setValue(val)
-        if hasattr(self, "_saved_constraints"):
+        if getattr(self, "_saved_constraints", None) is not None:
             self._restore_constraints(self._saved_constraints)
         self.ui_ready = True
         self.update_preview()
@@ -538,7 +535,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     row_indices = [int(i) for i in idx_item.text().split()]
                     for i, idx in enumerate(row_indices):
                         all_to_label.append((idx, f"C{row+1}:A{i+1}"))
-                except: pass
+                except Exception as _e:
+                    logging.warning("[keyword_builder.py:541] silenced: %s", _e)
         
         v3d = getattr(self.main_window, "view_3d_manager", None) if self.main_window else None
         atom_positions_3d = getattr(v3d, "atom_positions_3d", None) if v3d else None
@@ -912,7 +910,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         blocks = []
         
         # 1. TD-DFT
-        if hasattr(self, "tddft_enable") and self.tddft_enable.isChecked():
+        if getattr(self, "tddft_enable", None) is not None and self.tddft_enable.isChecked():
             block = (
                 f"%tddft\n"
                 f"  NRoots {self.tddft_nroots.value()}\n"
@@ -925,7 +923,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             blocks.append(block)
             
         # 2. Constraints & Scan
-        if hasattr(self, "constraint_table"):
+        if getattr(self, "constraint_table", None) is not None:
             geom_text = self.get_constraints_text()
             # Add MaxIter 256 if checked
             if self.iter256_chk.isChecked():

@@ -1,13 +1,11 @@
 
 import os
 import json
-import re
-import numpy as np
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QScrollArea, QWidget, 
     QGroupBox, QFormLayout, QSpinBox, QPushButton, QLabel, 
     QTextEdit, QLineEdit, QComboBox, QTabWidget, QSizePolicy, 
-    QFontDialog, QMessageBox, QFileDialog, QInputDialog, QGridLayout)
+    QMessageBox, QFileDialog, QInputDialog)
 from PyQt6.QtGui import QFont, QPalette, QColor
 from PyQt6.QtCore import Qt
 
@@ -17,6 +15,7 @@ from rdkit.Chem import rdMolTransforms
 from .highlighter import OrcaSyntaxHighlighter
 from .keyword_builder import OrcaKeywordBuilderDialog
 from . import PLUGIN_NAME, PLUGIN_VERSION, SETTINGS_FILE
+import logging
 
 class OrcaSetupDialogPro(QDialog):
     """
@@ -235,8 +234,8 @@ class OrcaSetupDialogPro(QDialog):
                 live = mw.view_3d_manager.current_mol
                 if live is not None:
                     self.mol = live
-        except Exception:
-            pass
+        except Exception as _e:
+            logging.warning("[main_dialog.py:238] silenced: %s", _e)
         return self.mol
         
     def update_preview(self):
@@ -294,8 +293,8 @@ class OrcaSetupDialogPro(QDialog):
             import psutil
             # Total system memory
             total_mb = psutil.virtual_memory().total // (1024 * 1024)
-        except:
-             pass
+        except Exception as _e:
+             logging.warning("[main_dialog.py:297] silenced: %s", _e)
         
         # Use roughly 75-80% of total memory to be safe, divided by nprocs
         nprocs = self.nproc_spin.value()
@@ -412,7 +411,7 @@ class OrcaSetupDialogPro(QDialog):
     def open_keyword_builder(self):
         self._resolve_live_mol()
         # Pass mol and main_window (self.parent()) for picking
-        if hasattr(self, "builder_dialog") and self.builder_dialog is not None:
+        if getattr(self, "builder_dialog", None) is not None and self.builder_dialog is not None:
             # Sync builder with current keywords
             self.builder_dialog.parse_route(self.keywords_edit.toPlainText())
             self.builder_dialog.mol = self.mol
@@ -429,7 +428,7 @@ class OrcaSetupDialogPro(QDialog):
 
     def on_builder_finished(self, result):
         if result == QDialog.DialogCode.Accepted:
-            if hasattr(self, "builder_dialog"):
+            if getattr(self, "builder_dialog", None) is not None:
                 self.keywords_edit.setPlainText(self.builder_dialog.get_route())
         
         self.update_preview()
@@ -471,7 +470,7 @@ class OrcaSetupDialogPro(QDialog):
                     continue
                 
                 # Find neighbors in defined set
-                current_idx = atom.GetIdx()
+                atom.GetIdx()
                 neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
                 candidates = [n for n in neighbors if n in defined]
                 if not candidates: candidates = defined[:] # Fallback
@@ -905,7 +904,8 @@ class OrcaSetupDialogPro(QDialog):
             self.charge_spin.setValue(int(charge))
             self.mult_spin.setValue(int(mult))
             self.validate_charge_mult()
-        except: pass
+        except Exception as _e:
+            logging.warning("[main_dialog.py:908] silenced: %s", _e)
 
     def validate_charge_mult(self):
         if not self._resolve_live_mol(): return
@@ -926,20 +926,21 @@ class OrcaSetupDialogPro(QDialog):
                 self.charge_spin.setPalette(p)
                 self.mult_spin.setPalette(p)
             self.update_preview()
-        except: pass
+        except Exception as _e:
+            logging.warning("[main_dialog.py:929] silenced: %s", _e)
 
     def closeEvent(self, event):
-        if hasattr(self, "builder_dialog") and self.builder_dialog:
+        if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
             self.builder_dialog.close()
         super().closeEvent(event)
 
     def accept(self):
-        if hasattr(self, "builder_dialog") and self.builder_dialog:
+        if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
             self.builder_dialog.close()
         super().accept()
 
     def reject(self):
-        if hasattr(self, "builder_dialog") and self.builder_dialog:
+        if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
             self.builder_dialog.close()
         super().reject()
 
@@ -950,6 +951,4 @@ class OrcaSetupDialogPro(QDialog):
                 focused.clearFocus()
                 return
         super().keyPressEvent(event)
-
-
 

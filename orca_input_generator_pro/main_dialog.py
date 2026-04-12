@@ -441,7 +441,9 @@ class OrcaSetupDialogPro(QDialog):
             for i in range(self.mol.GetNumAtoms()):
                 pos = conf.GetAtomPosition(i)
                 atom = self.mol.GetAtomWithIdx(i)
-                lines.append(f"  {atom.GetSymbol(): <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}")
+                # Use custom symbol from XYZ Editor if present, otherwise element symbol
+                symbol = atom.GetProp("custom_symbol") if atom.HasProp("custom_symbol") else atom.GetSymbol()
+                lines.append(f"  {symbol: <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}")
         except Exception as e:
             return [f"# Error: {e}"]
         return lines
@@ -461,7 +463,8 @@ class OrcaSetupDialogPro(QDialog):
             z_data = [] # List of dicts for each atom
             
             for i, atom in enumerate(atoms):
-                symbol = atom.GetSymbol()
+                # Use custom symbol from XYZ Editor if present, otherwise element symbol
+                symbol = atom.GetProp("custom_symbol") if atom.HasProp("custom_symbol") else atom.GetSymbol()
                 
                 # Atom 0
                 if i == 0:

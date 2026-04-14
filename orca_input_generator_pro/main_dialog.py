@@ -314,13 +314,15 @@ class OrcaSetupDialogPro(QDialog):
             self.blockSignals(False)
 
     def auto_detect_nproc(self):
+        cpus = None
         try:
             import psutil
 
-            cpus = psutil.cpu_count(logical=False)
+            cpus = psutil.cpu_count(logical=False)  # physical cores only
         except Exception:
-            cpus = os.cpu_count()
-
+            pass
+        if cpus is None:
+            cpus = os.cpu_count()  # last resort (no psutil)
         if cpus:
             self.nproc_spin.setValue(cpus)
 

@@ -3,9 +3,11 @@ from PyQt6.QtCore import Qt
 import numpy as np
 import logging
 
+
 # --- 3D Picking Mixin (Simplified for Plugin) ---
 class Dialog3DPickingMixin:
     """Provides 3D atom picking for dialogs."""
+
     def __init__(self):
         self.picking_enabled = False
         self.selection_labels = []
@@ -15,9 +17,11 @@ class Dialog3DPickingMixin:
         if not v3d or not getattr(v3d, "plotter", None):
             return super().eventFilter(obj, event)
 
-        if (obj == v3d.plotter.interactor and 
-            event.type() == QtCore.QEvent.Type.MouseButtonPress and 
-            event.button() == Qt.MouseButton.LeftButton):
+        if (
+            obj == v3d.plotter.interactor
+            and event.type() == QtCore.QEvent.Type.MouseButtonPress
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             self._mouse_press_pos = event.pos()
             self._mouse_moved = False
             try:
@@ -36,13 +40,25 @@ class Dialog3DPickingMixin:
                         self.on_atom_picked(int(closest_atom_idx))
                         self._mouse_press_pos = None
                         return True
-            except Exception as e: print(f"Picking Error: {e}")
-        elif (obj == v3d.plotter.interactor and event.type() == QtCore.QEvent.Type.MouseMove):
-            if getattr(self, "_mouse_press_pos", None) is not None and self._mouse_press_pos is not None:
+            except Exception as e:
+                print(f"Picking Error: {e}")
+        elif (
+            obj == v3d.plotter.interactor
+            and event.type() == QtCore.QEvent.Type.MouseMove
+        ):
+            if (
+                getattr(self, "_mouse_press_pos", None) is not None
+                and self._mouse_press_pos is not None
+            ):
                 if (event.pos() - self._mouse_press_pos).manhattanLength() > 3:
                     self._mouse_moved = True
-        elif (obj == v3d.plotter.interactor and event.type() == QtCore.QEvent.Type.MouseButtonRelease):
-            if getattr(self, "_mouse_press_pos", None) is not None and not getattr(self, "_mouse_moved", False):
+        elif (
+            obj == v3d.plotter.interactor
+            and event.type() == QtCore.QEvent.Type.MouseButtonRelease
+        ):
+            if getattr(self, "_mouse_press_pos", None) is not None and not getattr(
+                self, "_mouse_moved", False
+            ):
                 self.clear_selection()
             self._mouse_press_pos = None
         return super().eventFilter(obj, event)

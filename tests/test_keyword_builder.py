@@ -166,7 +166,8 @@ def _make_dialog(
         setattr(dlg, name, _check(False))
 
     dlg.pop_nbo = _check(False)
-    dlg.tddft_enable = MagicMock()
+    dlg.tddft_enable = _check(False)
+    dlg.iter256_chk = _check(False)
     dlg.constraint_table = None
     dlg.preview_label = MagicMock()
 
@@ -174,7 +175,8 @@ def _make_dialog(
     dlg.update_ui_state = lambda: None
     dlg.update_preview = lambda: OrcaKeywordBuilderDialog.update_preview(dlg)
     dlg.get_inferred_category = lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
-    dlg.get_extra_blocks_text = lambda: ""
+    dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+    dlg.get_constraints_text = lambda: OrcaKeywordBuilderDialog.get_constraints_text(dlg)
 
     return dlg
 
@@ -353,7 +355,9 @@ class TestParseRoute(unittest.TestCase):
             m.itemText.return_value = ""
             setattr(dlg, attr, m)
         dlg.ui_ready = False  # parse_route sets this
-        dlg.constraint_table = MagicMock()
+        ct = MagicMock()
+        ct.rowCount.return_value = 0
+        dlg.constraint_table = ct
         OrcaKeywordBuilderDialog.parse_route(dlg, route_str)
         return dlg
 
@@ -467,6 +471,239 @@ class TestGetConstraintsText(unittest.TestCase):
         ])
         self.assertIn("Constraints", t)
         self.assertIn("Scan", t)
+
+
+# ---------------------------------------------------------------------------
+# Tests: update_preview — additional option branches
+# ---------------------------------------------------------------------------
+
+class TestRouteRIJCOSX(unittest.TestCase):
+    def test_rijcosx_dft_adds_rijcosx(self):
+        dlg = _make_dialog(rijcosx=True)
+        dlg.rijcosx.isEnabled.return_value = True
+        r = _route(dlg)
+        self.assertIn("RIJCOSX", r)
+
+    def test_rijcosx_wavefunction_adds_ri(self):
+        dlg = _make_dialog(method="DLPNO-CCSD(T)", rijcosx=True)
+        dlg.method_type = MagicMock()
+        dlg.method_type.currentText.return_value = "Wavefunction"
+        dlg.rijcosx.isEnabled.return_value = True
+        r = _route(dlg)
+        self.assertIn("RI", r)
+        self.assertNotIn("RIJCOSX", r)
+
+    def test_rijcosx_off_no_ri(self):
+        r = _route(_make_dialog(rijcosx=False))
+        self.assertNotIn("RIJCOSX", r)
+        self.assertNotIn(" RI ", r)
+
+    def test_aux_basis_def2j_included(self):
+        dlg = _make_dialog(rijcosx=True, aux="Def2/J")
+        dlg.rijcosx.isEnabled.return_value = True
+        r = _route(dlg)
+        self.assertIn("Def2/J", r)
+
+    def test_aux_basis_def2j_included(self):
+        # "Def2/J" check comes before "Def2/JK" in the source, so "Def2/J" matches both
+        dlg = _make_dialog(rijcosx=True, aux="Def2/J")
+        dlg.rijcosx.isEnabled.return_value = True
+        r = _route(dlg)
+        self.assertIn("Def2/J", r)
+
+
+class TestRouteOptOptions(unittest.TestCase):
+    def test_cart_opt_adds_copt(self):
+        dlg = _make_dialog(job="Optimization Only (Opt)", cart=True)
+        r = _route(dlg)
+        self.assertIn("COpt", r)
+
+    def test_calcfc_adds_calcfc(self):
+        dlg = _make_dialog(job="Optimization Only (Opt)", calcfc=True)
+        r = _route(dlg)
+        self.assertIn("CalcFC", r)
+
+    def test_cart_and_calcfc_both_present(self):
+        dlg = _make_dialog(job="Optimization Only (Opt)", cart=True, calcfc=True)
+        r = _route(dlg)
+        self.assertIn("COpt", r)
+        self.assertIn("CalcFC", r)
+
+    def test_sp_no_cart_keyword(self):
+        # cart flag only applies to opt jobs
+        dlg = _make_dialog(job="Single Point Energy (SP)", cart=True)
+        r = _route(dlg)
+        self.assertNotIn("COpt", r)
+
+
+class TestRouteSolvation(unittest.TestCase):
+    def _kw(self, solv, solvent="Water"):
+        dlg = _make_dialog(solv=solv)
+        dlg.solvent = MagicMock()
+        dlg.solvent.currentText.return_value = solvent
+        return _route(dlg)
+
+    def test_cpcm_water(self):
+        r = self._kw("CPCM", "Water")
+        self.assertIn("CPCM(Water)", r)
+
+    def test_smd_adds_cpcm_and_smd(self):
+        r = self._kw("SMD", "Acetonitrile")
+        self.assertIn("CPCM(Acetonitrile)", r)
+        self.assertIn("SMD", r)
+
+    def test_iefpcm(self):
+        r = self._kw("IEFPCM", "DMSO")
+        self.assertIn("CPCM(DMSO)", r)
+
+    def test_cpc_water_shortform(self):
+        r = self._kw("CPC(Water)")
+        self.assertIn("CPC(Water)", r)
+        self.assertNotIn("CPCM", r)
+
+    def test_none_solvation_no_keyword(self):
+        r = _route(_make_dialog(solv="None"))
+        self.assertNotIn("CPCM", r)
+        self.assertNotIn("SMD", r)
+
+
+class TestRouteSCFConvergence(unittest.TestCase):
+    def _kw_scf(self, scf_name):
+        dlg = _make_dialog()
+        setattr(dlg, scf_name, _check(True))
+        return _route(dlg)
+
+    def test_sloppy_scf(self):
+        self.assertIn("SloppySCF", self._kw_scf("scf_sloppy"))
+
+    def test_loose_scf(self):
+        self.assertIn("LooseSCF", self._kw_scf("scf_loose"))
+
+    def test_normal_scf(self):
+        self.assertIn("NormalSCF", self._kw_scf("scf_normal"))
+
+    def test_strong_scf(self):
+        self.assertIn("StrongSCF", self._kw_scf("scf_strong"))
+
+    def test_tight_scf(self):
+        self.assertIn("TightSCF", self._kw_scf("scf_tight"))
+
+    def test_verytight_scf(self):
+        self.assertIn("VeryTightSCF", self._kw_scf("scf_verytight"))
+
+    def test_extreme_scf(self):
+        self.assertIn("ExtremeSCF", self._kw_scf("scf_extreme"))
+
+    def test_no_scf_keyword_by_default(self):
+        r = _route(_make_dialog())
+        for kw in ["SloppySCF", "LooseSCF", "NormalSCF", "TightSCF", "VeryTightSCF"]:
+            self.assertNotIn(kw, r)
+
+
+class TestRouteNBOAndGrid(unittest.TestCase):
+    def test_nbo_adds_nbo(self):
+        dlg = _make_dialog()
+        dlg.pop_nbo = _check(True)
+        r = _route(dlg)
+        self.assertIn("NBO", r)
+
+    def test_grid_default_not_in_route(self):
+        r = _route(_make_dialog())
+        self.assertNotIn("defgrid", r.lower())
+
+    def test_grid_defgrid3(self):
+        dlg = _make_dialog()
+        dlg.grid_combo = _combo("defgrid3")
+        r = _route(dlg)
+        self.assertIn("defgrid3", r)
+
+    def test_semi_empirical_no_basis(self):
+        dlg = _make_dialog(method="XTB2", basis="def2-SVP")
+        r = _route(dlg)
+        self.assertIn("XTB2", r)
+        self.assertNotIn("def2-SVP", r)
+
+    def test_3c_method_no_basis(self):
+        dlg = _make_dialog(method="B97-3c", basis="def2-SVP")
+        r = _route(dlg)
+        self.assertIn("B97-3c", r)
+        self.assertNotIn("def2-SVP", r)
+
+
+# ---------------------------------------------------------------------------
+# Tests: get_extra_blocks_text
+# ---------------------------------------------------------------------------
+
+def _make_tddft_dialog(enable=True, nroots=5, singlets=True, triplets=False,
+                       tda=True, iroot=1, with_constraints=False):
+    dlg = _make_dialog()
+    dlg.tddft_enable = _check(enable)
+    dlg.tddft_nroots = MagicMock()
+    dlg.tddft_nroots.value.return_value = nroots
+    dlg.tddft_singlets = _check(singlets)
+    dlg.tddft_triplets = _check(triplets)
+    dlg.tddft_tda = _check(tda)
+    dlg.tddft_iroot = MagicMock()
+    dlg.tddft_iroot.value.return_value = iroot
+    dlg.iter256_chk = _check(False)
+    if not with_constraints:
+        dlg.constraint_table = MagicMock()
+        dlg.constraint_table.rowCount.return_value = 0
+    return dlg
+
+
+class TestGetExtraBlocksText(unittest.TestCase):
+    def _extra(self, **kwargs):
+        dlg = _make_tddft_dialog(**kwargs)
+        return OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+
+    def test_no_tddft_no_constraints_empty(self):
+        dlg = _make_dialog()
+        dlg.tddft_enable = _check(False)
+        dlg.iter256_chk = _check(False)
+        dlg.constraint_table = MagicMock()
+        dlg.constraint_table.rowCount.return_value = 0
+        t = OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+        self.assertEqual(t, "")
+
+    def test_tddft_block_generated(self):
+        t = self._extra(enable=True, nroots=10)
+        self.assertIn("%tddft", t)
+        self.assertIn("NRoots 10", t)
+        self.assertIn("end", t)
+
+    def test_tddft_singlets_true(self):
+        t = self._extra(enable=True, singlets=True)
+        self.assertIn("Singlets true", t)
+
+    def test_tddft_triplets_false(self):
+        t = self._extra(enable=True, triplets=False)
+        self.assertIn("Triplets false", t)
+
+    def test_tddft_tda_true(self):
+        t = self._extra(enable=True, tda=True)
+        self.assertIn("TDA true", t)
+
+    def test_tddft_disabled_no_block(self):
+        t = self._extra(enable=False)
+        self.assertNotIn("%tddft", t)
+
+    def test_tddft_none_no_block(self):
+        dlg = _make_dialog()  # tddft_enable = MagicMock but not checked
+        dlg.tddft_enable.isChecked.return_value = False
+        dlg.iter256_chk = _check(False)
+        dlg.constraint_table = MagicMock()
+        dlg.constraint_table.rowCount.return_value = 0
+        t = OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+        self.assertNotIn("%tddft", t)
+
+    def test_maxiter256_prepended_to_geom(self):
+        dlg = _make_tddft_dialog(enable=False)
+        dlg.iter256_chk = _check(True)
+        # constraint_table already set with 0 rows — MaxIter 256 alone should produce block
+        t = OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+        self.assertIn("%geom", t)
+        self.assertIn("MaxIter 256", t)
 
 
 if __name__ == "__main__":

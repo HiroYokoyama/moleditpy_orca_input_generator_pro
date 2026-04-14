@@ -1704,9 +1704,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         chk_layout.setContentsMargins(0, 0, 0, 0)
         self.constraint_table.setCellWidget(row, 3, chk_widget)
 
-        self.constraint_table.setItem(
-            row, 4, create_centered_item(value if is_scan else value)
-        )
+        self.constraint_table.setItem(row, 4, create_centered_item(value))
         self.constraint_table.setItem(row, 5, create_centered_item(end))
         self.constraint_table.setItem(row, 6, create_centered_item(steps))
 

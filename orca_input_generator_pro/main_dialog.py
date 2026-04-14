@@ -318,7 +318,7 @@ class OrcaSetupDialogPro(QDialog):
             import psutil
 
             cpus = psutil.cpu_count(logical=False)
-        except:
+        except Exception:
             cpus = os.cpu_count()
 
         if cpus:
@@ -355,10 +355,8 @@ class OrcaSetupDialogPro(QDialog):
             lines = self.get_zmatrix_standard_lines()
 
         if any("Error" in l for l in lines):
-            err = "\\n".join(l for l in lines if "Error" in l)
-            QMessageBox.critical(
-                self, "Error", f"Coordinate Generation Failed:\\n{err}"
-            )
+            err = "\n".join(l for l in lines if "Error" in l)
+            QMessageBox.critical(self, "Error", f"Coordinate Generation Failed:\n{err}")
             return
 
         # 2. ファイル保存ダイアログ
@@ -401,8 +399,7 @@ class OrcaSetupDialogPro(QDialog):
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
 
-                QMessageBox.information(self, "Success", f"File saved:\\n{file_path}")
-                # QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
+                QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
                 # Do not close automatically
                 # self.accept()
             except Exception as e:
@@ -544,7 +541,6 @@ class OrcaSetupDialogPro(QDialog):
                     continue
 
                 # Find neighbors in defined set
-                atom.GetIdx()
                 neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
                 candidates = [n for n in neighbors if n in defined]
                 if not candidates:
@@ -1042,7 +1038,7 @@ class OrcaSetupDialogPro(QDialog):
         try:
             try:
                 charge = Chem.GetFormalCharge(self.mol)
-            except:
+            except Exception:
                 charge = 0
             num_radical = sum(
                 atom.GetNumRadicalElectrons() for atom in self.mol.GetAtoms()

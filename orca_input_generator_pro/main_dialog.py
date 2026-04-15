@@ -279,8 +279,6 @@ class OrcaSetupDialogPro(QDialog):
             p["adv"] = self.adv_edit.toPlainText()
             p["adv_post"] = self.post_adv_edit.toPlainText()
             p["comment"] = self.comment_edit.text()
-            p["charge"] = self.charge_spin.value()
-            p["mult"] = self.mult_spin.value()
             p["coord_format"] = self.coord_format_combo.currentText()
 
         self.preview_text.setText(self.generate_input_content())
@@ -304,10 +302,6 @@ class OrcaSetupDialogPro(QDialog):
                 self.post_adv_edit.setPlainText(p["adv_post"])
             if "comment" in p:
                 self.comment_edit.setText(p["comment"])
-            if "charge" in p:
-                self.charge_spin.setValue(p["charge"])
-            if "mult" in p:
-                self.mult_spin.setValue(p["mult"])
             if "coord_format" in p:
                 self.coord_format_combo.setCurrentText(p["coord_format"])
         finally:
@@ -958,8 +952,6 @@ class OrcaSetupDialogPro(QDialog):
                 "route": "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq",
                 "adv": "",
                 "adv_post": "",
-                "charge": 0,
-                "mult": 1,
             }
 
         self.update_preset_combo()
@@ -989,12 +981,6 @@ class OrcaSetupDialogPro(QDialog):
         self.adv_edit.setPlainText(data.get("adv", ""))
         self.post_adv_edit.setPlainText(data.get("adv_post", ""))
 
-        # Load charge/mult if present in preset
-        if "charge" in data:
-            self.charge_spin.setValue(int(data["charge"]))
-        if "mult" in data:
-            self.mult_spin.setValue(int(data["mult"]))
-
         self.update_preview()
 
     def save_preset_dialog(self):
@@ -1006,8 +992,6 @@ class OrcaSetupDialogPro(QDialog):
                 "route": self.keywords_edit.toPlainText(),
                 "adv": self.adv_edit.toPlainText(),
                 "adv_post": self.post_adv_edit.toPlainText(),
-                "charge": self.charge_spin.value(),
-                "mult": self.mult_spin.value(),
             }
             self.save_presets_to_file()
             self.update_preset_combo()

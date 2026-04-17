@@ -159,15 +159,23 @@ class TestInitialize(unittest.TestCase):
         _init.initialize(ctx)
         ctx.register_document_reset_handler.assert_called_once()
 
-    def test_save_handler_returns_dict(self):
+    def test_save_handler_returns_none_before_dialog_opened(self):
         ctx = self._make_context()
+        _init._dialog_opened = False
         _init.initialize(ctx)
         save_fn = ctx.register_save_handler.call_args[0][0]
-        result = save_fn()
-        self.assertIsInstance(result, dict)
+        self.assertIsNone(save_fn())
+
+    def test_save_handler_returns_dict_after_dialog_opened(self):
+        ctx = self._make_context()
+        _init._dialog_opened = True
+        _init.initialize(ctx)
+        save_fn = ctx.register_save_handler.call_args[0][0]
+        self.assertIsInstance(save_fn(), dict)
 
     def test_load_handler_updates_settings(self):
         ctx = self._make_context()
+        _init._dialog_opened = True
         _init.initialize(ctx)
         load_fn = ctx.register_load_handler.call_args[0][0]
         load_fn({"nproc": 42, "maxcore": 1234})
@@ -178,11 +186,13 @@ class TestInitialize(unittest.TestCase):
 
     def test_reset_handler_restores_defaults(self):
         ctx = self._make_context()
+        _init._dialog_opened = True
         _init.initialize(ctx)
         load_fn = ctx.register_load_handler.call_args[0][0]
         load_fn({"nproc": 99})
         reset_fn = ctx.register_document_reset_handler.call_args[0][0]
         reset_fn()
+        # Flag is preserved after reset — save still returns defaults dict
         save_fn = ctx.register_save_handler.call_args[0][0]
         saved = save_fn()
         defaults = _init.get_default_settings()

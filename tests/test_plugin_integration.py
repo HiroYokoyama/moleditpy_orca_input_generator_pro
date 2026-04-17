@@ -167,16 +167,26 @@ class TestPersistenceHandlers(unittest.TestCase):
         self.ctx = StubPluginContext()
         _init_mod.current_settings.clear()
         _init_mod.current_settings.update(_init_mod.get_default_settings())
+        _init_mod._dialog_opened = False
         _init_mod.initialize(self.ctx)
         self.save = self.ctx._save_handlers[0]
         self.load = self.ctx._load_handlers[0]
         self.reset = self.ctx._reset_handlers[0]
 
-    def test_save_returns_dict(self):
+    # --- save guard: dialog not yet opened ---
+
+    def test_save_returns_none_before_dialog_opened(self):
+        self.assertIsNone(self.save())
+
+    def test_save_returns_dict_after_dialog_opened(self):
+        _init_mod._dialog_opened = True
         self.assertIsInstance(self.save(), dict)
 
-    def test_save_returns_current_settings_reference(self):
+    def test_save_returns_current_settings_reference_after_dialog_opened(self):
+        _init_mod._dialog_opened = True
         self.assertIs(self.save(), _init_mod.current_settings)
+
+    # --- load ---
 
     def test_load_updates_nproc(self):
         self.load({"nproc": 16})
@@ -196,6 +206,25 @@ class TestPersistenceHandlers(unittest.TestCase):
         self.load({})
         self.assertEqual(_init_mod.current_settings, before)
 
+    def test_load_sets_dialog_opened_flag(self):
+        _init_mod._dialog_opened = False
+        self.load({"nproc": 8})
+        self.assertTrue(_init_mod._dialog_opened)
+        self.assertIsInstance(self.save(), dict)
+
+    def test_load_empty_does_not_set_flag(self):
+        _init_mod._dialog_opened = False
+        self.load({})
+        self.assertFalse(_init_mod._dialog_opened)
+
+    def test_load_strips_charge_and_mult(self):
+        self.load({"nproc": 8, "charge": 2, "mult": 3})
+        self.assertEqual(_init_mod.current_settings["nproc"], 8)
+        self.assertNotIn("charge", _init_mod.current_settings)
+        self.assertNotIn("mult", _init_mod.current_settings)
+
+    # --- reset ---
+
     def test_reset_restores_defaults(self):
         self.load({"nproc": 99, "maxcore": 99999})
         self.reset()
@@ -203,11 +232,21 @@ class TestPersistenceHandlers(unittest.TestCase):
         self.assertEqual(_init_mod.current_settings["nproc"], defaults["nproc"])
         self.assertEqual(_init_mod.current_settings["maxcore"], defaults["maxcore"])
 
+    def test_reset_preserves_dialog_opened_flag(self):
+        _init_mod._dialog_opened = True
+        self.reset()
+        self.assertTrue(_init_mod._dialog_opened)
+        self.assertIsInstance(self.save(), dict)
+
+    # --- roundtrip ---
+
     def test_roundtrip_save_load(self):
+        _init_mod._dialog_opened = True
         self.load({"nproc": 8, "maxcore": 3000, "route": "! B3LYP def2-SVP Opt"})
         saved = dict(self.save())
         # Reset and reload
         self.reset()
+        _init_mod._dialog_opened = True
         self.load(saved)
         self.assertEqual(_init_mod.current_settings["nproc"], 8)
         self.assertEqual(_init_mod.current_settings["route"], "! B3LYP def2-SVP Opt")

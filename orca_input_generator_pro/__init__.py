@@ -2,7 +2,7 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "2.3.1"
+PLUGIN_VERSION = "2.4.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -21,6 +21,7 @@ def get_default_settings():
 
 
 current_settings = get_default_settings()
+_dialog_opened = False  # Guard: don't write to project file until dialog is used
 
 
 def run(mw):
@@ -53,6 +54,9 @@ def run(mw):
         mw.orca_dialog.activateWindow()
         return
 
+    global _dialog_opened
+    _dialog_opened = True
+
     # Pass persistent settings to the dialog
     mw.orca_dialog = OrcaSetupDialogPro(
         parent=mw, mol=mol, filename=filename, persistent_settings=current_settings
@@ -69,15 +73,34 @@ def initialize(context):
 
     # Register Persistence Handlers
     def on_save():
+        # Don't write anything to the project file until the user has
+        # actually opened the dialog at least once in this session.
+        if not _dialog_opened:
+            return None
         return current_settings
+
+    _MOLECULE_KEYS = {"charge", "mult"}
 
     def on_load(data):
         if isinstance(data, dict) and data:
-            current_settings.update(data)
+            # Strip molecule-specific keys that may exist in older project files
+            filtered = {k: v for k, v in data.items() if k not in _MOLECULE_KEYS}
+            current_settings.update(filtered)
+            global _dialog_opened
+            _dialog_opened = True
 
     def on_reset():
         current_settings.clear()
         current_settings.update(get_default_settings())
+        # Close and discard the dialog if it is open
+        try:
+            mw = context.get_main_window()
+            dlg = getattr(mw, "orca_dialog", None)
+            if dlg is not None:
+                dlg.close()
+                mw.orca_dialog = None
+        except Exception:
+            pass
 
     context.register_save_handler(on_save)
     context.register_load_handler(on_load)

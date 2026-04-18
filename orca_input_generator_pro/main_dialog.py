@@ -37,7 +37,8 @@ class OrcaSetupDialogPro(QDialog):
     ORCA Input Generator Pro
     """
 
-    def __init__(self, parent=None, mol=None, filename=None, persistent_settings=None):
+    def __init__(self, parent=None, mol=None, filename=None, persistent_settings=None,
+                 mark_modified=None):
         super().__init__(parent)
         self.setWindowTitle(f"{PLUGIN_NAME} v{PLUGIN_VERSION}")
         self.resize(1100, 800)
@@ -46,6 +47,7 @@ class OrcaSetupDialogPro(QDialog):
         self.mol = mol
         self.filename = filename
         self.persistent_settings = persistent_settings
+        self.mark_modified = mark_modified
         self.ui_ready = False
         self.setup_ui()
         self.load_presets_from_file()
@@ -282,6 +284,12 @@ class OrcaSetupDialogPro(QDialog):
             p["coord_format"] = self.coord_format_combo.currentText()
 
         self.preview_text.setText(self.generate_input_content())
+
+        if self.mark_modified is not None:
+            try:
+                self.mark_modified()
+            except Exception as _e:
+                logging.warning("[main_dialog.py] mark_modified failed: %s", _e)
 
     def load_persistent_settings(self):
         if not self.persistent_settings:

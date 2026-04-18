@@ -57,9 +57,17 @@ def run(mw):
     global _dialog_opened
     _dialog_opened = True
 
+    def _mark_modified():
+        try:
+            mw.state_manager.has_unsaved_changes = True
+            mw.state_manager.update_window_title()
+        except Exception:
+            pass
+
     # Pass persistent settings to the dialog
     mw.orca_dialog = OrcaSetupDialogPro(
-        parent=mw, mol=mol, filename=filename, persistent_settings=current_settings
+        parent=mw, mol=mol, filename=filename, persistent_settings=current_settings,
+        mark_modified=_mark_modified,
     )
     mw.orca_dialog.show()
 
@@ -90,6 +98,8 @@ def initialize(context):
             _dialog_opened = True
 
     def on_reset():
+        global _dialog_opened
+        _dialog_opened = False
         current_settings.clear()
         current_settings.update(get_default_settings())
         # Close and discard the dialog if it is open

@@ -232,11 +232,11 @@ class TestPersistenceHandlers(unittest.TestCase):
         self.assertEqual(_init_mod.current_settings["nproc"], defaults["nproc"])
         self.assertEqual(_init_mod.current_settings["maxcore"], defaults["maxcore"])
 
-    def test_reset_preserves_dialog_opened_flag(self):
+    def test_reset_clears_dialog_opened_flag(self):
         _init_mod._dialog_opened = True
         self.reset()
-        self.assertTrue(_init_mod._dialog_opened)
-        self.assertIsInstance(self.save(), dict)
+        self.assertFalse(_init_mod._dialog_opened)
+        self.assertIsNone(self.save())
 
     # --- roundtrip ---
 

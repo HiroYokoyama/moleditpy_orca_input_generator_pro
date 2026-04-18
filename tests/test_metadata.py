@@ -192,11 +192,9 @@ class TestInitialize(unittest.TestCase):
         load_fn({"nproc": 99})
         reset_fn = ctx.register_document_reset_handler.call_args[0][0]
         reset_fn()
-        # Flag is preserved after reset — save still returns defaults dict
+        # After reset, flag is cleared — save returns None
         save_fn = ctx.register_save_handler.call_args[0][0]
-        saved = save_fn()
-        defaults = _init.get_default_settings()
-        self.assertEqual(saved["nproc"], defaults["nproc"])
+        self.assertIsNone(save_fn())
 
     def test_multiple_initialize_calls_do_not_duplicate(self):
         ctx = self._make_context()

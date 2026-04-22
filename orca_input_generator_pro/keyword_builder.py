@@ -818,15 +818,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.tddft_nroots.setValue(10)
         layout.addRow("Number of Roots (NRoots):", self.tddft_nroots)
 
-        self.tddft_singlets = QCheckBox("Singlets")
-        self.tddft_singlets.setChecked(True)
         self.tddft_triplets = QCheckBox("Triplets")
         self.tddft_triplets.setChecked(False)
-
-        s_layout = QHBoxLayout()
-        s_layout.addWidget(self.tddft_singlets)
-        s_layout.addWidget(self.tddft_triplets)
-        layout.addRow("States:", s_layout)
+        layout.addRow("Triplet States:", self.tddft_triplets)
 
         self.tddft_tda = QCheckBox("Use TDA (Tamm-Dancoff Approximation)")
         self.tddft_tda.setChecked(True)
@@ -1384,7 +1378,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             block = (
                 f"%tddft\n"
                 f"  NRoots {self.tddft_nroots.value()}\n"
-                f"  Singlets {'true' if self.tddft_singlets.isChecked() else 'false'}\n"
                 f"  Triplets {'true' if self.tddft_triplets.isChecked() else 'false'}\n"
                 f"  TDA {'true' if self.tddft_tda.isChecked() else 'false'}\n"
                 f"  IRoot {self.tddft_iroot.value()}\n"
@@ -1611,7 +1604,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 ir = re.search(r"IRoot\s+(\d+)", bcontent, re.I)
                 if ir:
                     self.tddft_iroot.setValue(int(ir.group(1)))
-                self.tddft_singlets.setChecked("singlets true" in bcontent.lower())
                 self.tddft_triplets.setChecked("triplets true" in bcontent.lower())
                 self.tddft_tda.setChecked("tda true" in bcontent.lower())
 

@@ -434,8 +434,7 @@ class OrcaSetupDialogPro(QDialog):
                 "  MaxDim 10       # Max dimension of expansion space\n"
                 "  TDA true        # Tamm-Dancoff Approximation (true/false)\n"
                 "  IRoot 1         # State of interest for gradient properties\n"
-                "  Triplets false  # Calculate triplet states\n"
-                "  Singlets true   # Calculate singlet states\n"
+                "  Triplets false  # Calculate triplet states (singlets are always on by default)\n"
                 "  DoQuad true     # Compute quadrupole intensities\n"
                 "end\n"
             )

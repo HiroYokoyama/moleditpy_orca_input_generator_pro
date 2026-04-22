@@ -634,13 +634,12 @@ class TestRouteNBOAndGrid(unittest.TestCase):
 # Tests: get_extra_blocks_text
 # ---------------------------------------------------------------------------
 
-def _make_tddft_dialog(enable=True, nroots=5, singlets=True, triplets=False,
+def _make_tddft_dialog(enable=True, nroots=5, triplets=False,
                        tda=True, iroot=1, with_constraints=False):
     dlg = _make_dialog()
     dlg.tddft_enable = _check(enable)
     dlg.tddft_nroots = MagicMock()
     dlg.tddft_nroots.value.return_value = nroots
-    dlg.tddft_singlets = _check(singlets)
     dlg.tddft_triplets = _check(triplets)
     dlg.tddft_tda = _check(tda)
     dlg.tddft_iroot = MagicMock()
@@ -671,10 +670,6 @@ class TestGetExtraBlocksText(unittest.TestCase):
         self.assertIn("%tddft", t)
         self.assertIn("NRoots 10", t)
         self.assertIn("end", t)
-
-    def test_tddft_singlets_true(self):
-        t = self._extra(enable=True, singlets=True)
-        self.assertIn("Singlets true", t)
 
     def test_tddft_triplets_false(self):
         t = self._extra(enable=True, triplets=False)

@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QFileDialog,
     QInputDialog,
+    QCheckBox,
 )
 from PyQt6.QtGui import QFont, QPalette, QColor
 from PyQt6.QtCore import Qt
@@ -232,6 +233,16 @@ class OrcaSetupDialogPro(QDialog):
 
         main_layout.addLayout(content_layout)
 
+        # --- Bottom Options ---
+        cb_layout = QHBoxLayout()
+        cb_layout.addStretch()
+        self.auto_suffix_cb = QCheckBox("Auto Suffix")
+        self.auto_suffix_cb.setChecked(True)
+        self.auto_suffix_cb.stateChanged.connect(self.update_preview)
+        self.auto_suffix_cb.stateChanged.connect(self.save_global_settings)
+        cb_layout.addWidget(self.auto_suffix_cb)
+        main_layout.addLayout(cb_layout)
+
         # --- Bottom Buttons ---
         btn_layout = QHBoxLayout()
         self.btn_close = QPushButton("Close")
@@ -376,8 +387,8 @@ class OrcaSetupDialogPro(QDialog):
             norm_name = self.filename.replace("\\", "/")
             base_name = norm_name.split("/")[-1]
             if base_name:
-                # Remove extension and append .inp
-                default_base = os.path.splitext(base_name)[0] + ".inp"
+                # Remove extension
+                default_base = os.path.splitext(base_name)[0]
 
         # Ensure default_base doesn't have invalid chars
         import re
@@ -386,7 +397,33 @@ class OrcaSetupDialogPro(QDialog):
         # Remove any leading underscores that might have come from path separators
         default_base = default_base.lstrip("_")
         if not default_base:
-            default_base = "orca_job.inp"
+            default_base = "orca_job"
+
+        if default_base.lower().endswith(".inp"):
+            default_base = default_base[:-4]
+
+        # Apply Auto Suffix logic
+        if getattr(self, "auto_suffix_cb", None) and self.auto_suffix_cb.isChecked():
+            kw = self.keywords_edit.toPlainText().lower()
+            adv = self.adv_edit.toPlainText().lower()
+            adv_post = self.post_adv_edit.toPlainText().lower()
+            
+            suffix = ""
+            if "opt" in kw:
+                suffix = "-opt"
+            elif "freq" in kw:
+                suffix = "-freq"
+            elif "nmr" in kw or "eprnmr" in adv or "eprnmr" in adv_post:
+                suffix = "-nmr"
+            elif "scan" in kw or "scan" in adv or "scan" in adv_post:
+                suffix = "-scan"
+            elif "tddft" in kw or "cis" in kw or "casscf" in kw or "tddft" in adv or "cis" in adv or "casscf" in adv:
+                suffix = "-vex"
+                
+            if suffix and not default_base.endswith(suffix):
+                default_base += suffix
+                
+        default_base += ".inp"
 
         # Combine
         default_full = os.path.join(default_dir, default_base)
@@ -961,13 +998,21 @@ class OrcaSetupDialogPro(QDialog):
                 "adv_post": "",
             }
 
+        if "Global" in self.presets_data:
+            global_cfg = self.presets_data["Global"]
+            if hasattr(self, "auto_suffix_cb") and "auto_suffix" in global_cfg:
+                self.auto_suffix_cb.setChecked(global_cfg["auto_suffix"])
+
         self.update_preset_combo()
 
     def update_preset_combo(self):
         current = self.preset_combo.currentText()
         self.preset_combo.blockSignals(True)
         self.preset_combo.clear()
-        self.preset_combo.addItems(sorted(self.presets_data.keys()))
+        
+        # Add all presets except Global
+        keys = [k for k in self.presets_data.keys() if k != "Global"]
+        self.preset_combo.addItems(sorted(keys))
         if current in self.presets_data:
             self.preset_combo.setCurrentText(current)
         elif "Default" in self.presets_data:
@@ -1021,6 +1066,17 @@ class OrcaSetupDialogPro(QDialog):
                 json.dump(self.presets_data, f, indent=4)
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Failed to save presets: {e}")
+
+    def save_global_settings(self):
+        if not getattr(self, "ui_ready", False):
+            return
+        if not hasattr(self, "presets_data"):
+            self.presets_data = {}
+        if "Global" not in self.presets_data:
+            self.presets_data["Global"] = {}
+        if hasattr(self, "auto_suffix_cb"):
+            self.presets_data["Global"]["auto_suffix"] = self.auto_suffix_cb.isChecked()
+        self.save_presets_to_file()
 
     # --- Charge/Mult Logic ---
     def calc_initial_charge_mult(self):

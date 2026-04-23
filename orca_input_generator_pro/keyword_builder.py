@@ -1115,7 +1115,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.pop_nbo,
             self.tddft_enable,
             self.tddft_nroots,
-            self.tddft_singlets,
             self.tddft_triplets,
             self.tddft_tda,
             self.tddft_iroot,

@@ -1250,10 +1250,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     route_parts.append("RIJCOSX")
 
                 aux = self.aux_basis.currentText()
-                if "Def2/J" in aux:
-                    route_parts.append("Def2/J")
-                elif "Def2/JK" in aux:
+                if "Def2/JK" in aux:
                     route_parts.append("Def2/JK")
+                elif "Def2/J" in aux:
+                    route_parts.append("Def2/J")
 
         # Job Type and Opt Options
         job_txt = self.job_type.currentText()

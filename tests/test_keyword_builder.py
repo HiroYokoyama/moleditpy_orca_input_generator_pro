@@ -39,7 +39,7 @@ def _install_stubs():
 
     # Classes used as base classes must be real classes, not MagicMock,
     # to avoid MRO conflicts (MagicMock already inherits from object).
-    for name in ["QDialog", "QWidget"]:
+    for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
 
     for name in [
@@ -47,13 +47,22 @@ def _install_stubs():
         "QSpinBox", "QPushButton", "QGroupBox", "QComboBox", "QTextEdit",
         "QTabWidget", "QCheckBox", "QFormLayout", "QTableWidget",
         "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
-        "QSizePolicy", "QAbstractItemView",
+        "QSizePolicy", "QAbstractItemView", "QMessageBox", "QFileDialog",
+        "QInputDialog", "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
 
     qt_core.Qt = MagicMock()
     qt_core.QRegularExpression = MagicMock
     qt_core.QTimer = MagicMock
+
+    qt_gui.QFont = MagicMock
+    qt_gui.QPalette = MagicMock
+    qt_gui.QColor = MagicMock
+    qt_gui.QSyntaxHighlighter = type("QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None})
+    qt_gui.QTextCharFormat = MagicMock
+    qt_gui.QAction = MagicMock
+    qt_gui.QIcon = MagicMock
 
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core
@@ -74,11 +83,14 @@ _install_stubs()
 
 
 def _load_module(name, relpath):
+    full_name = f"orca_input_generator_pro.{name}"
+    if full_name in sys.modules:
+        return sys.modules[full_name]
     path = os.path.join(_REPO_ROOT, "orca_input_generator_pro", relpath)
-    spec = importlib.util.spec_from_file_location(name, path)
+    spec = importlib.util.spec_from_file_location(full_name, path)
     mod = importlib.util.module_from_spec(spec)
     mod.__package__ = "orca_input_generator_pro"
-    sys.modules[f"orca_input_generator_pro.{name}"] = mod
+    sys.modules[full_name] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -504,12 +516,12 @@ class TestRouteRIJCOSX(unittest.TestCase):
         r = _route(dlg)
         self.assertIn("Def2/J", r)
 
-    def test_aux_basis_def2j_included(self):
-        # "Def2/J" check comes before "Def2/JK" in the source, so "Def2/J" matches both
-        dlg = _make_dialog(rijcosx=True, aux="Def2/J")
+    def test_aux_basis_def2jk_included(self):
+        dlg = _make_dialog(rijcosx=True, aux="Def2/JK")
         dlg.rijcosx.isEnabled.return_value = True
         r = _route(dlg)
-        self.assertIn("Def2/J", r)
+        self.assertIn("Def2/JK", r)
+        self.assertNotIn("Def2/J ", r)  # plain Def2/J must not appear
 
 
 class TestRouteOptOptions(unittest.TestCase):

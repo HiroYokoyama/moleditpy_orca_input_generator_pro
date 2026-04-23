@@ -59,7 +59,7 @@ def _install_stubs():
     qt_core = types.ModuleType("PyQt6.QtCore")
     qt_gui = types.ModuleType("PyQt6.QtGui")
 
-    for name in ["QDialog", "QWidget"]:
+    for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
     for name in [
         "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
@@ -67,13 +67,21 @@ def _install_stubs():
         "QTabWidget", "QCheckBox", "QFormLayout", "QTableWidget",
         "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
         "QSizePolicy", "QAbstractItemView", "QMessageBox", "QFileDialog",
-        "QApplication",
+        "QInputDialog", "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
 
     qt_core.Qt = MagicMock()
     qt_core.QRegularExpression = MagicMock
     qt_core.QTimer = MagicMock
+
+    qt_gui.QFont = MagicMock
+    qt_gui.QPalette = MagicMock
+    qt_gui.QColor = MagicMock
+    qt_gui.QSyntaxHighlighter = type("QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None})
+    qt_gui.QTextCharFormat = MagicMock
+    qt_gui.QAction = MagicMock
+    qt_gui.QIcon = MagicMock
 
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core

@@ -58,7 +58,7 @@ def _install_stubs():
     qt_core = types.ModuleType("PyQt6.QtCore")
     qt_gui = types.ModuleType("PyQt6.QtGui")
 
-    for name in ["QDialog", "QWidget"]:
+    for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
     for name in [
         "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
@@ -66,13 +66,21 @@ def _install_stubs():
         "QTabWidget", "QCheckBox", "QFormLayout", "QTableWidget",
         "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
         "QSizePolicy", "QAbstractItemView", "QMessageBox", "QFileDialog",
-        "QApplication",
+        "QInputDialog", "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
 
     qt_core.Qt = MagicMock()
     qt_core.QRegularExpression = MagicMock
     qt_core.QTimer = MagicMock
+
+    qt_gui.QFont = MagicMock
+    qt_gui.QPalette = MagicMock
+    qt_gui.QColor = MagicMock
+    qt_gui.QSyntaxHighlighter = type("QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None})
+    qt_gui.QTextCharFormat = MagicMock
+    qt_gui.QAction = MagicMock
+    qt_gui.QIcon = MagicMock
 
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core
@@ -571,6 +579,50 @@ class TestParseRouteEdgeCases(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # update_preview: NumFreq when freq_group is visible
 # ---------------------------------------------------------------------------
+
+class TestUpdatePreviewAuxBasis(unittest.TestCase):
+    """Aux basis options in update_preview (RIJCOSX enabled)."""
+
+    def _route_aux(self, aux):
+        dlg = _make_preview_dialog(rijcosx=True)
+        dlg.rijcosx.isEnabled.return_value = True
+        dlg.aux_basis = _combo(aux)
+        return _route(dlg)
+
+    def test_def2jk_emits_def2jk(self):
+        r = self._route_aux("Def2/JK")
+        self.assertIn("Def2/JK", r)
+
+    def test_def2jk_does_not_emit_def2j(self):
+        r = self._route_aux("Def2/JK")
+        # "Def2/J" must not appear as a separate token before "Def2/JK"
+        tokens = r.split()
+        self.assertNotIn("Def2/J", tokens)
+
+    def test_def2j_emits_def2j(self):
+        r = self._route_aux("Def2/J")
+        self.assertIn("Def2/J", r)
+
+    def test_auto_def2j_emits_def2j(self):
+        # "Auto (Def2/J, etc)" contains "Def2/J" as substring
+        r = self._route_aux("Auto (Def2/J, etc)")
+        self.assertIn("Def2/J", r)
+
+    def test_autoaux_emits_nothing(self):
+        r = self._route_aux("AutoAux")
+        self.assertNotIn("Def2/J", r)
+        self.assertNotIn("Def2/JK", r)
+
+    def test_noaux_emits_nothing(self):
+        r = self._route_aux("NoAux")
+        self.assertNotIn("Def2/J", r)
+        self.assertNotIn("Def2/JK", r)
+
+    def test_none_aux_emits_nothing(self):
+        r = self._route_aux("None")
+        self.assertNotIn("Def2/J", r)
+        self.assertNotIn("Def2/JK", r)
+
 
 class TestUpdatePreviewNumFreq(unittest.TestCase):
     def test_numfreq_emitted_when_freq_group_visible(self):

@@ -38,8 +38,14 @@ class OrcaSetupDialogPro(QDialog):
     ORCA Input Generator Pro
     """
 
-    def __init__(self, parent=None, mol=None, filename=None, persistent_settings=None,
-                 mark_modified=None):
+    def __init__(
+        self,
+        parent=None,
+        mol=None,
+        filename=None,
+        persistent_settings=None,
+        mark_modified=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle(f"{PLUGIN_NAME} v{PLUGIN_VERSION}")
         self.resize(1100, 800)
@@ -369,8 +375,8 @@ class OrcaSetupDialogPro(QDialog):
         else:
             lines = self.get_zmatrix_standard_lines()
 
-        if any("Error" in l for l in lines):
-            err = "\n".join(l for l in lines if "Error" in l)
+        if any("Error" in line for line in lines):
+            err = "\n".join(line for line in lines if "Error" in line)
             QMessageBox.critical(self, "Error", f"Coordinate Generation Failed:\n{err}")
             return
 
@@ -407,7 +413,7 @@ class OrcaSetupDialogPro(QDialog):
             kw = self.keywords_edit.toPlainText().lower()
             adv = self.adv_edit.toPlainText().lower()
             adv_post = self.post_adv_edit.toPlainText().lower()
-            
+
             suffix = ""
             if "opt" in kw:
                 suffix = "-opt"
@@ -417,12 +423,19 @@ class OrcaSetupDialogPro(QDialog):
                 suffix = "-nmr"
             elif "scan" in kw or "scan" in adv or "scan" in adv_post:
                 suffix = "-scan"
-            elif "tddft" in kw or "cis" in kw or "casscf" in kw or "tddft" in adv or "cis" in adv or "casscf" in adv:
+            elif (
+                "tddft" in kw
+                or "cis" in kw
+                or "casscf" in kw
+                or "tddft" in adv
+                or "cis" in adv
+                or "casscf" in adv
+            ):
                 suffix = "-vex"
-                
+
             if suffix and not default_base.endswith(suffix):
                 default_base += suffix
-                
+
         default_base += ".inp"
 
         # Combine
@@ -560,8 +573,8 @@ class OrcaSetupDialogPro(QDialog):
             def get_angle(i, j, k):
                 return rdMolTransforms.GetAngleDeg(conf, i, j, k)
 
-            def get_dihedral(i, j, k, l):
-                return rdMolTransforms.GetDihedralDeg(conf, i, j, k, l)
+            def get_dihedral(i, j, k, m):
+                return rdMolTransforms.GetDihedralDeg(conf, i, j, k, m)
 
             defined = []
             z_data = []  # List of dicts for each atom
@@ -749,7 +762,7 @@ class OrcaSetupDialogPro(QDialog):
 
             if any("Error" in line for line in zmat_lines):
                 content.append(
-                    f"# ERROR: Z-Matrix generation failed. Falling back to XYZ."
+                    "# ERROR: Z-Matrix generation failed. Falling back to XYZ."
                 )
                 content.append(f"* xyz {charge} {mult}")
                 content.extend(self.get_coords_lines())
@@ -805,17 +818,17 @@ class OrcaSetupDialogPro(QDialog):
             others = []
             i = 0
             while i < len(zone_lines):
-                l = zone_lines[i]
-                s = l.strip()
+                line = zone_lines[i]
+                s = line.strip()
                 if not s:
                     i += 1
                     continue
                 if s.startswith("#"):
-                    comments.append(l)
+                    comments.append(line)
                     i += 1
                     continue
                 if s.startswith("!"):
-                    headers.append(l)
+                    headers.append(line)
                     i += 1
                     continue
                 if s.lower().startswith("%pal"):
@@ -823,7 +836,7 @@ class OrcaSetupDialogPro(QDialog):
                         pal = s
                         i += 1
                     else:
-                        pal = l
+                        pal = line
                         i += 1
                         while i < len(zone_lines):
                             pal += "\n" + zone_lines[i]
@@ -865,7 +878,7 @@ class OrcaSetupDialogPro(QDialog):
                             blocks[bname].append(l_inner)
                             i += 1
                         continue
-                others.append(l)
+                others.append(line)
                 i += 1
             return comments, headers, pal, maxcore, blocks, others
 
@@ -896,12 +909,12 @@ class OrcaSetupDialogPro(QDialog):
                 return lines
             k_map = {}
             filtered = []
-            for l in lines:
-                m = re.match(r"^\s*(" + "|".join(d_keys) + r")\b\s+(.*)$", l, re.I)
+            for line in lines:
+                m = re.match(r"^\s*(" + "|".join(d_keys) + r")\b\s+(.*)$", line, re.I)
                 if m:
-                    k_map[m.group(1).lower()] = l
+                    k_map[m.group(1).lower()] = line
                 else:
-                    filtered.append(l)
+                    filtered.append(line)
             return list(k_map.values()) + filtered
 
         for bn in final_pre_blocks:
@@ -912,8 +925,8 @@ class OrcaSetupDialogPro(QDialog):
         # Deduplicate ! keywords
         def dedup_h(h_lines):
             res = []
-            for l in h_lines:
-                tokens = l.split()
+            for line in h_lines:
+                tokens = line.split()
                 unique = []
                 seen = set()
                 # Remove redundant Opt if more specific keyword exists
@@ -1009,7 +1022,7 @@ class OrcaSetupDialogPro(QDialog):
         current = self.preset_combo.currentText()
         self.preset_combo.blockSignals(True)
         self.preset_combo.clear()
-        
+
         # Add all presets except Global
         keys = [k for k in self.presets_data.keys() if k != "Global"]
         self.preset_combo.addItems(sorted(keys))

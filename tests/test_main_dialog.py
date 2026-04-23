@@ -33,6 +33,7 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # Stubs
 # ---------------------------------------------------------------------------
 
+
 def _install_stubs():
     if "PyQt6" in sys.modules:
         return
@@ -49,11 +50,28 @@ def _install_stubs():
     for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
     for name in [
-        "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit", "QSpinBox",
-        "QPushButton", "QGroupBox", "QComboBox", "QTextEdit", "QTabWidget",
-        "QCheckBox", "QFormLayout", "QTableWidget", "QTableWidgetItem",
-        "QCompleter", "QPlainTextEdit", "QGridLayout", "QSizePolicy",
-        "QAbstractItemView", "QMessageBox", "QFileDialog", "QInputDialog",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QLabel",
+        "QLineEdit",
+        "QSpinBox",
+        "QPushButton",
+        "QGroupBox",
+        "QComboBox",
+        "QTextEdit",
+        "QTabWidget",
+        "QCheckBox",
+        "QFormLayout",
+        "QTableWidget",
+        "QTableWidgetItem",
+        "QCompleter",
+        "QPlainTextEdit",
+        "QGridLayout",
+        "QSizePolicy",
+        "QAbstractItemView",
+        "QMessageBox",
+        "QFileDialog",
+        "QInputDialog",
         "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
@@ -74,16 +92,18 @@ def _install_stubs():
     pyqt6.QtCore = qt_core
     pyqt6.QtGui = qt_gui
 
-    sys.modules.update({
-        "PyQt6": pyqt6,
-        "PyQt6.QtWidgets": qt_widgets,
-        "PyQt6.QtCore": qt_core,
-        "PyQt6.QtGui": qt_gui,
-        "rdkit": MagicMock(),
-        "rdkit.Chem": MagicMock(),
-        "rdkit.Chem.rdMolTransforms": MagicMock(),
-        "pyvista": MagicMock(),
-    })
+    sys.modules.update(
+        {
+            "PyQt6": pyqt6,
+            "PyQt6.QtWidgets": qt_widgets,
+            "PyQt6.QtCore": qt_core,
+            "PyQt6.QtGui": qt_gui,
+            "rdkit": MagicMock(),
+            "rdkit.Chem": MagicMock(),
+            "rdkit.Chem.rdMolTransforms": MagicMock(),
+            "pyvista": MagicMock(),
+        }
+    )
 
 
 _install_stubs()
@@ -92,6 +112,7 @@ _install_stubs()
 # ---------------------------------------------------------------------------
 # Module loading
 # ---------------------------------------------------------------------------
+
 
 def _load_mod(name, relpath, pkg="orca_input_generator_pro"):
     full_name = f"{pkg}.{name}"
@@ -112,10 +133,17 @@ _mixins = types.ModuleType("orca_input_generator_pro.mixins")
 
 
 class _FakeMixin:
-    def __init__(self): self.selection_labels = []
-    def enable_picking(self): pass
-    def disable_picking(self): pass
-    def clear_selection_labels(self): pass
+    def __init__(self):
+        self.selection_labels = []
+
+    def enable_picking(self):
+        pass
+
+    def disable_picking(self):
+        pass
+
+    def clear_selection_labels(self):
+        pass
 
 
 _mixins.Dialog3DPickingMixin = _FakeMixin
@@ -139,6 +167,7 @@ def consolidate(text):
 # ---------------------------------------------------------------------------
 # Tests: basic structure
 # ---------------------------------------------------------------------------
+
 
 class TestConsolidateBasic(unittest.TestCase):
     def test_empty_string(self):
@@ -174,6 +203,7 @@ class TestConsolidateBasic(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Tests: % block merging
 # ---------------------------------------------------------------------------
+
 
 class TestConsolidateMergeBlocks(unittest.TestCase):
     def test_two_geom_blocks_merged(self):
@@ -214,6 +244,7 @@ class TestConsolidateMergeBlocks(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Tests: keyword deduplication within blocks
 # ---------------------------------------------------------------------------
+
 
 class TestConsolidateDedup(unittest.TestCase):
     def test_maxiter_deduped_in_geom_last_wins(self):
@@ -286,11 +317,12 @@ class TestConsolidateDedup(unittest.TestCase):
 # Tests: ! route line deduplication
 # ---------------------------------------------------------------------------
 
+
 class TestConsolidateRouteDedup(unittest.TestCase):
     def _route_line(self, result):
-        for l in result.splitlines():
-            if l.strip().startswith("!"):
-                return l.strip()
+        for line in result.splitlines():
+            if line.strip().startswith("!"):
+                return line.strip()
         return ""
 
     def test_duplicate_tokens_removed(self):
@@ -335,6 +367,7 @@ class TestConsolidateRouteDedup(unittest.TestCase):
 # Tests: post-coordinate placement
 # ---------------------------------------------------------------------------
 
+
 class TestConsolidatePostCoord(unittest.TestCase):
     def test_post_block_placed_after_coords(self):
         text = (
@@ -345,8 +378,9 @@ class TestConsolidatePostCoord(unittest.TestCase):
         result = consolidate(text)
         coord_pos = result.find("* xyz 0 1")
         eprnmr_pos = result.find("%eprnmr")
-        self.assertGreater(eprnmr_pos, coord_pos,
-                           "post-coord block must come after coordinates")
+        self.assertGreater(
+            eprnmr_pos, coord_pos, "post-coord block must come after coordinates"
+        )
 
     def test_pre_and_post_same_name_merged_before_coords(self):
         text = (
@@ -359,13 +393,17 @@ class TestConsolidatePostCoord(unittest.TestCase):
         coord_pos = result.find("* xyz 0 1")
         tddft_pos = result.find("%tddft")
         if coord_pos != -1 and tddft_pos != -1:
-            self.assertLess(tddft_pos, coord_pos,
-                            "merged tddft block must appear before coordinates")
+            self.assertLess(
+                tddft_pos,
+                coord_pos,
+                "merged tddft block must appear before coordinates",
+            )
 
 
 # ---------------------------------------------------------------------------
 # Tests: edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestConsolidateEdgeCases(unittest.TestCase):
     def test_no_coords_no_crash(self):

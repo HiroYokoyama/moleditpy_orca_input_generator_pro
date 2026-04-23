@@ -26,6 +26,7 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # Load constants.py directly — no Qt needed
 # ---------------------------------------------------------------------------
 
+
 def _load_constants():
     path = os.path.join(_REPO_ROOT, "orca_input_generator_pro", "constants.py")
     spec = importlib.util.spec_from_file_location(
@@ -45,6 +46,7 @@ _constants = _load_constants()
 #  but we can also load keyword_builder standalone here)
 # ---------------------------------------------------------------------------
 
+
 def _install_stubs():
     """Install minimal Qt/RDKit stubs into sys.modules if not already present."""
     if "PyQt6" in sys.modules:
@@ -62,12 +64,29 @@ def _install_stubs():
     for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
     for name in [
-        "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
-        "QSpinBox", "QPushButton", "QGroupBox", "QComboBox", "QTextEdit",
-        "QTabWidget", "QCheckBox", "QFormLayout", "QTableWidget",
-        "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
-        "QSizePolicy", "QAbstractItemView", "QMessageBox", "QFileDialog",
-        "QInputDialog", "QApplication",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QLabel",
+        "QLineEdit",
+        "QSpinBox",
+        "QPushButton",
+        "QGroupBox",
+        "QComboBox",
+        "QTextEdit",
+        "QTabWidget",
+        "QCheckBox",
+        "QFormLayout",
+        "QTableWidget",
+        "QTableWidgetItem",
+        "QCompleter",
+        "QPlainTextEdit",
+        "QGridLayout",
+        "QSizePolicy",
+        "QAbstractItemView",
+        "QMessageBox",
+        "QFileDialog",
+        "QInputDialog",
+        "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
 
@@ -78,7 +97,9 @@ def _install_stubs():
     qt_gui.QFont = MagicMock
     qt_gui.QPalette = MagicMock
     qt_gui.QColor = MagicMock
-    qt_gui.QSyntaxHighlighter = type("QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None})
+    qt_gui.QSyntaxHighlighter = type(
+        "QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None}
+    )
     qt_gui.QTextCharFormat = MagicMock
     qt_gui.QAction = MagicMock
     qt_gui.QIcon = MagicMock
@@ -87,15 +108,17 @@ def _install_stubs():
     pyqt6.QtCore = qt_core
     pyqt6.QtGui = qt_gui
 
-    sys.modules.update({
-        "PyQt6": pyqt6,
-        "PyQt6.QtWidgets": qt_widgets,
-        "PyQt6.QtCore": qt_core,
-        "PyQt6.QtGui": qt_gui,
-        "rdkit": MagicMock(),
-        "rdkit.Chem": MagicMock(),
-        "rdkit.Chem.rdMolTransforms": MagicMock(),
-    })
+    sys.modules.update(
+        {
+            "PyQt6": pyqt6,
+            "PyQt6.QtWidgets": qt_widgets,
+            "PyQt6.QtCore": qt_core,
+            "PyQt6.QtGui": qt_gui,
+            "rdkit": MagicMock(),
+            "rdkit.Chem": MagicMock(),
+            "rdkit.Chem.rdMolTransforms": MagicMock(),
+        }
+    )
 
 
 _install_stubs()
@@ -133,6 +156,7 @@ OrcaKeywordBuilderDialog = _kb_mod.OrcaKeywordBuilderDialog
 def _cat(method_text):
     """Call get_inferred_category on a throw-away dialog namespace."""
     import types as t
+
     dlg = t.SimpleNamespace()
     return OrcaKeywordBuilderDialog.get_inferred_category(dlg, method_text)
 
@@ -140,6 +164,7 @@ def _cat(method_text):
 # ---------------------------------------------------------------------------
 # Tests: ALL_ORCA_METHODS
 # ---------------------------------------------------------------------------
+
 
 class TestAllOrcaMethodsList(unittest.TestCase):
     def setUp(self):
@@ -149,8 +174,9 @@ class TestAllOrcaMethodsList(unittest.TestCase):
         self.assertIsInstance(self.methods, list)
 
     def test_non_empty(self):
-        self.assertGreater(len(self.methods), 50,
-                           "Expected more than 50 methods in ALL_ORCA_METHODS")
+        self.assertGreater(
+            len(self.methods), 50, "Expected more than 50 methods in ALL_ORCA_METHODS"
+        )
 
     def test_all_strings(self):
         for m in self.methods:
@@ -176,8 +202,7 @@ class TestAllOrcaMethodsList(unittest.TestCase):
 
     def test_no_leading_trailing_whitespace(self):
         for m in self.methods:
-            self.assertEqual(m, m.strip(),
-                             f"Method has extra whitespace: {m!r}")
+            self.assertEqual(m, m.strip(), f"Method has extra whitespace: {m!r}")
 
     # Spot-check key methods
     def test_b3lyp_present(self):
@@ -221,6 +246,7 @@ class TestAllOrcaMethodsList(unittest.TestCase):
 # Tests: ALL_ORCA_BASIS_SETS
 # ---------------------------------------------------------------------------
 
+
 class TestAllOrcaBasisSetsList(unittest.TestCase):
     def setUp(self):
         self.basis_sets = _constants.ALL_ORCA_BASIS_SETS
@@ -229,8 +255,11 @@ class TestAllOrcaBasisSetsList(unittest.TestCase):
         self.assertIsInstance(self.basis_sets, list)
 
     def test_non_empty(self):
-        self.assertGreater(len(self.basis_sets), 50,
-                           "Expected more than 50 basis sets in ALL_ORCA_BASIS_SETS")
+        self.assertGreater(
+            len(self.basis_sets),
+            50,
+            "Expected more than 50 basis sets in ALL_ORCA_BASIS_SETS",
+        )
 
     def test_all_strings(self):
         for b in self.basis_sets:
@@ -243,14 +272,12 @@ class TestAllOrcaBasisSetsList(unittest.TestCase):
     def test_no_exact_duplicates(self):
         seen = set()
         for b in self.basis_sets:
-            self.assertNotIn(b, seen,
-                             f"Exact duplicate in ALL_ORCA_BASIS_SETS: {b!r}")
+            self.assertNotIn(b, seen, f"Exact duplicate in ALL_ORCA_BASIS_SETS: {b!r}")
             seen.add(b)
 
     def test_no_leading_trailing_whitespace(self):
         for b in self.basis_sets:
-            self.assertEqual(b, b.strip(),
-                             f"Basis set has extra whitespace: {b!r}")
+            self.assertEqual(b, b.strip(), f"Basis set has extra whitespace: {b!r}")
 
     # Spot-check key basis sets
     def test_def2_svp_present(self):
@@ -291,6 +318,7 @@ class TestAllOrcaBasisSetsList(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Tests: get_inferred_category — categories not covered by test_keyword_builder.py
 # ---------------------------------------------------------------------------
+
 
 class TestGetInferredCategoryExtended(unittest.TestCase):
     """

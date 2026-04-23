@@ -45,6 +45,7 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # Qt / RDKit stubs
 # ---------------------------------------------------------------------------
 
+
 def _install_stubs():
     if "PyQt6" in sys.modules:
         return
@@ -61,12 +62,29 @@ def _install_stubs():
     for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
     for name in [
-        "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
-        "QSpinBox", "QPushButton", "QGroupBox", "QComboBox", "QTextEdit",
-        "QTabWidget", "QCheckBox", "QFormLayout", "QTableWidget",
-        "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
-        "QSizePolicy", "QAbstractItemView", "QMessageBox", "QFileDialog",
-        "QInputDialog", "QApplication",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QLabel",
+        "QLineEdit",
+        "QSpinBox",
+        "QPushButton",
+        "QGroupBox",
+        "QComboBox",
+        "QTextEdit",
+        "QTabWidget",
+        "QCheckBox",
+        "QFormLayout",
+        "QTableWidget",
+        "QTableWidgetItem",
+        "QCompleter",
+        "QPlainTextEdit",
+        "QGridLayout",
+        "QSizePolicy",
+        "QAbstractItemView",
+        "QMessageBox",
+        "QFileDialog",
+        "QInputDialog",
+        "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
 
@@ -77,7 +95,9 @@ def _install_stubs():
     qt_gui.QFont = MagicMock
     qt_gui.QPalette = MagicMock
     qt_gui.QColor = MagicMock
-    qt_gui.QSyntaxHighlighter = type("QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None})
+    qt_gui.QSyntaxHighlighter = type(
+        "QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None}
+    )
     qt_gui.QTextCharFormat = MagicMock
     qt_gui.QAction = MagicMock
     qt_gui.QIcon = MagicMock
@@ -86,15 +106,17 @@ def _install_stubs():
     pyqt6.QtCore = qt_core
     pyqt6.QtGui = qt_gui
 
-    sys.modules.update({
-        "PyQt6": pyqt6,
-        "PyQt6.QtWidgets": qt_widgets,
-        "PyQt6.QtCore": qt_core,
-        "PyQt6.QtGui": qt_gui,
-        "rdkit": MagicMock(),
-        "rdkit.Chem": MagicMock(),
-        "rdkit.Chem.rdMolTransforms": MagicMock(),
-    })
+    sys.modules.update(
+        {
+            "PyQt6": pyqt6,
+            "PyQt6.QtWidgets": qt_widgets,
+            "PyQt6.QtCore": qt_core,
+            "PyQt6.QtGui": qt_gui,
+            "rdkit": MagicMock(),
+            "rdkit.Chem": MagicMock(),
+            "rdkit.Chem.rdMolTransforms": MagicMock(),
+        }
+    )
 
 
 _install_stubs()
@@ -103,6 +125,7 @@ _install_stubs()
 # ---------------------------------------------------------------------------
 # Module loading
 # ---------------------------------------------------------------------------
+
 
 def _load_module(name, relpath):
     key = f"orca_input_generator_pro.{name}"
@@ -163,6 +186,7 @@ _JOB_ITEMS = [
 # Dialog factory helpers
 # ---------------------------------------------------------------------------
 
+
 def _combo(text=""):
     m = MagicMock()
     m.currentText.return_value = text
@@ -192,20 +216,44 @@ def _make_parse_dialog():
     dlg.route_line = ""
     dlg.preview_str = ""
     dlg.update_ui_state = lambda: None
-    dlg.update_preview = lambda: None   # suppress real update during parse
+    dlg.update_preview = lambda: None  # suppress real update during parse
 
     # Combos
-    for attr in ["method_type", "method_name", "basis_set", "aux_basis",
-                 "grid_combo", "job_type", "solv_model", "solvent", "dispersion"]:
+    for attr in [
+        "method_type",
+        "method_name",
+        "basis_set",
+        "aux_basis",
+        "grid_combo",
+        "job_type",
+        "solv_model",
+        "solvent",
+        "dispersion",
+    ]:
         setattr(dlg, attr, _combo())
 
     # Checkboxes
     for attr in [
-        "opt_tight", "opt_verytight", "opt_loose", "opt_cart", "opt_calcfc",
-        "freq_num", "freq_raman", "rijcosx", "pop_nbo", "tddft_enable",
-        "tddft_triplets", "tddft_tda",
-        "scf_sloppy", "scf_loose", "scf_normal", "scf_strong",
-        "scf_tight", "scf_verytight", "scf_extreme", "iter256_chk",
+        "opt_tight",
+        "opt_verytight",
+        "opt_loose",
+        "opt_cart",
+        "opt_calcfc",
+        "freq_num",
+        "freq_raman",
+        "rijcosx",
+        "pop_nbo",
+        "tddft_enable",
+        "tddft_triplets",
+        "tddft_tda",
+        "scf_sloppy",
+        "scf_loose",
+        "scf_normal",
+        "scf_strong",
+        "scf_tight",
+        "scf_verytight",
+        "scf_extreme",
+        "iter256_chk",
     ]:
         setattr(dlg, attr, _check())
 
@@ -234,14 +282,22 @@ def _parse(route_str):
 # Helpers for update_preview tests
 # ---------------------------------------------------------------------------
 
+
 def _make_preview_dialog(
-    method="B3LYP", basis="def2-SVP", aux="None",
+    method="B3LYP",
+    basis="def2-SVP",
+    aux="None",
     job="Optimization Only (Opt)",
-    tight=False, verytight=False, loose=False,
-    cart=False, calcfc=False,
-    solv="None", disp="None",
+    tight=False,
+    verytight=False,
+    loose=False,
+    cart=False,
+    calcfc=False,
+    solv="None",
+    disp="None",
     rijcosx=False,
-    freq_visible=False, freq_num=False,
+    freq_visible=False,
+    freq_num=False,
 ):
     dlg = types.SimpleNamespace()
     dlg.ui_ready = True
@@ -273,8 +329,15 @@ def _make_preview_dialog(
     dlg.rijcosx = _check(rijcosx)
     dlg.grid_combo = _combo("Default")
 
-    for name in ["scf_sloppy", "scf_loose", "scf_normal", "scf_strong",
-                 "scf_tight", "scf_verytight", "scf_extreme"]:
+    for name in [
+        "scf_sloppy",
+        "scf_loose",
+        "scf_normal",
+        "scf_strong",
+        "scf_tight",
+        "scf_verytight",
+        "scf_extreme",
+    ]:
         setattr(dlg, name, _check(False))
 
     dlg.pop_nbo = _check(False)
@@ -289,11 +352,11 @@ def _make_preview_dialog(
     dlg.get_inferred_category = (
         lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
-    dlg.get_extra_blocks_text = (
-        lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+    dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(
+        dlg
     )
-    dlg.get_constraints_text = (
-        lambda: OrcaKeywordBuilderDialog.get_constraints_text(dlg)
+    dlg.get_constraints_text = lambda: OrcaKeywordBuilderDialog.get_constraints_text(
+        dlg
     )
 
     return dlg
@@ -307,6 +370,7 @@ def _route(dlg):
 # ---------------------------------------------------------------------------
 # parse_route: SCF convergence keywords
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteSCF(unittest.TestCase):
     def _parse_scf(self, keyword):
@@ -345,6 +409,7 @@ class TestParseRouteSCF(unittest.TestCase):
 # parse_route: Freq options
 # ---------------------------------------------------------------------------
 
+
 class TestParseRouteFreqOptions(unittest.TestCase):
     def test_numfreq_sets_checkbox(self):
         dlg = _parse("! B3LYP def2-SVP Freq NumFreq")
@@ -358,6 +423,7 @@ class TestParseRouteFreqOptions(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # parse_route: RIJCOSX / RI and aux basis
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteRIJCOSX(unittest.TestCase):
     def test_rijcosx_sets_rijcosx(self):
@@ -381,6 +447,7 @@ class TestParseRouteRIJCOSX(unittest.TestCase):
 # parse_route: NBO
 # ---------------------------------------------------------------------------
 
+
 class TestParseRouteNBO(unittest.TestCase):
     def test_nbo_sets_checkbox(self):
         dlg = _parse("! B3LYP def2-SVP NBO")
@@ -394,6 +461,7 @@ class TestParseRouteNBO(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # parse_route: Dispersion
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteDispersion(unittest.TestCase):
     def _disp(self, kw):
@@ -421,6 +489,7 @@ class TestParseRouteDispersion(unittest.TestCase):
 # parse_route: Solvation
 # ---------------------------------------------------------------------------
 
+
 class TestParseRouteSolvation(unittest.TestCase):
     def test_cpcm_water_sets_model(self):
         dlg = _parse("! B3LYP def2-SVP CPCM(Water)")
@@ -438,6 +507,7 @@ class TestParseRouteSolvation(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # parse_route: Opt+Freq combo detection
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteOptFreqCombo(unittest.TestCase):
     # NOTE: parse_route's Opt+Freq combo detection relies on job_type.currentText()
@@ -459,6 +529,7 @@ class TestParseRouteOptFreqCombo(unittest.TestCase):
 # parse_route: COpt and CalcFC
 # ---------------------------------------------------------------------------
 
+
 class TestParseRouteCOptCalcFC(unittest.TestCase):
     def test_copt_sets_cart(self):
         dlg = _parse("! B3LYP def2-SVP COpt")
@@ -472,6 +543,7 @@ class TestParseRouteCOptCalcFC(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # parse_route: Gradient and Hessian
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteGradientHessian(unittest.TestCase):
     def test_gradient_sets_job_index(self):
@@ -488,6 +560,7 @@ class TestParseRouteGradientHessian(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # parse_route: %tddft block
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteTDDFTBlock(unittest.TestCase):
     _ROUTE_WITH_TDDFT = (
@@ -525,7 +598,9 @@ class TestParseRouteTDDFTBlock(unittest.TestCase):
 
 class TestParseRouteTDDFTTripletsFalse(unittest.TestCase):
     def test_triplets_false_when_omitted(self):
-        route = "! B3LYP def2-SVP\n\n%tddft\n  NRoots 5\n  Triplets false\n  TDA false\nend"
+        route = (
+            "! B3LYP def2-SVP\n\n%tddft\n  NRoots 5\n  Triplets false\n  TDA false\nend"
+        )
         dlg = _parse(route)
         dlg.tddft_triplets.setChecked.assert_any_call(False)
         dlg.tddft_tda.setChecked.assert_any_call(False)
@@ -534,6 +609,7 @@ class TestParseRouteTDDFTTripletsFalse(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # parse_route: %geom MaxIter 256
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteGeomMaxIter(unittest.TestCase):
     def test_maxiter_256_in_geom_block(self):
@@ -550,14 +626,18 @@ class TestParseRouteGeomMaxIter(unittest.TestCase):
     def test_no_maxiter_when_absent(self):
         dlg = _parse("! B3LYP def2-SVP Opt")
         # setChecked(True) should NOT have been called for iter256_chk
-        true_calls = [c for c in dlg.iter256_chk.setChecked.call_args_list
-                      if c == unittest.mock.call(True)]
+        true_calls = [
+            c
+            for c in dlg.iter256_chk.setChecked.call_args_list
+            if c == unittest.mock.call(True)
+        ]
         self.assertEqual(len(true_calls), 0)
 
 
 # ---------------------------------------------------------------------------
 # parse_route: edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestParseRouteEdgeCases(unittest.TestCase):
     def test_empty_string_is_no_op(self):
@@ -579,6 +659,7 @@ class TestParseRouteEdgeCases(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # update_preview: NumFreq when freq_group is visible
 # ---------------------------------------------------------------------------
+
 
 class TestUpdatePreviewAuxBasis(unittest.TestCase):
     """Aux basis options in update_preview (RIJCOSX enabled)."""
@@ -657,6 +738,7 @@ class TestUpdatePreviewNumFreq(unittest.TestCase):
 # update_preview: Opt+Freq with convergence options
 # ---------------------------------------------------------------------------
 
+
 class TestUpdatePreviewOptFreqConvergence(unittest.TestCase):
     def test_opt_freq_default_has_opt_and_freq(self):
         dlg = _make_preview_dialog(job="Optimization + Freq (Opt Freq)")
@@ -665,17 +747,13 @@ class TestUpdatePreviewOptFreqConvergence(unittest.TestCase):
         self.assertIn("Freq", r)
 
     def test_opt_freq_tight_emits_tightopt_and_freq(self):
-        dlg = _make_preview_dialog(
-            job="Optimization + Freq (Opt Freq)", tight=True
-        )
+        dlg = _make_preview_dialog(job="Optimization + Freq (Opt Freq)", tight=True)
         r = _route(dlg)
         self.assertIn("TightOpt", r)
         self.assertIn("Freq", r)
 
     def test_opt_freq_verytight_emits_verytightopt_and_freq(self):
-        dlg = _make_preview_dialog(
-            job="Optimization + Freq (Opt Freq)", verytight=True
-        )
+        dlg = _make_preview_dialog(job="Optimization + Freq (Opt Freq)", verytight=True)
         r = _route(dlg)
         self.assertIn("VeryTightOpt", r)
         self.assertIn("Freq", r)
@@ -684,6 +762,7 @@ class TestUpdatePreviewOptFreqConvergence(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # update_preview: 3c methods omit basis set
 # ---------------------------------------------------------------------------
+
 
 class TestUpdatePreview3cMethods(unittest.TestCase):
     def test_b97_3c_no_basis(self):
@@ -709,8 +788,8 @@ class TestUpdatePreview3cMethods(unittest.TestCase):
 # get_extra_blocks_text: TD-DFT option combinations
 # ---------------------------------------------------------------------------
 
-def _make_tddft_dlg(enable=True, nroots=5, triplets=False,
-                    tda=True, iroot=1):
+
+def _make_tddft_dlg(enable=True, nroots=5, triplets=False, tda=True, iroot=1):
     dlg = _make_preview_dialog()
     dlg.tddft_enable = _check(enable)
     dlg.tddft_nroots = _spinbox(nroots)

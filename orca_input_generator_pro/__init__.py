@@ -66,7 +66,10 @@ def run(mw):
 
     # Pass persistent settings to the dialog
     mw.orca_dialog = OrcaSetupDialogPro(
-        parent=mw, mol=mol, filename=filename, persistent_settings=current_settings,
+        parent=mw,
+        mol=mol,
+        filename=filename,
+        persistent_settings=current_settings,
         mark_modified=_mark_modified,
     )
     mw.orca_dialog.show()

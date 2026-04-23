@@ -1527,7 +1527,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.solv_model.setCurrentText("CPC(Water) (Short)")
 
             # 6. Dispersion
-            _disp_names = {"D3BJ": "D3BJ", "D3ZERO": "D3Zero", "D4": "D4", "D2": "D2", "NL": "NL"}
+            _disp_names = {
+                "D3BJ": "D3BJ",
+                "D3ZERO": "D3Zero",
+                "D4": "D4",
+                "D2": "D2",
+                "NL": "NL",
+            }
             if tu in _disp_names:
                 self.dispersion.setCurrentText(_disp_names[tu])
 

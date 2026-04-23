@@ -43,17 +43,36 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # Qt / RDKit stubs
 # ---------------------------------------------------------------------------
 
+
 def _install_stubs():
     pyqt6 = sys.modules.get("PyQt6") or types.ModuleType("PyQt6")
     qt_widgets = types.ModuleType("PyQt6.QtWidgets")
     qt_core = types.ModuleType("PyQt6.QtCore")
     qt_gui = types.ModuleType("PyQt6.QtGui")
     for name in [
-        "QDialog", "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
-        "QSpinBox", "QPushButton", "QGroupBox", "QComboBox", "QTextEdit",
-        "QTabWidget", "QCheckBox", "QWidget", "QFormLayout", "QTableWidget",
-        "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
-        "QSizePolicy", "QMessageBox", "QFileDialog", "QApplication",
+        "QDialog",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QLabel",
+        "QLineEdit",
+        "QSpinBox",
+        "QPushButton",
+        "QGroupBox",
+        "QComboBox",
+        "QTextEdit",
+        "QTabWidget",
+        "QCheckBox",
+        "QWidget",
+        "QFormLayout",
+        "QTableWidget",
+        "QTableWidgetItem",
+        "QCompleter",
+        "QPlainTextEdit",
+        "QGridLayout",
+        "QSizePolicy",
+        "QMessageBox",
+        "QFileDialog",
+        "QApplication",
         "QAbstractItemView",
     ]:
         setattr(qt_widgets, name, MagicMock)
@@ -63,16 +82,18 @@ def _install_stubs():
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core
     pyqt6.QtGui = qt_gui
-    sys.modules.update({
-        "PyQt6": pyqt6,
-        "PyQt6.QtWidgets": qt_widgets,
-        "PyQt6.QtCore": qt_core,
-        "PyQt6.QtGui": qt_gui,
-        "rdkit": MagicMock(),
-        "rdkit.Chem": MagicMock(),
-        "rdkit.Chem.rdMolTransforms": MagicMock(),
-        "pyvista": MagicMock(),
-    })
+    sys.modules.update(
+        {
+            "PyQt6": pyqt6,
+            "PyQt6.QtWidgets": qt_widgets,
+            "PyQt6.QtCore": qt_core,
+            "PyQt6.QtGui": qt_gui,
+            "rdkit": MagicMock(),
+            "rdkit.Chem": MagicMock(),
+            "rdkit.Chem.rdMolTransforms": MagicMock(),
+            "pyvista": MagicMock(),
+        }
+    )
 
 
 _install_stubs()
@@ -97,6 +118,7 @@ _init_mod = _load_init()
 # ---------------------------------------------------------------------------
 # Stub PluginContext (no main app required)
 # ---------------------------------------------------------------------------
+
 
 class StubPluginContext:
     """Minimal stub that mirrors the PluginContext public API used by initialize()."""
@@ -127,6 +149,7 @@ class StubPluginContext:
 # ---------------------------------------------------------------------------
 # 1. initialize() registration contract
 # ---------------------------------------------------------------------------
+
 
 class TestInitializeContract(unittest.TestCase):
     def setUp(self):
@@ -161,6 +184,7 @@ class TestInitializeContract(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 2. Persistence handlers
 # ---------------------------------------------------------------------------
+
 
 class TestPersistenceHandlers(unittest.TestCase):
     def setUp(self):
@@ -258,8 +282,14 @@ class TestPersistenceHandlers(unittest.TestCase):
 
 _MAIN_APP_CANDIDATES = [
     os.path.normpath(
-        os.path.join(os.path.dirname(__file__), "..", "..",
-                     "python_molecular_editor", "moleditpy", "src")
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "python_molecular_editor",
+            "moleditpy",
+            "src",
+        )
     ),
     os.environ.get("CI_MAIN_APP_SRC", ""),
 ]
@@ -271,12 +301,14 @@ HAS_MAIN_APP = _MAIN_APP_SRC is not None
 
 try:
     import pytest
+
     _skipif = pytest.mark.skipif(
         not HAS_MAIN_APP,
         reason="main app not found; set CI_MAIN_APP_SRC or place at "
-               "../python_molecular_editor/moleditpy/src",
+        "../python_molecular_editor/moleditpy/src",
     )
 except ImportError:
+
     def _skipif(cls):
         return unittest.skip("pytest not available for skipif")(cls)
 
@@ -290,6 +322,7 @@ class TestWithRealPluginContext(unittest.TestCase):
         if _MAIN_APP_SRC not in sys.path:
             sys.path.insert(0, _MAIN_APP_SRC)
         from moleditpy.plugins.plugin_interface import PluginContext
+
         cls.PluginContext = PluginContext
         mock_manager = MagicMock()
         mock_manager.get_main_window.return_value = MagicMock()

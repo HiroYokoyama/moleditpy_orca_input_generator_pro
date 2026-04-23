@@ -12,7 +12,7 @@ import sys
 import types
 import importlib.util
 import unittest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -21,38 +21,65 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # Qt / heavy-dep stubs (must be installed before any plugin import)
 # ---------------------------------------------------------------------------
 
+
 def _install_stubs():
     pyqt6 = types.ModuleType("PyQt6")
     qt_widgets = types.ModuleType("PyQt6.QtWidgets")
     qt_core = types.ModuleType("PyQt6.QtCore")
     qt_gui = types.ModuleType("PyQt6.QtGui")
     for name in [
-        "QDialog", "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
-        "QSpinBox", "QPushButton", "QGroupBox", "QComboBox", "QTextEdit",
-        "QTabWidget", "QCheckBox", "QWidget", "QFormLayout", "QTableWidget",
-        "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
-        "QSizePolicy", "QMessageBox", "QFileDialog", "QApplication",
+        "QDialog",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QLabel",
+        "QLineEdit",
+        "QSpinBox",
+        "QPushButton",
+        "QGroupBox",
+        "QComboBox",
+        "QTextEdit",
+        "QTabWidget",
+        "QCheckBox",
+        "QWidget",
+        "QFormLayout",
+        "QTableWidget",
+        "QTableWidgetItem",
+        "QCompleter",
+        "QPlainTextEdit",
+        "QGridLayout",
+        "QSizePolicy",
+        "QMessageBox",
+        "QFileDialog",
+        "QApplication",
         "QAbstractItemView",
     ]:
         setattr(qt_widgets, name, MagicMock)
     for name in ["Qt", "QTimer", "QRegularExpression", "QThread", "QSize"]:
         setattr(qt_core, name, MagicMock)
-    for name in ["QColor", "QFont", "QSyntaxHighlighter", "QTextCharFormat",
-                 "QAction", "QIcon"]:
+    for name in [
+        "QColor",
+        "QFont",
+        "QSyntaxHighlighter",
+        "QTextCharFormat",
+        "QAction",
+        "QIcon",
+    ]:
         setattr(qt_gui, name, MagicMock)
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core
     pyqt6.QtGui = qt_gui
-    sys.modules.update({
-        "PyQt6": pyqt6,
-        "PyQt6.QtWidgets": qt_widgets,
-        "PyQt6.QtCore": qt_core,
-        "PyQt6.QtGui": qt_gui,
-        "rdkit": MagicMock(),
-        "rdkit.Chem": MagicMock(),
-        "rdkit.Chem.rdMolTransforms": MagicMock(),
-        "pyvista": MagicMock(),
-    })
+    sys.modules.update(
+        {
+            "PyQt6": pyqt6,
+            "PyQt6.QtWidgets": qt_widgets,
+            "PyQt6.QtCore": qt_core,
+            "PyQt6.QtGui": qt_gui,
+            "rdkit": MagicMock(),
+            "rdkit.Chem": MagicMock(),
+            "rdkit.Chem.rdMolTransforms": MagicMock(),
+            "pyvista": MagicMock(),
+        }
+    )
 
 
 _install_stubs()

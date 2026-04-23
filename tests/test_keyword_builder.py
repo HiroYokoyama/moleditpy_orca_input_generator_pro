@@ -16,7 +16,7 @@ import sys
 import types
 import importlib.util
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -25,8 +25,10 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # Qt / RDKit stubs
 # ---------------------------------------------------------------------------
 
+
 class _Base:
     """Generic no-op base class for Qt widget stubs used in class hierarchies."""
+
     def __init__(self, *args, **kwargs):
         pass
 
@@ -43,12 +45,29 @@ def _install_stubs():
         setattr(qt_widgets, name, _Base)
 
     for name in [
-        "QVBoxLayout", "QHBoxLayout", "QLabel", "QLineEdit",
-        "QSpinBox", "QPushButton", "QGroupBox", "QComboBox", "QTextEdit",
-        "QTabWidget", "QCheckBox", "QFormLayout", "QTableWidget",
-        "QTableWidgetItem", "QCompleter", "QPlainTextEdit", "QGridLayout",
-        "QSizePolicy", "QAbstractItemView", "QMessageBox", "QFileDialog",
-        "QInputDialog", "QApplication",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QLabel",
+        "QLineEdit",
+        "QSpinBox",
+        "QPushButton",
+        "QGroupBox",
+        "QComboBox",
+        "QTextEdit",
+        "QTabWidget",
+        "QCheckBox",
+        "QFormLayout",
+        "QTableWidget",
+        "QTableWidgetItem",
+        "QCompleter",
+        "QPlainTextEdit",
+        "QGridLayout",
+        "QSizePolicy",
+        "QAbstractItemView",
+        "QMessageBox",
+        "QFileDialog",
+        "QInputDialog",
+        "QApplication",
     ]:
         setattr(qt_widgets, name, MagicMock)
 
@@ -59,7 +78,9 @@ def _install_stubs():
     qt_gui.QFont = MagicMock
     qt_gui.QPalette = MagicMock
     qt_gui.QColor = MagicMock
-    qt_gui.QSyntaxHighlighter = type("QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None})
+    qt_gui.QSyntaxHighlighter = type(
+        "QSyntaxHighlighter", (), {"__init__": lambda s, *a, **k: None}
+    )
     qt_gui.QTextCharFormat = MagicMock
     qt_gui.QAction = MagicMock
     qt_gui.QIcon = MagicMock
@@ -68,15 +89,17 @@ def _install_stubs():
     pyqt6.QtCore = qt_core
     pyqt6.QtGui = qt_gui
 
-    sys.modules.update({
-        "PyQt6": pyqt6,
-        "PyQt6.QtWidgets": qt_widgets,
-        "PyQt6.QtCore": qt_core,
-        "PyQt6.QtGui": qt_gui,
-        "rdkit": MagicMock(),
-        "rdkit.Chem": MagicMock(),
-        "rdkit.Chem.rdMolTransforms": MagicMock(),
-    })
+    sys.modules.update(
+        {
+            "PyQt6": pyqt6,
+            "PyQt6.QtWidgets": qt_widgets,
+            "PyQt6.QtCore": qt_core,
+            "PyQt6.QtGui": qt_gui,
+            "rdkit": MagicMock(),
+            "rdkit.Chem": MagicMock(),
+            "rdkit.Chem.rdMolTransforms": MagicMock(),
+        }
+    )
 
 
 _install_stubs()
@@ -117,6 +140,7 @@ OrcaKeywordBuilderDialog = _builder_mod.OrcaKeywordBuilderDialog
 # Mock dialog factory
 # ---------------------------------------------------------------------------
 
+
 def _combo(text, enabled=True):
     m = MagicMock()
     m.currentText.return_value = text
@@ -136,8 +160,11 @@ def _make_dialog(
     basis="def2-SVP",
     aux="None",
     job="Optimization Only (Opt)",
-    tight=False, verytight=False, loose=False,
-    cart=False, calcfc=False,
+    tight=False,
+    verytight=False,
+    loose=False,
+    cart=False,
+    calcfc=False,
     solv="None",
     disp="None",
     rijcosx=False,
@@ -173,8 +200,15 @@ def _make_dialog(
     dlg.rijcosx = _check(rijcosx)
     dlg.grid_combo = _combo("Default")
 
-    for name in ["scf_sloppy", "scf_loose", "scf_normal", "scf_strong",
-                 "scf_tight", "scf_verytight", "scf_extreme"]:
+    for name in [
+        "scf_sloppy",
+        "scf_loose",
+        "scf_normal",
+        "scf_strong",
+        "scf_tight",
+        "scf_verytight",
+        "scf_extreme",
+    ]:
         setattr(dlg, name, _check(False))
 
     dlg.pop_nbo = _check(False)
@@ -186,9 +220,15 @@ def _make_dialog(
     # Bind real methods
     dlg.update_ui_state = lambda: None
     dlg.update_preview = lambda: OrcaKeywordBuilderDialog.update_preview(dlg)
-    dlg.get_inferred_category = lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
-    dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
-    dlg.get_constraints_text = lambda: OrcaKeywordBuilderDialog.get_constraints_text(dlg)
+    dlg.get_inferred_category = (
+        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    )
+    dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(
+        dlg
+    )
+    dlg.get_constraints_text = lambda: OrcaKeywordBuilderDialog.get_constraints_text(
+        dlg
+    )
 
     return dlg
 
@@ -202,6 +242,7 @@ def _route(dlg):
 # ---------------------------------------------------------------------------
 # Tests: get_inferred_category
 # ---------------------------------------------------------------------------
+
 
 class TestGetInferredCategory(unittest.TestCase):
     def _cat(self, method):
@@ -243,6 +284,7 @@ class TestGetInferredCategory(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Tests: update_preview — job type → keyword
 # ---------------------------------------------------------------------------
+
 
 class TestRouteJobType(unittest.TestCase):
     def _kw(self, job, **kwargs):
@@ -354,13 +396,22 @@ class TestRouteMethodBasis(unittest.TestCase):
 # Tests: parse_route — round-trip keyword → widget state
 # ---------------------------------------------------------------------------
 
+
 class TestParseRoute(unittest.TestCase):
     def _parse(self, route_str):
         dlg = _make_dialog()
         # Give parse_route proper combo mocks that record setCurrentText
-        for attr in ["job_type", "method_type", "method_name", "basis_set",
-                     "aux_basis", "solv_model", "solvent", "dispersion",
-                     "grid_combo"]:
+        for attr in [
+            "job_type",
+            "method_type",
+            "method_name",
+            "basis_set",
+            "aux_basis",
+            "solv_model",
+            "solvent",
+            "dispersion",
+            "grid_combo",
+        ]:
             m = MagicMock()
             m.currentText.return_value = ""
             m.count.return_value = 20
@@ -406,6 +457,7 @@ class TestParseRoute(unittest.TestCase):
 # Tests: get_constraints_text
 # ---------------------------------------------------------------------------
 
+
 class TestGetConstraintsText(unittest.TestCase):
     def _make_table(self, rows):
         """
@@ -417,8 +469,14 @@ class TestGetConstraintsText(unittest.TestCase):
 
         def item(r, col):
             row = rows[r]
-            mapping = {0: "type", 1: "indices", 2: "value",
-                       4: "start", 5: "end", 6: "steps"}
+            mapping = {
+                0: "type",
+                1: "indices",
+                2: "value",
+                4: "start",
+                5: "end",
+                6: "steps",
+            }
             key = mapping.get(col)
             if key is None:
                 return None
@@ -450,37 +508,70 @@ class TestGetConstraintsText(unittest.TestCase):
         self.assertEqual(self._text([]), "")
 
     def test_position_constraint(self):
-        t = self._text([{"type": "Position", "indices": "3", "value": "", "is_scan": False}])
+        t = self._text(
+            [{"type": "Position", "indices": "3", "value": "", "is_scan": False}]
+        )
         self.assertIn("{ C 3 C }", t)
         self.assertIn("Constraints", t)
 
     def test_distance_constraint(self):
-        t = self._text([{"type": "Distance", "indices": "0 1", "value": "1.5", "is_scan": False}])
+        t = self._text(
+            [{"type": "Distance", "indices": "0 1", "value": "1.5", "is_scan": False}]
+        )
         self.assertIn("{ B 0 1 1.5 C }", t)
 
     def test_angle_constraint(self):
-        t = self._text([{"type": "Angle", "indices": "0 1 2", "value": "109.5", "is_scan": False}])
+        t = self._text(
+            [{"type": "Angle", "indices": "0 1 2", "value": "109.5", "is_scan": False}]
+        )
         self.assertIn("{ A 0 1 2 109.5 C }", t)
 
     def test_dihedral_constraint(self):
-        t = self._text([{"type": "Dihedral", "indices": "0 1 2 3", "value": "180.0", "is_scan": False}])
+        t = self._text(
+            [
+                {
+                    "type": "Dihedral",
+                    "indices": "0 1 2 3",
+                    "value": "180.0",
+                    "is_scan": False,
+                }
+            ]
+        )
         self.assertIn("{ D 0 1 2 3 180.0 C }", t)
 
     def test_scan_uses_scan_block(self):
-        t = self._text([{
-            "type": "Distance", "indices": "0 1", "value": "1.5",
-            "is_scan": True, "start": "1.2", "end": "2.0", "steps": "10"
-        }])
+        t = self._text(
+            [
+                {
+                    "type": "Distance",
+                    "indices": "0 1",
+                    "value": "1.5",
+                    "is_scan": True,
+                    "start": "1.2",
+                    "end": "2.0",
+                    "steps": "10",
+                }
+            ]
+        )
         self.assertIn("Scan", t)
         self.assertIn("B 0 1 = 1.2, 2.0, 10", t)
         self.assertNotIn("Constraints", t)
 
     def test_mixed_constraint_and_scan(self):
-        t = self._text([
-            {"type": "Position", "indices": "0", "value": "", "is_scan": False},
-            {"type": "Distance", "indices": "1 2", "value": "1.4",
-             "is_scan": True, "start": "1.0", "end": "2.0", "steps": "5"},
-        ])
+        t = self._text(
+            [
+                {"type": "Position", "indices": "0", "value": "", "is_scan": False},
+                {
+                    "type": "Distance",
+                    "indices": "1 2",
+                    "value": "1.4",
+                    "is_scan": True,
+                    "start": "1.0",
+                    "end": "2.0",
+                    "steps": "5",
+                },
+            ]
+        )
         self.assertIn("Constraints", t)
         self.assertIn("Scan", t)
 
@@ -488,6 +579,7 @@ class TestGetConstraintsText(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Tests: update_preview — additional option branches
 # ---------------------------------------------------------------------------
+
 
 class TestRouteRIJCOSX(unittest.TestCase):
     def test_rijcosx_dft_adds_rijcosx(self):
@@ -646,8 +738,10 @@ class TestRouteNBOAndGrid(unittest.TestCase):
 # Tests: get_extra_blocks_text
 # ---------------------------------------------------------------------------
 
-def _make_tddft_dialog(enable=True, nroots=5, triplets=False,
-                       tda=True, iroot=1, with_constraints=False):
+
+def _make_tddft_dialog(
+    enable=True, nroots=5, triplets=False, tda=True, iroot=1, with_constraints=False
+):
     dlg = _make_dialog()
     dlg.tddft_enable = _check(enable)
     dlg.tddft_nroots = MagicMock()

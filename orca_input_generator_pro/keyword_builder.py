@@ -426,7 +426,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             "def2-TZVPP",
             "def2-QZVPP",
             "def2-TZVPPD",
-            "def2-QVPPD",
+            "def2-QZVPPD",
             "--- Dunning (cc-pV) ---",
             "cc-pVDZ",
             "cc-pVTZ",
@@ -1306,6 +1306,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if self.freq_group.isVisible():
             if self.freq_num.isChecked():
                 route_parts.append("NumFreq")
+            if self.freq_raman.isChecked():
+                route_parts.append("Raman")
 
         # Solvation
         solv = self.solv_model.currentText()
@@ -1525,8 +1527,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.solv_model.setCurrentText("CPC(Water) (Short)")
 
             # 6. Dispersion
-            if tu in ["D3BJ", "D3ZERO", "D4", "D2", "NL"]:
-                self.dispersion.setCurrentText(tu)
+            _disp_names = {"D3BJ": "D3BJ", "D3ZERO": "D3Zero", "D4": "D4", "D2": "D2", "NL": "NL"}
+            if tu in _disp_names:
+                self.dispersion.setCurrentText(_disp_names[tu])
 
             # 7. RI / RIJCOSX
             if tu in ["RIJCOSX", "RI"]:

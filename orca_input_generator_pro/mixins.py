@@ -86,3 +86,44 @@ class Dialog3DPickingMixin:
             except Exception as _e:
                 logging.warning("[mixins.py:69] silenced: %s", _e)
         self.selection_labels = []
+
+    clear_atom_labels = clear_selection_labels
+
+    def show_atom_labels_for(self, atoms_and_labels, color="yellow"):
+        """Clear existing labels and add new ones for each (idx, text) pair."""
+        v3d = getattr(self.main_window, "view_3d_manager", None)
+        if not v3d or not getattr(v3d, "plotter", None):
+            return
+
+        plotter = v3d.plotter
+        try:
+            cam = plotter.camera_position
+        except Exception:
+            cam = None
+
+        self.clear_selection_labels()
+
+        atom_positions_3d = getattr(v3d, "atom_positions_3d", None)
+        if atom_positions_3d is not None:
+            for atom_idx, label_text in atoms_and_labels:
+                if 0 <= atom_idx < len(atom_positions_3d):
+                    pos = atom_positions_3d[atom_idx]
+                    label_actor = plotter.add_point_labels(
+                        [pos],
+                        [label_text],
+                        point_size=0,
+                        font_size=12,
+                        text_color=color,
+                        always_visible=True,
+                        show_points=False,
+                        shape="rect",
+                        shape_color="gray",
+                        shape_opacity=0.5,
+                    )
+                    self.selection_labels.append(label_actor)
+
+        if cam is not None:
+            try:
+                plotter.camera_position = cam
+            except Exception:
+                pass

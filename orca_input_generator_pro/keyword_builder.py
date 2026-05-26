@@ -898,8 +898,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.update_selection_display()
 
     def update_selection_display(self):
-        self.clear_selection_labels()
-
         all_to_label = []  # list of (idx, label_text)
 
         # 1. From active picking
@@ -920,27 +918,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 except Exception as _e:
                     logging.warning("[keyword_builder.py:541] silenced: %s", _e)
 
-        v3d = (
-            getattr(self.main_window, "view_3d_manager", None)
-            if self.main_window
-            else None
-        )
-        atom_positions_3d = getattr(v3d, "atom_positions_3d", None) if v3d else None
-        plotter = getattr(v3d, "plotter", None) if v3d else None
-        if all_to_label and atom_positions_3d is not None and plotter is not None:
-            positions = []
-            texts = []
-            # Keep unique to avoid overlapping labels on same atom?
-            # VTK handles overlapping somewhat, but let's just add them.
-            for idx, txt in all_to_label:
-                if 0 <= idx < len(atom_positions_3d):
-                    positions.append(atom_positions_3d[idx])
-                    texts.append(txt)
-            if positions:
-                label_actor = plotter.add_point_labels(
-                    positions, texts, always_visible=True, text_color="yellow"
-                )
-                self.selection_labels.append(label_actor)
+        self.show_atom_labels_for(all_to_label, color="yellow")
 
         n = len(self.selected_atoms)
         txt = "None"

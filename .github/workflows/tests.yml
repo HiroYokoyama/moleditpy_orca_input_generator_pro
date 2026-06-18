@@ -69,4 +69,4 @@ jobs:
       - name: Run integration tests with real PluginContext
         env:
           CI_MAIN_APP_SRC: ${{ github.workspace }}/../python_molecular_editor/moleditpy/src
-        run: python -m pytest tests/test_plugin_integration.py -v
+        run: python -m pytest tests/test_plugin_integration.py tests/test_api.py -v

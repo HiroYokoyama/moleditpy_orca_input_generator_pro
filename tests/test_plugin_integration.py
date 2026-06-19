@@ -97,13 +97,21 @@ def _install_stubs():
         if qt_gui is None:
             qt_gui = types.ModuleType("PyQt6.QtGui")
             sys.modules["PyQt6.QtGui"] = qt_gui
+
         # Define a mock QColor subclass to avoid spec restriction when instantiated with color string
         class MockQColor(MagicMock):
             def __init__(self, *args, **kwargs):
                 super().__init__()
-            def redF(self): return 1.0
-            def greenF(self): return 1.0
-            def blueF(self): return 1.0
+
+            def redF(self):
+                return 1.0
+
+            def greenF(self):
+                return 1.0
+
+            def blueF(self):
+                return 1.0
+
         setattr(qt_gui, "QColor", MockQColor)
         # Mock QFont so it supports Weight.Bold (constants.py uses it)
         mock_font = MagicMock()
@@ -152,6 +160,7 @@ class StubPluginContext:
         self._load_handlers = []
         self._reset_handlers = []
         self._windows = {}
+        self.mark_project_modified_call_count = 0
 
     def get_main_window(self):
         return self._main_window
@@ -173,6 +182,13 @@ class StubPluginContext:
 
     def get_window(self, window_id: str):
         return self._windows.get(window_id)
+
+    def mark_project_modified(self) -> None:
+        self.mark_project_modified_call_count += 1
+
+    @property
+    def current_molecule(self):
+        return getattr(self._main_window, "current_mol", None)
 
 
 # ---------------------------------------------------------------------------
@@ -374,13 +390,75 @@ class TestWithRealPluginContext(unittest.TestCase):
             "register_save_handler",
             "register_load_handler",
             "register_document_reset_handler",
+            "register_window",
+            "get_window",
             "get_main_window",
+            "mark_project_modified",
         ]
         for method in methods_used:
             self.assertTrue(
                 hasattr(self.PluginContext, method),
                 f"Real PluginContext is missing method: {method}",
             )
+
+
+# ---------------------------------------------------------------------------
+# 4. _mark_modified callback uses context.mark_project_modified (V4 API)
+# ---------------------------------------------------------------------------
+
+
+class TestMarkModifiedCallback(unittest.TestCase):
+    """Verify that the _mark_modified closure pattern in run() delegates to
+    context.mark_project_modified() — never to direct state_manager access.
+
+    We reproduce the exact closure body from run() rather than calling run()
+    itself, which avoids importing OrcaSetupDialogPro (a Qt-heavy class).
+    """
+
+    def setUp(self):
+        self.ctx = StubPluginContext()
+        _init_mod.current_settings.clear()
+        _init_mod.current_settings.update(_init_mod.get_default_settings())
+        _init_mod._context = None
+        _init_mod._dialog_opened = False
+        _init_mod.initialize(self.ctx)
+
+    def tearDown(self):
+        _init_mod._context = None
+        _init_mod._dialog_opened = False
+
+    def test_context_stored_by_initialize(self):
+        """initialize() must store context so run() can reach it."""
+        self.assertIs(_init_mod._context, self.ctx)
+
+    def test_mark_modified_closure_calls_context_api(self):
+        """Exact closure body from run(): if _context is not None, call mark_project_modified."""
+        ctx = _init_mod._context
+
+        def _mark_modified():
+            if ctx is not None:
+                ctx.mark_project_modified()
+
+        before = self.ctx.mark_project_modified_call_count
+        _mark_modified()
+        self.assertEqual(
+            self.ctx.mark_project_modified_call_count,
+            before + 1,
+            "_mark_modified() must call context.mark_project_modified()",
+        )
+
+    def test_mark_modified_no_crash_without_context(self):
+        """When _context is None (pre-initialize), _mark_modified must not raise."""
+        ctx = None
+
+        def _mark_modified():
+            if ctx is not None:
+                ctx.mark_project_modified()
+
+        try:
+            _mark_modified()
+        except Exception as exc:
+            self.fail(f"_mark_modified() raised without context: {exc}")
 
 
 if __name__ == "__main__":

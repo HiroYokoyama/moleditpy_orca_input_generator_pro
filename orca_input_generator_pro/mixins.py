@@ -41,7 +41,7 @@ class Dialog3DPickingMixin:
                         self._mouse_press_pos = None
                         return True
             except Exception as e:
-                print(f"Picking Error: {e}")
+                logging.warning("Picking Error: %s", e)
         elif (
             obj == v3d.plotter.interactor
             and event.type() == QtCore.QEvent.Type.MouseMove

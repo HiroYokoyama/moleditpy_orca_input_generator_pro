@@ -122,6 +122,12 @@ class TestPluginMetadata(unittest.TestCase):
     def test_plugin_description_present(self):
         self.assertTrue(hasattr(_init, "PLUGIN_DESCRIPTION"))
 
+    def test_plugin_supported_version_present(self):
+        self.assertTrue(hasattr(_init, "PLUGIN_SUPPORTED_MOLEDITPY_VERSION"))
+        ver = _init.PLUGIN_SUPPORTED_MOLEDITPY_VERSION
+        self.assertIsInstance(ver, str)
+        self.assertGreater(len(ver), 0)
+
 
 class TestDefaultSettings(unittest.TestCase):
     def setUp(self):

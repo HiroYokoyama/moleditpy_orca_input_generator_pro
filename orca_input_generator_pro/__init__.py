@@ -5,6 +5,7 @@ PLUGIN_NAME = "ORCA Input Generator Pro"
 PLUGIN_VERSION = "3.0.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
+PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "4.*"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
 
 
@@ -22,22 +23,25 @@ def get_default_settings():
 
 current_settings = get_default_settings()
 _dialog_opened = False  # Guard: don't write to project file until dialog is used
-_context = None  # Stored from initialize() so run() can use register_window API
+_context = None  # Stored from initialize() so run() can use the context API
 
 
 def run(mw):
     global _dialog_opened
 
-    if hasattr(mw, "host"):
-        mw = mw.host
+    # Prefer the stable context API over direct mw access
+    if _context is not None:
+        mw = _context.get_main_window()
+
     from .main_dialog import OrcaSetupDialogPro
 
     mol = None
     try:
-        if hasattr(mw, "view_3d_manager"):
-            mol = mw.view_3d_manager.current_mol
-        elif hasattr(mw, "current_mol"):
-            mol = mw.current_mol
+        mol = (
+            _context.current_molecule
+            if _context is not None
+            else getattr(mw, "current_mol", None)
+        )
     except Exception:
         mol = None
     if not mol:
@@ -64,11 +68,8 @@ def run(mw):
     _dialog_opened = True
 
     def _mark_modified():
-        try:
-            mw.state_manager.has_unsaved_changes = True
-            mw.state_manager.update_window_title()
-        except Exception:
-            pass
+        if _context is not None:
+            _context.mark_project_modified()
 
     dlg = OrcaSetupDialogPro(
         parent=mw,

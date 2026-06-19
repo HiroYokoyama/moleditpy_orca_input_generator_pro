@@ -151,6 +151,7 @@ class StubPluginContext:
         self._save_handlers = []
         self._load_handlers = []
         self._reset_handlers = []
+        self._windows = {}
 
     def get_main_window(self):
         return self._main_window
@@ -166,6 +167,12 @@ class StubPluginContext:
 
     def register_document_reset_handler(self, fn):
         self._reset_handlers.append(fn)
+
+    def register_window(self, window_id: str, window) -> None:
+        self._windows[window_id] = window
+
+    def get_window(self, window_id: str):
+        return self._windows.get(window_id)
 
 
 # ---------------------------------------------------------------------------

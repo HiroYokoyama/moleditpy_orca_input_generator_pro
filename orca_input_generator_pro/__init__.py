@@ -22,9 +22,12 @@ def get_default_settings():
 
 current_settings = get_default_settings()
 _dialog_opened = False  # Guard: don't write to project file until dialog is used
+_dialog = None  # Module-level reference — avoids injecting attributes onto MainWindow
 
 
 def run(mw):
+    global _dialog_opened, _dialog
+
     if hasattr(mw, "host"):
         mw = mw.host
     from .main_dialog import OrcaSetupDialogPro
@@ -49,12 +52,12 @@ def run(mw):
     if not filename and hasattr(mw, "windowTitle"):
         title = mw.windowTitle()
         filename = title.split(" - ")[0].strip() if " - " in title else title.strip()
-    if hasattr(mw, "orca_dialog") and mw.orca_dialog and mw.orca_dialog.isVisible():
-        mw.orca_dialog.raise_()
-        mw.orca_dialog.activateWindow()
+
+    if _dialog is not None and _dialog.isVisible():
+        _dialog.raise_()
+        _dialog.activateWindow()
         return
 
-    global _dialog_opened
     _dialog_opened = True
 
     def _mark_modified():
@@ -64,15 +67,14 @@ def run(mw):
         except Exception:
             pass
 
-    # Pass persistent settings to the dialog
-    mw.orca_dialog = OrcaSetupDialogPro(
+    _dialog = OrcaSetupDialogPro(
         parent=mw,
         mol=mol,
         filename=filename,
         persistent_settings=current_settings,
         mark_modified=_mark_modified,
     )
-    mw.orca_dialog.show()
+    _dialog.show()
 
 
 def initialize(context):
@@ -101,19 +103,16 @@ def initialize(context):
             _dialog_opened = True
 
     def on_reset():
-        global _dialog_opened
+        global _dialog_opened, _dialog
         _dialog_opened = False
         current_settings.clear()
         current_settings.update(get_default_settings())
-        # Close and discard the dialog if it is open
-        try:
-            mw = context.get_main_window()
-            dlg = getattr(mw, "orca_dialog", None)
-            if dlg is not None:
-                dlg.close()
-                mw.orca_dialog = None
-        except Exception:
-            pass
+        if _dialog is not None:
+            try:
+                _dialog.close()
+            except Exception:
+                pass
+            _dialog = None
 
     context.register_save_handler(on_save)
     context.register_load_handler(on_load)

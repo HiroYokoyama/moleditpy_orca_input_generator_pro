@@ -22,11 +22,11 @@ def get_default_settings():
 
 current_settings = get_default_settings()
 _dialog_opened = False  # Guard: don't write to project file until dialog is used
-_dialog = None  # Module-level reference — avoids injecting attributes onto MainWindow
+_context = None  # Stored from initialize() so run() can use register_window API
 
 
 def run(mw):
-    global _dialog_opened, _dialog
+    global _dialog_opened
 
     if hasattr(mw, "host"):
         mw = mw.host
@@ -43,6 +43,7 @@ def run(mw):
     if not mol:
         QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
         return
+
     filename = None
     try:
         if hasattr(mw, "init_manager"):
@@ -53,10 +54,12 @@ def run(mw):
         title = mw.windowTitle()
         filename = title.split(" - ")[0].strip() if " - " in title else title.strip()
 
-    if _dialog is not None and _dialog.isVisible():
-        _dialog.raise_()
-        _dialog.activateWindow()
-        return
+    if _context is not None:
+        dlg = _context.get_window("dialog")
+        if dlg is not None and dlg.isVisible():
+            dlg.raise_()
+            dlg.activateWindow()
+            return
 
     _dialog_opened = True
 
@@ -67,17 +70,22 @@ def run(mw):
         except Exception:
             pass
 
-    _dialog = OrcaSetupDialogPro(
+    dlg = OrcaSetupDialogPro(
         parent=mw,
         mol=mol,
         filename=filename,
         persistent_settings=current_settings,
         mark_modified=_mark_modified,
     )
-    _dialog.show()
+    if _context is not None:
+        _context.register_window("dialog", dlg)
+    dlg.show()
 
 
 def initialize(context):
+    global _context
+    _context = context
+
     def show_dialog():
         mw = context.get_main_window()
         run(mw)
@@ -103,16 +111,16 @@ def initialize(context):
             _dialog_opened = True
 
     def on_reset():
-        global _dialog_opened, _dialog
+        global _dialog_opened
         _dialog_opened = False
         current_settings.clear()
         current_settings.update(get_default_settings())
-        if _dialog is not None:
+        dlg = context.get_window("dialog")
+        if dlg is not None:
             try:
-                _dialog.close()
+                dlg.close()
             except Exception:
                 pass
-            _dialog = None
 
     context.register_save_handler(on_save)
     context.register_load_handler(on_load)

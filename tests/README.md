@@ -1,6 +1,6 @@
 # ORCA Input Generator Pro — Test Suite
 
-278 tests across 6 files. All run headlessly — no Qt installation, no display
+327 tests across 7 files. All run headlessly — no Qt installation, no display
 server required. Qt and RDKit dependencies are stubbed at module level.
 
 ---
@@ -20,9 +20,9 @@ python -m pytest tests/test_keyword_builder.py -v
 # Single test
 python -m pytest tests/ -k "test_update_preview_basic"
 
-# Set explicit main app path (integration tier 2)
+# Set explicit main app path (real-context integration tier)
 CI_MAIN_APP_SRC=/path/to/python_molecular_editor/moleditpy/src \
-  python -m pytest tests/test_plugin_integration.py -v
+  python -m pytest tests/test_plugin_integration.py tests/test_api.py -v
 ```
 
 ---
@@ -31,125 +31,167 @@ CI_MAIN_APP_SRC=/path/to/python_molecular_editor/moleditpy/src \
 
 | File | Tests | Area |
 |---|---|---|
-| `test_constants.py` | 59 | Data-quality checks on ALL\_ORCA\_METHODS and ALL\_ORCA\_BASIS\_SETS |
 | `test_keyword_builder.py` | 78 | Route/keyword building, `parse_route()`, `get_constraints_text()` |
-| `test_parse_route_extended.py` | 68 | Advanced route parsing: SCF, NumFreq, RIJCOSX, NBO, solvation, TDDFT, 3c |
+| `test_parse_route_extended.py` | 68 | Advanced route parsing: SCF convergence, NumFreq, RIJCOSX, NBO, solvation, TDDFT, 3c |
+| `test_constants.py` | 59 | Data-quality checks on `ALL_ORCA_METHODS` and `ALL_ORCA_BASIS_SETS` |
+| `test_api.py` | 45 | `plugin_api_checker.py` infrastructure + API contract against main app |
 | `test_main_dialog.py` | 29 | `consolidate_orca_blocks()`, duplicate merging, MaxIter deduplication |
-| `test_metadata.py` | ~22 | Plugin constants, `initialize()` registration contract |
-| `test_plugin_integration.py` | 22 | PluginContext contract (stub + optional real) |
+| `test_plugin_integration.py` | 25 | `PluginContext` contract — stub mode (always) + real-context mode (optional) |
+| `test_metadata.py` | 23 | Plugin constants, `get_default_settings()`, `initialize()` with `MagicMock` context |
 
 ---
 
 ## Test files — detailed
 
-### `test_constants.py` — Data-quality checks (59 tests)
+### `test_constants.py` — Data quality for constants.py (59 tests)
 
-Exhaustive validation of the `ALL_ORCA_METHODS` and `ALL_ORCA_BASIS_SETS`
-constant tables used to populate the keyword dropdowns.
-
-- No duplicate entries in either list
-- No leading/trailing whitespace in any entry
-- All entries are non-empty strings
-- No `None` values
-- Correct total counts match expected values
-
-These tests catch typos and copy-paste errors introduced when adding new
-methods or basis sets.
-
----
-
-### `test_keyword_builder.py` — Route/keyword building (78 tests)
-
-Tests the core keyword-builder logic:
-
-| Area | What is tested |
-|---|---|
-| `get_inferred_category()` | Correct category assignment for DFT, HF, MP2, CCSD, semi-empirical methods |
-| `update_preview()` | Route line construction from method + basis + charge + multiplicity + optional keywords |
-| `parse_route()` | Round-trip: `update_preview()` output → `parse_route()` → back to same components |
-| `get_constraints_text()` | Cartesian / distance / angle / dihedral constraint formatting |
-
----
-
-### `test_parse_route_extended.py` — Advanced route parsing (68 tests)
-
-Covers specialised ORCA input patterns:
-
-| Category | What is tested |
-|---|---|
-| SCF convergence | `TightSCF`, `VeryTightSCF`, `LooseConv` flags parsed and preserved |
-| Numerical frequencies | `NumFreq` / `NumHess` keywords; `Raman` flag |
-| RIJCOSX / RI | Auxiliary basis set keyword handling |
-| NBO | `NBO` block detection and round-trip |
-| Dispersion | `D3BJ`, `D3`, `D4` dispersion correction keywords |
-| Solvation | `CPCM(Solvent)`, `SMD(Solvent)` implicit solvent models |
-| TDDFT | `TDDFT` block with `NRoots`, `TDA` options |
-| 3c methods | `r2SCAN-3c`, `PBEh-3c`, `B97-3c` composite methods |
-
----
-
-### `test_main_dialog.py` — Block consolidation (29 tests)
-
-Tests `consolidate_orca_blocks()`, which merges duplicate `%scf`, `%pal`,
-`%maxcore`, and other ORCA input blocks:
-
-- Duplicate blocks of the same type are merged (not repeated)
-- `MaxIter` values: highest value wins when duplicates conflict
-- Empty input returns empty output
-- Whitespace-only blocks are discarded
-
----
-
-### `test_metadata.py` — Plugin constants and initialization
-
-| Area | What is tested |
-|---|---|
-| Constants | `PLUGIN_NAME`, `PLUGIN_VERSION`, `PLUGIN_AUTHOR`, `PLUGIN_DESCRIPTION` present and non-empty |
-| `initialize()` | Registers a menu action; registers save/load/reset handlers; `context.add_menu_action` called with correct path |
-| `get_default_settings()` | Returns a dict; all expected keys present; default values are correct types |
-
----
-
-### `test_plugin_integration.py` — PluginContext contract (22 tests)
-
-Two-tier integration tests — see [Integration Test Strategy](#integration-test-strategy).
+`constants.py` is pure data (no Qt, no RDKit), loaded directly.
 
 | Class | What is tested |
 |---|---|
-| `TestInitializeRegistrations` | `initialize(context)` registers menu action + save/load/reset handlers |
-| `TestSaveLoadState` | Save → load round-trip preserves all settings keys |
-| `TestDocumentReset` | Reset clears plugin state without raising |
-| `TestWithRealPluginContext` *(skipped unless main app present)* | `initialize()` works with real `PluginContext`; stub matches real API surface |
+| `TestAllOrcaMethods` | List type; non-empty; no duplicates; no whitespace padding; known entries present (B3LYP, CCSD(T), …) |
+| `TestAllOrcaBasisSets` | Same checks + spelling of key basis sets (def2-SVP, def2-TZVP, cc-pVDZ) |
+| `TestGetInferredCategory` | Representative methods for every category including Multireference and Double Hybrid |
 
 ---
 
-## Integration Test Strategy
+### `test_keyword_builder.py` — OrcaKeywordBuilderDialog logic (78 tests)
 
-### Two-tier approach
+PyQt6 and RDKit are stubbed. Classes used as base classes (`QDialog`, `QWidget`,
+`QScrollArea`) are real inheritable stubs — not `MagicMock()` instances.
+
+| Class | What is tested |
+|---|---|
+| `TestGetInferredCategory` | DFT / HF / post-HF / semi-empirical / compound method categorisation |
+| `TestUpdatePreview` | Job-type → route keyword mapping; basis set included/excluded per method |
+| `TestParseRoute` | Round-trip: keyword string → widget state (method, basis, job type, nproc, maxcore) |
+| `TestGetConstraintsText` | Constraint block generation (freeze, fix distance/angle/dihedral); scan block |
+
+---
+
+### `test_parse_route_extended.py` — Extended parse_route() coverage (68 tests)
+
+Extends `test_keyword_builder.py` with branches not covered there.
+
+| Tokens / branches tested |
+|---|
+| SCF convergence: `SloppySCF` … `ExtremeSCF` |
+| `NumFreq`, `Raman` |
+| `RIJCOSX`, `RI`, `Def2/J`, `Def2/JK` auxiliary basis tokens |
+| `NBO` |
+| Dispersion: `D3BJ`, `D3Zero`, `D4`, `D2`, `NL` |
+| `CPCM(solvent)`, `SMD`, `CPC(Water)` solvation |
+| `Opt + Freq` combo (both orderings), `COpt`, `CalcFC` |
+| `Gradient`, `Hessian` job types |
+| `%tddft` block: `NRoots`, `IRoot`, `Triplets`, `TDA` |
+| `%geom MaxIter 256` |
+| Empty / whitespace route (no-op) |
+| `get_extra_blocks_text()`: Triplets, TDA, IRoot combinations |
+| `update_preview()`: NumFreq, Opt+Freq+TightOpt, 3c methods without basis |
+
+---
+
+### `test_main_dialog.py` — consolidate_orca_blocks() logic (29 tests)
+
+Methods called unbound with `self=None` — `OrcaSetupDialogPro.__init__` is never invoked.
+
+| Scenario | Behaviour verified |
+|---|---|
+| Basic round-trip (no blocks) | Content unchanged |
+| Duplicate `%` blocks | Merged into one |
+| `MaxIter` in `%geom` / `%scf` | Deduplicated, last wins |
+| `NRoots` / `IRoot` in `%tddft` | Deduplicated, last wins |
+| Redundant bare `Opt` | Removed when `TightOpt`/`VeryTightOpt`/`LooseOpt` present |
+| Duplicate `!` tokens | Removed |
+| `%pal` / `%maxcore` | Preserved unchanged |
+| Post-coord blocks | Stay after coordinate block |
+| Pre+post same block | Merged into pre-coord zone |
+| One-liner `%block … end` | Handled correctly |
+| No coordinate block | No crash |
+
+---
+
+### `test_metadata.py` — Plugin constants and initialize() contract (23 tests)
+
+| Class | What is tested |
+|---|---|
+| `TestPluginMetadata` | `PLUGIN_NAME`, `PLUGIN_VERSION` (semver X.Y.Z), `PLUGIN_AUTHOR`, `PLUGIN_DESCRIPTION`, `PLUGIN_SUPPORTED_MOLEDITPY_VERSION` — all present and non-empty |
+| `TestDefaultSettings` | `get_default_settings()` shape: `nproc` (int > 0), `maxcore` (int > 0), `route` (str), `coord_format`; two calls return independent dicts |
+| `TestInitialize` | `add_export_action` called once with str label + callable; save/load/reset handlers registered; save returns None before dialog opened, dict after; load updates settings; reset restores defaults; multiple initialize calls don't crash |
+
+---
+
+### `test_plugin_integration.py` — PluginContext contract (25 tests)
+
+Two execution modes:
+
+**Stub mode** (always runs, including CI): `StubPluginContext` mirrors the real
+`PluginContext` API used by `initialize()`.
+
+**Real-context mode** (runs when `python_molecular_editor` is present locally or
+via `CI_MAIN_APP_SRC`): exercises `initialize()` against the actual `PluginContext`.
+
+| Class | Tests | What is verified |
+|---|---|---|
+| `TestInitializeContract` | 6 | 1 export action registered; label is non-empty str; callback callable; 1 save/load/reset handler each |
+| `TestPersistenceHandlers` | 10 | Save returns None before dialog opened, current_settings dict after; load updates nproc/maxcore; load ignores non-dict/empty; load sets dialog flag; load strips charge/mult keys; reset restores defaults and clears flag; roundtrip save→reset→load |
+| `TestWithRealPluginContext` | 3 | `initialize(real_ctx)` doesn't raise; real ctx is `PluginContext` instance; all used methods exist on real class |
+| `TestMarkModifiedCallback` | 3 | `initialize()` stores context; `_mark_modified` closure calls `context.mark_project_modified()`; no crash when context is None |
+
+---
+
+### `test_api.py` — API checker infrastructure + integration (45 tests)
+
+Tests `plugin_api_checker.py` itself using **synthetic code and temp directories** — no
+main app required for the unit tests. All test classes except `TestAPIChecker` run
+unconditionally.
+
+| Class | Tests | What is tested |
+|---|---|---|
+| `TestIssue` | 4 | `Issue` str format (`[try]` tag), `key()` 4-tuple, `in_try` excluded from key |
+| `TestMergeAllowlists` | 5 | `mw`/`manager`/`context` set unions; empty merge; single dict preserved |
+| `TestLoadSiteAllowlist` | 6 | List form, dict form, manager form, context form; missing file → `{}`; invalid JSON → `{}` |
+| `TestPluginFileChecker` | 21 | Unknown MW attr flagged; known attr OK; private/Qt-inherited skipped; `hasattr` not flagged; try-block `in_try` flag; `get_main_window()` alias tracked; `self.main_window` alias tracked; MW/manager allowlist suppression; unknown/known manager attr; unknown/known context attr; context check off by default; plugin-specific attrs (`add_export_action`, `mark_project_modified`) OK; syntax error; dedup |
+| `TestAppAPIExtractor` | 8 | Extracts MW methods, properties, class attrs, manager attr, manager members, context members from synthetic app tree; scans `self.host.X` assignments |
+| `TestAPIChecker` | 1 | Scans all plugin source files against the real MainWindow/PluginContext API (skipped unless main app present) |
+
+---
+
+## Integration test strategy
 
 ```
-Tier 1 — Stub mode (always runs)
-  StubPluginContext mirrors the PluginContext API.
+Stub mode (always runs)
+  StubPluginContext mirrors the real API.
   No main app required. Catches interface mismatches immediately.
 
-Tier 2 — Real-context mode (runs when main app is a sibling repo)
+Real-context mode (runs when main app is available)
   Uses the actual PluginContext from python_molecular_editor.
-  Catches subtle incompatibilities invisible from the stub.
+  Catches drift invisible to the stub.
 ```
 
-### Local development
-
-Real-context tests activate when repos are siblings:
+Real-context mode activates when repos are siblings:
 
 ```
 <parent>/
-    moleditpy_orca_input_generator_pro/  ← this plugin
-    python_molecular_editor/             ← main app
+    moleditpy_orca_input_generator_pro/   ← this plugin
+    python_molecular_editor/              ← main app
 ```
 
 ### CI
 
-| Job | Main app | Tests run |
-|---|---|---|
-| `test` (3.11, 3.12, 3.13) | No | Full suite; `TestWithRealPluginContext` skipped |
-| `test-integration` (3.11) | Cloned `--depth 1` | Full suite including `TestWithRealPluginContext` |
+| Job | Python | Main app | Tests |
+|---|---|---|---|
+| `test` | 3.11, 3.12, 3.13 | Not cloned | Full suite; `TestWithRealPluginContext` + `TestAPIChecker` skipped |
+| `test-integration` | 3.11 | Cloned `--depth 1` | `test_plugin_integration.py` + `test_api.py` including real-context tier |
+
+---
+
+## Mocking strategy
+
+| Module | Approach |
+|---|---|
+| `constants.py` | Loaded directly — no stubs (pure data) |
+| `keyword_builder.py` | Qt/RDKit stubbed; `QDialog` etc. as real inheritable stub classes (not `MagicMock()`) |
+| `main_dialog.py` | Qt stubbed; methods called unbound — `__init__` never runs |
+| `__init__.py` | `QMessageBox` stubbed as `MagicMock`; `MagicMock` context passed to `initialize()` |
+| `plugin_api_checker.py` | No stubs — pure stdlib (`ast`, `json`, `pathlib`) |

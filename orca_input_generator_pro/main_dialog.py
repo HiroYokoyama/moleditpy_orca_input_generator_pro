@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -45,6 +46,7 @@ class OrcaSetupDialogPro(QDialog):
         filename=None,
         persistent_settings=None,
         mark_modified=None,
+        get_molecule=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{PLUGIN_NAME} v{PLUGIN_VERSION}")
@@ -55,6 +57,7 @@ class OrcaSetupDialogPro(QDialog):
         self.filename = filename
         self.persistent_settings = persistent_settings
         self.mark_modified = mark_modified
+        self.get_molecule = get_molecule
         self.ui_ready = False
         self.setup_ui()
         self.load_presets_from_file()
@@ -274,15 +277,16 @@ class OrcaSetupDialogPro(QDialog):
         self.update_preview()
 
     def _resolve_live_mol(self):
-        """Prefer the currently active molecule in the 3D manager."""
+        """Prefer the currently active molecule via the context API callback."""
         try:
-            mw = self.parent()
-            if mw and hasattr(mw, "view_3d_manager"):
-                live = mw.view_3d_manager.current_mol
-                if live is not None:
-                    self.mol = live
+            if self.get_molecule is not None:
+                live = self.get_molecule()
+            else:
+                live = getattr(self.parent(), "current_mol", None)
+            if live is not None:
+                self.mol = live
         except Exception as _e:
-            logging.warning("[main_dialog.py:238] silenced: %s", _e)
+            logging.warning("_resolve_live_mol failed: %s", _e)
         return self.mol
 
     def update_preview(self):
@@ -306,7 +310,7 @@ class OrcaSetupDialogPro(QDialog):
             try:
                 self.mark_modified()
             except Exception as _e:
-                logging.warning("[main_dialog.py] mark_modified failed: %s", _e)
+                logging.warning("mark_modified failed: %s", _e)
 
     def load_persistent_settings(self):
         if not self.persistent_settings:
@@ -354,7 +358,7 @@ class OrcaSetupDialogPro(QDialog):
             # Total system memory
             total_mb = psutil.virtual_memory().total // (1024 * 1024)
         except Exception as _e:
-            logging.warning("[main_dialog.py:297] silenced: %s", _e)
+            logging.warning("auto_detect_mem failed: %s", _e)
 
         # Use roughly 75-80% of total memory to be safe, divided by nprocs
         nprocs = self.nproc_spin.value()
@@ -397,8 +401,6 @@ class OrcaSetupDialogPro(QDialog):
                 default_base = os.path.splitext(base_name)[0]
 
         # Ensure default_base doesn't have invalid chars
-        import re
-
         default_base = re.sub(r'[\\/*?:"<>|]', "_", default_base).strip()
         # Remove any leading underscores that might have come from path separators
         default_base = default_base.lstrip("_")
@@ -563,80 +565,77 @@ class OrcaSetupDialogPro(QDialog):
         """Helper to build Z-Matrix connectivity and values."""
         if not self._resolve_live_mol():
             return None
-        try:
-            atoms = list(self.mol.GetAtoms())
-            conf = self.mol.GetConformer()
+        atoms = list(self.mol.GetAtoms())
+        conf = self.mol.GetConformer()
 
-            def get_dist(i, j):
-                return rdMolTransforms.GetBondLength(conf, i, j)
+        def get_dist(i, j):
+            return rdMolTransforms.GetBondLength(conf, i, j)
 
-            def get_angle(i, j, k):
-                return rdMolTransforms.GetAngleDeg(conf, i, j, k)
+        def get_angle(i, j, k):
+            return rdMolTransforms.GetAngleDeg(conf, i, j, k)
 
-            def get_dihedral(i, j, k, m):
-                return rdMolTransforms.GetDihedralDeg(conf, i, j, k, m)
+        def get_dihedral(i, j, k, m):
+            return rdMolTransforms.GetDihedralDeg(conf, i, j, k, m)
 
-            defined = []
-            z_data = []  # List of dicts for each atom
+        defined = []
+        z_data = []  # List of dicts for each atom
 
-            for i, atom in enumerate(atoms):
-                # Use custom symbol from XYZ Editor if present, otherwise element symbol
-                symbol = (
-                    atom.GetProp("custom_symbol")
-                    if atom.HasProp("custom_symbol")
-                    else atom.GetSymbol()
-                )
+        for i, atom in enumerate(atoms):
+            # Use custom symbol from XYZ Editor if present, otherwise element symbol
+            symbol = (
+                atom.GetProp("custom_symbol")
+                if atom.HasProp("custom_symbol")
+                else atom.GetSymbol()
+            )
 
-                # Atom 0
-                if i == 0:
-                    z_data.append({"symbol": symbol, "refs": []})
-                    defined.append(i)
-                    continue
-
-                # Find neighbors in defined set
-                neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
-                candidates = [n for n in neighbors if n in defined]
-                if not candidates:
-                    candidates = defined[:]  # Fallback
-
-                refs = []
-                # Ref 1 (Distance)
-                if candidates:
-                    refs.append(candidates[-1])
-                else:
-                    refs.append(0)
-
-                # Ref 2 (Angle)
-                candidates_2 = [x for x in defined if x != refs[0]]
-                if candidates_2:
-                    refs.append(candidates_2[-1])
-
-                # Ref 3 (Dihedral)
-                candidates_3 = [x for x in defined if x not in refs]
-                if candidates_3:
-                    refs.append(candidates_3[-1])
-
-                # Calculate Values
-                row = {"symbol": symbol, "refs": [], "values": []}
-
-                if len(refs) >= 1:
-                    row["refs"].append(refs[0])  # 0-based index for calculation
-                    row["values"].append(get_dist(i, refs[0]))
-
-                if len(refs) >= 2:
-                    row["refs"].append(refs[1])
-                    row["values"].append(get_angle(i, refs[0], refs[1]))
-
-                if len(refs) >= 3:
-                    row["refs"].append(refs[2])
-                    row["values"].append(get_dihedral(i, refs[0], refs[1], refs[2]))
-
-                z_data.append(row)
+            # Atom 0
+            if i == 0:
+                z_data.append({"symbol": symbol, "refs": []})
                 defined.append(i)
+                continue
 
-            return z_data
-        except Exception as e:
-            raise e
+            # Find neighbors in defined set
+            neighbors = [n.GetIdx() for n in atom.GetNeighbors()]
+            candidates = [n for n in neighbors if n in defined]
+            if not candidates:
+                candidates = defined[:]  # Fallback
+
+            refs = []
+            # Ref 1 (Distance)
+            if candidates:
+                refs.append(candidates[-1])
+            else:
+                refs.append(0)
+
+            # Ref 2 (Angle)
+            candidates_2 = [x for x in defined if x != refs[0]]
+            if candidates_2:
+                refs.append(candidates_2[-1])
+
+            # Ref 3 (Dihedral)
+            candidates_3 = [x for x in defined if x not in refs]
+            if candidates_3:
+                refs.append(candidates_3[-1])
+
+            # Calculate Values
+            row = {"symbol": symbol, "refs": [], "values": []}
+
+            if len(refs) >= 1:
+                row["refs"].append(refs[0])  # 0-based index for calculation
+                row["values"].append(get_dist(i, refs[0]))
+
+            if len(refs) >= 2:
+                row["refs"].append(refs[1])
+                row["values"].append(get_angle(i, refs[0], refs[1]))
+
+            if len(refs) >= 3:
+                row["refs"].append(refs[2])
+                row["values"].append(get_dihedral(i, refs[0], refs[1], refs[2]))
+
+            z_data.append(row)
+            defined.append(i)
+
+        return z_data
 
     def get_zmatrix_standard_lines(self):
         """
@@ -787,8 +786,6 @@ class OrcaSetupDialogPro(QDialog):
         Merge redundant % blocks, deduplicate keywords, and ensure blank line spacing.
         Distinguishes between pre-coordinate and post-coordinate blocks.
         """
-        import re
-
         lines = text.splitlines()
 
         # 1. Split into Pre-Coord, Coords, and Post-Coord zones
@@ -1000,7 +997,7 @@ class OrcaSetupDialogPro(QDialog):
                 with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     self.presets_data = json.load(f)
             except Exception as e:
-                print(f"Error loading presets: {e}")
+                logging.warning("Error loading presets: %s", e)
 
         if "Default" not in self.presets_data:
             self.presets_data["Default"] = {
@@ -1077,7 +1074,7 @@ class OrcaSetupDialogPro(QDialog):
         try:
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
                 json.dump(self.presets_data, f, indent=4)
-        except Exception as e:
+        except OSError as e:
             QMessageBox.warning(self, "Error", f"Failed to save presets: {e}")
 
     def save_global_settings(self):
@@ -1110,7 +1107,7 @@ class OrcaSetupDialogPro(QDialog):
             self.mult_spin.setValue(int(mult))
             self.validate_charge_mult()
         except Exception as _e:
-            logging.warning("[main_dialog.py:908] silenced: %s", _e)
+            logging.warning("calc_initial_charge_mult failed: %s", _e)
 
     def validate_charge_mult(self):
         if not self._resolve_live_mol():
@@ -1134,7 +1131,7 @@ class OrcaSetupDialogPro(QDialog):
                 self.mult_spin.setPalette(p)
             self.update_preview()
         except Exception as _e:
-            logging.warning("[main_dialog.py:929] silenced: %s", _e)
+            logging.warning("validate_charge_mult failed: %s", _e)
 
     def closeEvent(self, event):
         if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:

@@ -27,6 +27,7 @@ from rdkit.Chem import rdMolTransforms
 from .constants import ALL_ORCA_METHODS, ALL_ORCA_BASIS_SETS
 from .mixins import Dialog3DPickingMixin
 import logging
+import re
 
 
 class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
@@ -916,7 +917,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     for i, idx in enumerate(row_indices):
                         all_to_label.append((idx, f"C{row + 1}:A{i + 1}"))
                 except Exception as _e:
-                    logging.warning("[keyword_builder.py:541] silenced: %s", _e)
+                    logging.warning("update_selection_display: %s", _e)
 
         self.show_atom_labels_for(all_to_label, color="yellow")
 
@@ -1060,8 +1061,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if scan_lines:
             res += "  Scan\n" + "\n".join(scan_lines) + "\n  end\n"
 
-        if res:
-            pass  # Remove the previously added blank line
         return res
 
     def connect_signals(self):
@@ -1553,8 +1552,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.iter256_chk.setChecked(True)
 
         # 2. Parse Blocks (%geom, %tddft)
-        import re
-
         # Split by % to get blocks (e.g. ['! ...', '%geom ...', '%scf ...'])
         block_sections = re.split(r"(?=%[a-zA-Z])", route)
         for section in block_sections:

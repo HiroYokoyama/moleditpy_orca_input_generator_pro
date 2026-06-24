@@ -46,10 +46,7 @@ class Dialog3DPickingMixin:
             obj == v3d.plotter.interactor
             and event.type() == QtCore.QEvent.Type.MouseMove
         ):
-            if (
-                getattr(self, "_mouse_press_pos", None) is not None
-                and self._mouse_press_pos is not None
-            ):
+            if getattr(self, "_mouse_press_pos", None) is not None:
                 if (event.pos() - self._mouse_press_pos).manhattanLength() > 3:
                     self._mouse_moved = True
         elif (
@@ -84,7 +81,7 @@ class Dialog3DPickingMixin:
                 if v3d and getattr(v3d, "plotter", None):
                     v3d.plotter.remove_actor(label_actor)
             except Exception as _e:
-                logging.warning("[mixins.py:69] silenced: %s", _e)
+                logging.warning("clear_selection_labels: %s", _e)
         self.selection_labels = []
 
     clear_atom_labels = clear_selection_labels

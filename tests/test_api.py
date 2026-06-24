@@ -1,4 +1,3 @@
-import sys
 import json
 import tempfile
 import textwrap
@@ -17,13 +16,16 @@ _DEFAULT_APP_CANDIDATES = [
     _WORKSPACE_ROOT / "python_molecular_editor",
     _PLUGIN_ROOT / "python_molecular_editor",  # CI path
 ]
-_APP_PATH = next((p for p in _DEFAULT_APP_CANDIDATES if p and (p / "moleditpy").exists()), None)
+_APP_PATH = next(
+    (p for p in _DEFAULT_APP_CANDIDATES if p and (p / "moleditpy").exists()), None
+)
 HAS_APP = _APP_PATH is not None
 
 
 # ---------------------------------------------------------------------------
 # Load plugin_api_checker (always present in the repo)
 # ---------------------------------------------------------------------------
+
 
 def _load_checker():
     checker_path = _TESTS_DIR / "plugin_api_checker.py"
@@ -48,7 +50,13 @@ _load_site_allowlist = _checker._load_site_allowlist
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_api(mw_members=None, manager_members=None, manager_class_names=None, context_members=None):
+
+def _make_api(
+    mw_members=None,
+    manager_members=None,
+    manager_class_names=None,
+    context_members=None,
+):
     api = APIInfo()
     if mw_members:
         api.mw_members.update(mw_members)
@@ -61,13 +69,19 @@ def _make_api(mw_members=None, manager_members=None, manager_class_names=None, c
     return api
 
 
-def _check_source(source: str, api: APIInfo, check_context: bool = False, allowlist=None) -> list:
+def _check_source(
+    source: str, api: APIInfo, check_context: bool = False, allowlist=None
+) -> list:
     """Run PluginFileChecker on a string of source via a temp file."""
-    with tempfile.NamedTemporaryFile(suffix=".py", mode="w", encoding="utf-8", delete=False) as f:
+    with tempfile.NamedTemporaryFile(
+        suffix=".py", mode="w", encoding="utf-8", delete=False
+    ) as f:
         f.write(textwrap.dedent(source))
         tmp = Path(f.name)
     try:
-        checker = PluginFileChecker(tmp, api, check_context=check_context, allowlist=allowlist or {})
+        checker = PluginFileChecker(
+            tmp, api, check_context=check_context, allowlist=allowlist or {}
+        )
         return checker.check()
     finally:
         tmp.unlink(missing_ok=True)
@@ -75,7 +89,8 @@ def _check_source(source: str, api: APIInfo, check_context: bool = False, allowl
 
 def _make_synthetic_app(tmp_dir: Path) -> None:
     """Write a minimal main-app tree so AppAPIExtractor has something to parse."""
-    (tmp_dir / "main_window.py").write_text(textwrap.dedent("""\
+    (tmp_dir / "main_window.py").write_text(
+        textwrap.dedent("""\
         class MainWindow:
             mol_loaded = None
 
@@ -88,9 +103,12 @@ def _make_synthetic_app(tmp_dir: Path) -> None:
             @property
             def current_mol(self):
                 pass
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
 
-    (tmp_dir / "state_manager.py").write_text(textwrap.dedent("""\
+    (tmp_dir / "state_manager.py").write_text(
+        textwrap.dedent("""\
         class StateManager:
             def __init__(self, host):
                 self.host = host
@@ -98,9 +116,12 @@ def _make_synthetic_app(tmp_dir: Path) -> None:
 
             def load_mol(self, mol):
                 pass
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
 
-    (tmp_dir / "plugin_interface.py").write_text(textwrap.dedent("""\
+    (tmp_dir / "plugin_interface.py").write_text(
+        textwrap.dedent("""\
         class PluginContext:
             def get_main_window(self): pass
             def add_export_action(self, label, fn): pass
@@ -110,12 +131,15 @@ def _make_synthetic_app(tmp_dir: Path) -> None:
             def register_window(self, key, win): pass
             def get_window(self, key): pass
             def mark_project_modified(self): pass
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
 
 
 # ---------------------------------------------------------------------------
 # TestIssue
 # ---------------------------------------------------------------------------
+
 
 class TestIssue(unittest.TestCase):
     def test_str_in_try_shows_tag(self):
@@ -139,6 +163,7 @@ class TestIssue(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # TestMergeAllowlists
 # ---------------------------------------------------------------------------
+
 
 class TestMergeAllowlists(unittest.TestCase):
     def test_mw_sets_are_unioned(self):
@@ -170,9 +195,12 @@ class TestMergeAllowlists(unittest.TestCase):
 # TestLoadSiteAllowlist
 # ---------------------------------------------------------------------------
 
+
 class TestLoadSiteAllowlist(unittest.TestCase):
     def _write(self, tmp_dir: Path, data: dict):
-        (tmp_dir / ".moleditpy-api-allowlist").write_text(json.dumps(data), encoding="utf-8")
+        (tmp_dir / ".moleditpy-api-allowlist").write_text(
+            json.dumps(data), encoding="utf-8"
+        )
 
     def test_no_file_returns_empty(self):
         with tempfile.TemporaryDirectory() as d:
@@ -205,7 +233,9 @@ class TestLoadSiteAllowlist(unittest.TestCase):
 
     def test_invalid_json_returns_empty(self):
         with tempfile.TemporaryDirectory() as d:
-            (Path(d) / ".moleditpy-api-allowlist").write_text("not json", encoding="utf-8")
+            (Path(d) / ".moleditpy-api-allowlist").write_text(
+                "not json", encoding="utf-8"
+            )
             result = _load_site_allowlist(Path(d))
         self.assertEqual(result, {})
 
@@ -213,6 +243,7 @@ class TestLoadSiteAllowlist(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # TestPluginFileChecker  (synthetic code — no main app required)
 # ---------------------------------------------------------------------------
+
 
 class TestPluginFileChecker(unittest.TestCase):
     def setUp(self):
@@ -225,15 +256,21 @@ class TestPluginFileChecker(unittest.TestCase):
             manager_members={"state_manager": {"load_mol", "mol_data"}},
             manager_class_names={"state_manager": "StateManager"},
             context_members={
-                "get_main_window", "add_export_action",
-                "register_save_handler", "register_load_handler",
-                "register_document_reset_handler", "register_window",
-                "get_window", "mark_project_modified",
+                "get_main_window",
+                "add_export_action",
+                "register_save_handler",
+                "register_load_handler",
+                "register_document_reset_handler",
+                "register_window",
+                "get_window",
+                "mark_project_modified",
             },
         )
 
     def _issues(self, source, check_context=False, allowlist=None):
-        return _check_source(source, self.api, check_context=check_context, allowlist=allowlist)
+        return _check_source(
+            source, self.api, check_context=check_context, allowlist=allowlist
+        )
 
     # --- basic clean code ---
 
@@ -319,7 +356,9 @@ class TestPluginFileChecker(unittest.TestCase):
         self.assertTrue(any(i.code == "UNKNOWN_MANAGER_ATTR" for i in issues))
 
     def test_known_manager_attr_not_flagged(self):
-        self.assertEqual(self._issues("def f(mw):\n    mw.state_manager.load_mol(None)\n"), [])
+        self.assertEqual(
+            self._issues("def f(mw):\n    mw.state_manager.load_mol(None)\n"), []
+        )
 
     # --- context checks ---
 
@@ -363,6 +402,7 @@ class TestPluginFileChecker(unittest.TestCase):
 # TestAppAPIExtractor  (synthetic app tree in temp dir — no main app required)
 # ---------------------------------------------------------------------------
 
+
 class TestAppAPIExtractor(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -403,12 +443,15 @@ class TestAppAPIExtractor(unittest.TestCase):
         self.assertIn("add_export_action", api.context_members)
 
     def test_scans_host_assignments(self):
-        (self.tmp_dir / "extra_manager.py").write_text(textwrap.dedent("""\
+        (self.tmp_dir / "extra_manager.py").write_text(
+            textwrap.dedent("""\
             class ExtraManager:
                 def setup(self, host):
                     self.host = host
                     self.host.plugin_manager = self
-        """), encoding="utf-8")
+        """),
+            encoding="utf-8",
+        )
         api = AppAPIExtractor(self.tmp_dir, verbose=False).extract()
         self.assertIn("plugin_manager", api.mw_members)
 
@@ -417,8 +460,11 @@ class TestAppAPIExtractor(unittest.TestCase):
 # TestAPIChecker — integration test (skipped when main app is not present)
 # ---------------------------------------------------------------------------
 
+
 class TestAPIChecker(unittest.TestCase):
-    @unittest.skipUnless(HAS_APP, "Main application repository (python_molecular_editor) not found")
+    @unittest.skipUnless(
+        HAS_APP, "Main application repository (python_molecular_editor) not found"
+    )
     def test_no_unknown_api_accesses(self):
         checker_mod = _load_checker()
 
@@ -427,14 +473,16 @@ class TestAPIChecker(unittest.TestCase):
 
         site_allowlist = checker_mod._load_site_allowlist(_PLUGIN_ROOT)
         allowlist = checker_mod._merge_allowlists(
-            checker_mod._MANAGER_ALLOWLIST,
-            checker_mod._MW_ALLOWLIST,
-            site_allowlist
+            checker_mod._MANAGER_ALLOWLIST, checker_mod._MW_ALLOWLIST, site_allowlist
         )
 
         plugin_files = []
         for p in _PLUGIN_ROOT.rglob("*.py"):
-            if "tests" in p.parts or any(part.startswith(".") for part in p.parts) or "__pycache__" in p.parts:
+            if (
+                "tests" in p.parts
+                or any(part.startswith(".") for part in p.parts)
+                or "__pycache__" in p.parts
+            ):
                 continue
             if p.name in ("test_api.py", "plugin_api_checker.py"):
                 continue
@@ -443,10 +491,7 @@ class TestAPIChecker(unittest.TestCase):
         all_issues = []
         for pf in plugin_files:
             checker = checker_mod.PluginFileChecker(
-                pf,
-                api,
-                check_context=True,
-                allowlist=allowlist
+                pf, api, check_context=True, allowlist=allowlist
             )
             issues = checker.check()
             if issues:

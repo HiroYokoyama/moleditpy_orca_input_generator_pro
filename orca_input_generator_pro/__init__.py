@@ -1,8 +1,9 @@
+import logging
 import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "3.0.0"
+PLUGIN_VERSION = "3.1.0"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "4.*"
@@ -42,7 +43,8 @@ def run(mw):
             if _context is not None
             else getattr(mw, "current_mol", None)
         )
-    except Exception:
+    except Exception as e:
+        logging.warning("ORCA plugin: could not get current molecule: %s", e)
         mol = None
     if not mol:
         QMessageBox.warning(mw, PLUGIN_NAME, "No molecule loaded.")
@@ -52,9 +54,9 @@ def run(mw):
     try:
         if hasattr(mw, "init_manager"):
             filename = getattr(mw.init_manager, "current_file_path", None)
-    except Exception:
-        filename = None
-    if not filename and hasattr(mw, "windowTitle"):
+    except Exception as e:
+        logging.warning("ORCA plugin: could not get file path: %s", e)
+    if not filename and mw is not None:
         title = mw.windowTitle()
         filename = title.split(" - ")[0].strip() if " - " in title else title.strip()
 
@@ -71,12 +73,18 @@ def run(mw):
         if _context is not None:
             _context.mark_project_modified()
 
+    def _get_molecule():
+        if _context is not None:
+            return _context.current_molecule
+        return getattr(mw, "current_mol", None)
+
     dlg = OrcaSetupDialogPro(
         parent=mw,
         mol=mol,
         filename=filename,
         persistent_settings=current_settings,
         mark_modified=_mark_modified,
+        get_molecule=_get_molecule,
     )
     if _context is not None:
         _context.register_window("dialog", dlg)
@@ -120,8 +128,8 @@ def initialize(context):
         if dlg is not None:
             try:
                 dlg.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("ORCA plugin: could not close dialog on reset: %s", e)
 
     context.register_save_handler(on_save)
     context.register_load_handler(on_load)

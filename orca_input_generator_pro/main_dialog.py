@@ -483,7 +483,7 @@ class OrcaSetupDialogPro(QDialog):
             template = (
                 "%tddft\n"
                 "  NRoots 10       # Number of excited states\n"
-                "  MaxDim 10       # Max dimension of expansion space\n"
+                "  MaxDim 50       # Max dimension of Davidson expansion space (≥5×NRoots)\n"
                 "  TDA true        # Tamm-Dancoff Approximation (true/false)\n"
                 "  IRoot 1         # State of interest for gradient properties\n"
                 "  Triplets false  # Calculate triplet states (singlets are always on by default)\n"

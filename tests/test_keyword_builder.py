@@ -186,6 +186,7 @@ def _make_dialog(
     dlg.opt_loose = _check(loose)
     dlg.opt_cart = _check(cart)
     dlg.opt_calcfc = _check(calcfc)
+    dlg.opt_ts_mode = _check(False)
 
     freq_group = MagicMock()
     freq_group.isVisible.return_value = False
@@ -651,14 +652,10 @@ class TestRouteSolvation(unittest.TestCase):
         r = self._kw("CPCM", "Water")
         self.assertIn("CPCM(Water)", r)
 
-    def test_smd_adds_cpcm_and_smd(self):
+    def test_smd_correct_keyword(self):
         r = self._kw("SMD", "Acetonitrile")
-        self.assertIn("CPCM(Acetonitrile)", r)
-        self.assertIn("SMD", r)
-
-    def test_iefpcm(self):
-        r = self._kw("IEFPCM", "DMSO")
-        self.assertIn("CPCM(DMSO)", r)
+        self.assertIn("SMD(Acetonitrile)", r)
+        self.assertNotIn("CPCM(Acetonitrile)", r)
 
     def test_cpc_water_shortform(self):
         r = self._kw("CPC(Water)")

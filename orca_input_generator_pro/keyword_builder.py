@@ -722,6 +722,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.iter256_chk.stateChanged.connect(self.update_preview)
         opt_layout.addWidget(self.iter256_chk, 1, 2)
 
+        # Row 3: Hessian (for TS / accurate opt)
+        opt_layout.addWidget(self.opt_ts_mode, 2, 0)
+
         self.opt_group.setLayout(opt_layout)
         layout.addWidget(self.opt_group)
 
@@ -743,7 +746,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         self.solv_model = QComboBox()
         self.solv_model.addItems(
-            ["None", "CPCM", "SMD", "IEFPCM", "CPC(Water) (Short)"]
+            ["None", "CPCM", "SMD", "CPC(Water) (Short)"]
         )
         self.solv_model.currentIndexChanged.connect(self.update_ui_state)
         layout.addRow("Solvation Model:", self.solv_model)
@@ -1075,6 +1078,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.opt_loose,
             self.opt_cart,
             self.opt_calcfc,
+            self.opt_ts_mode,
             self.freq_num,
             self.freq_raman,
             self.solv_model,
@@ -1231,6 +1235,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     route_parts.append("Def2/JK")
                 elif "Def2/J" in aux:
                     route_parts.append("Def2/J")
+                elif "AutoAux" in aux:
+                    route_parts.append("AutoAux")
+                elif "NoAux" in aux:
+                    route_parts.append("NoAux")
 
         # Job Type and Opt Options
         job_txt = self.job_type.currentText()
@@ -1278,6 +1286,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 route_parts.append("COpt")
             if self.opt_calcfc.isChecked():
                 route_parts.append("CalcFC")
+            if self.opt_ts_mode.isChecked():
+                route_parts.append("CalcHess")
 
         # Freq Options
         if self.freq_group.isVisible():
@@ -1296,10 +1306,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 if "CPCM" == solv:
                     route_parts.append(f"CPCM({solvent})")
                 elif "SMD" == solv:
-                    route_parts.append(f"CPCM({solvent})")
-                    route_parts.append("SMD")
-                elif "IEFPCM" == solv:
-                    route_parts.append(f"CPCM({solvent})")
+                    route_parts.append(f"SMD({solvent})")
 
         # Dispersion
         disp = self.dispersion.currentText()
@@ -1386,6 +1393,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.opt_loose.setChecked(False)
         self.opt_cart.setChecked(False)
         self.opt_calcfc.setChecked(False)
+        self.opt_ts_mode.setChecked(False)
 
         self.freq_num.setChecked(False)
         self.freq_raman.setChecked(False)
@@ -1475,6 +1483,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.opt_cart.setChecked(True)
             elif tu == "CALCFC":
                 self.opt_calcfc.setChecked(True)
+            elif tu == "CALCHESS":
+                self.opt_ts_mode.setChecked(True)
 
             # 4. Freq Options
             if tu == "NUMFREQ":
@@ -1483,7 +1493,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.freq_raman.setChecked(True)
 
             # 5. Solvation
-            if "(" in tu and any(x in tu for x in ["CPCM", "SMD", "IEFPCM"]):
+            if "(" in tu and any(x in tu for x in ["CPCM", "SMD"]):
                 s_model = tu.split("(")[0]
                 s_name = t.split("(")[1].split(")")[0]
 
@@ -1491,15 +1501,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.solv_model.setCurrentText("CPCM")
                 elif s_model == "SMD":
                     self.solv_model.setCurrentText("SMD")
-                elif s_model == "IEFPCM":
-                    self.solv_model.setCurrentText("IEFPCM")
 
                 for i in range(self.solvent.count()):
                     if self.solvent.itemText(i).upper() == s_name.upper():
                         self.solvent.setCurrentIndex(i)
                         break
-            elif tu == "SMD":
-                self.solv_model.setCurrentText("SMD")
             elif tu == "CPC(WATER)":
                 self.solv_model.setCurrentText("CPC(Water) (Short)")
 
@@ -1523,7 +1529,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.aux_basis.setCurrentText("Def2/J")
             elif tu == "DEF2/JK":
                 self.aux_basis.setCurrentText("Def2/JK")
-            elif tu == "AUTOMX":
+            elif tu == "AUTOAUX":
                 self.aux_basis.setCurrentText("AutoAux")
 
             # 9. SCF / Grid
@@ -1651,6 +1657,16 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                             self._add_parsed_constraint(
                                 c_type, idx_str, start, True, end, steps
                             )
+
+        # Post-parse: restore Scan job type if any scan entries exist in the table
+        # (on_scan_checkbox_state_changed skips this while ui_ready=False)
+        for r in range(self.constraint_table.rowCount()):
+            chk_widget = self.constraint_table.cellWidget(r, 3)
+            if chk_widget:
+                chk = chk_widget.findChild(QCheckBox)
+                if chk and chk.isChecked():
+                    self.job_type.setCurrentText("Scan (Relaxed Surface)")
+                    break
 
         self.ui_ready = True
         self.update_ui_state()

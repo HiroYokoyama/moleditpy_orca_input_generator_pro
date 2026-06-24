@@ -1508,6 +1508,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         break
             elif tu == "CPC(WATER)":
                 self.solv_model.setCurrentText("CPC(Water) (Short)")
+            elif tu == "SMD":
+                # Bare SMD — ORCA 5 legacy format was "CPCM(X) SMD"; recognise it
+                self.solv_model.setCurrentText("SMD")
 
             # 6. Dispersion
             _disp_names = {

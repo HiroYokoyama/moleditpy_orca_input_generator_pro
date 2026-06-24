@@ -57,6 +57,19 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
             )
         )
 
+        # $new_job separator
+        new_job_format = QTextCharFormat()
+        new_job_format.setForeground(QColor("#7B1FA2"))  # Purple
+        new_job_format.setFontWeight(QFont.Weight.Bold)
+        self.rules.append(
+            (
+                QRegularExpression(
+                    r"^\$new_job\b.*", QRegularExpression.CaseInsensitiveOption
+                ),
+                new_job_format,
+            )
+        )
+
         # Comments (#)
         comment_format = QTextCharFormat()
         comment_format.setForeground(QColor("#757575"))  # Grey
@@ -79,10 +92,11 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
                     self.setFormat(m.capturedStart(), m.capturedLength(), format)
                 continue
 
-            # 2. Block/Coord headers: Always if they match the start of line
+            # 2. Block/Coord headers and $new_job: Always if they match the start of line
             if (
                 p_str.startswith("^%")
                 or p_str.startswith("^\\*")
+                or p_str.startswith("^\\$")
                 or "end" in p_str.lower()
             ):
                 match_it = pattern.globalMatch(text)

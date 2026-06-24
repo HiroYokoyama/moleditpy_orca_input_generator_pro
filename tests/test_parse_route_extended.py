@@ -239,6 +239,7 @@ def _make_parse_dialog():
         "opt_loose",
         "opt_cart",
         "opt_calcfc",
+        "opt_ts_mode",
         "freq_num",
         "freq_raman",
         "rijcosx",
@@ -315,6 +316,7 @@ def _make_preview_dialog(
     dlg.opt_loose = _check(loose)
     dlg.opt_cart = _check(cart)
     dlg.opt_calcfc = _check(calcfc)
+    dlg.opt_ts_mode = _check(False)
 
     freq_group = MagicMock()
     freq_group.isVisible.return_value = freq_visible

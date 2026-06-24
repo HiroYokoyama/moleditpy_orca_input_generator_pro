@@ -435,5 +435,146 @@ class TestConsolidateEdgeCases(unittest.TestCase):
         self.assertIsInstance(result, str)
 
 
+# ---------------------------------------------------------------------------
+# Helpers for generate_second_job_content tests
+# ---------------------------------------------------------------------------
+
+
+def _sj_dlg(
+    *,
+    nproc=4,
+    sj_maxcore=4000,
+    sj_kw="! DLPNO-CCSD(T) def2-TZVP TightSCF",
+    sj_coord="xyzfile  (optimized geometry from Job 1)",
+    sj_xyz="myjob.xyz",
+    sj_adv="",
+    charge=0,
+    mult=1,
+    filename=None,
+):
+    """Minimal namespace for generate_second_job_content tests."""
+    dlg = types.SimpleNamespace()
+
+    nproc_spin = MagicMock()
+    nproc_spin.value.return_value = nproc
+    dlg.nproc_spin = nproc_spin
+
+    sj_mem = MagicMock()
+    sj_mem.value.return_value = sj_maxcore
+    dlg.second_job_mem_spin = sj_mem
+
+    sj_kw_edit = MagicMock()
+    sj_kw_edit.toPlainText.return_value = sj_kw
+    dlg.second_job_keywords = sj_kw_edit
+
+    sj_coord_combo = MagicMock()
+    sj_coord_combo.currentText.return_value = sj_coord
+    dlg.second_job_coord_src = sj_coord_combo
+
+    sj_xyz_edit = MagicMock()
+    sj_xyz_edit.text.return_value = sj_xyz
+    dlg.second_job_xyz_name = sj_xyz_edit
+
+    sj_adv_edit = MagicMock()
+    sj_adv_edit.toPlainText.return_value = sj_adv
+    dlg.second_job_adv = sj_adv_edit
+
+    charge_spin = MagicMock()
+    charge_spin.value.return_value = charge
+    dlg.charge_spin = charge_spin
+    mult_spin = MagicMock()
+    mult_spin.value.return_value = mult
+    dlg.mult_spin = mult_spin
+
+    dlg.filename = filename
+    dlg.get_coords_lines = lambda: ["  C   0.000000   0.000000   0.000000"]
+
+    return dlg
+
+
+# ---------------------------------------------------------------------------
+# Tests: generate_second_job_content
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateSecondJobContent(unittest.TestCase):
+    def test_xyzfile_mode_emits_xyzfile_line(self):
+        dlg = _sj_dlg(sj_xyz="water-opt.xyz")
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("* xyzfile 0 1 water-opt.xyz", result)
+        self.assertNotIn("* xyz 0 1", result)
+
+    def test_xyzfile_fallback_from_filename(self):
+        dlg = _sj_dlg(sj_xyz="", filename="/path/to/water.mol")
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("* xyzfile 0 1 water.xyz", result)
+
+    def test_xyzfile_fallback_no_filename(self):
+        dlg = _sj_dlg(sj_xyz="", filename=None)
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("* xyzfile 0 1 PREVJOB.xyz", result)
+
+    def test_copy_mode_emits_coord_block(self):
+        dlg = _sj_dlg(sj_coord="Copy Job 1 coordinates  (same geometry)")
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("* xyz 0 1", result)
+        self.assertIn("C   0.000000", result)
+        self.assertTrue(result.rstrip().endswith("*"))
+
+    def test_resources_inherit_nproc_from_job1(self):
+        dlg = _sj_dlg(nproc=8, sj_maxcore=6000)
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("%pal nprocs 8 end", result)
+        self.assertIn("%maxcore 6000", result)
+
+    def test_single_proc_omits_pal(self):
+        dlg = _sj_dlg(nproc=1, sj_maxcore=2000)
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertNotIn("%pal", result)
+        self.assertIn("%maxcore 2000", result)
+
+    def test_bare_keywords_get_exclamation_prepended(self):
+        dlg = _sj_dlg(sj_kw="DLPNO-CCSD(T) def2-TZVP")
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("! DLPNO-CCSD(T) def2-TZVP", result)
+
+    def test_keywords_with_exclamation_not_doubled(self):
+        dlg = _sj_dlg(sj_kw="! DLPNO-CCSD(T) def2-TZVP")
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertEqual(result.count("!"), 1)
+
+    def test_optional_adv_blocks_included(self):
+        dlg = _sj_dlg(sj_adv="%geom MaxIter 500 end")
+        result = OrcaSetupDialogPro.generate_second_job_content(dlg)
+        self.assertIn("%geom MaxIter 500 end", result)
+
+
+# ---------------------------------------------------------------------------
+# Tests: $new_job boundary in output
+# ---------------------------------------------------------------------------
+
+
+class TestNewJobBoundary(unittest.TestCase):
+    def test_new_job_separator_present(self):
+        first = consolidate("! B3LYP def2-SVP Opt\n\n* xyz 0 1\n  C 0 0 0\n*\n")
+        second = "! DLPNO-CCSD(T) def2-TZVP\n\n* xyzfile 0 1 job.xyz"
+        full = first.rstrip("\n") + "\n\n$new_job\n\n" + second + "\n"
+        self.assertIn("$new_job", full)
+        self.assertIn("DLPNO-CCSD(T)", full)
+        self.assertIn("xyzfile 0 1 job.xyz", full)
+
+    def test_consolidate_does_not_emit_new_job(self):
+        result = consolidate("! B3LYP def2-SVP Opt\n\n* xyz 0 1\n  C 0 0 0\n*\n")
+        self.assertNotIn("$new_job", result)
+
+    def test_new_job_comes_after_first_coord_block(self):
+        first = consolidate("! B3LYP def2-SVP Opt\n\n* xyz 0 1\n  C 0 0 0\n*\n")
+        second = "! DLPNO-CCSD(T) def2-TZVP\n\n* xyzfile 0 1 job.xyz"
+        full = first.rstrip("\n") + "\n\n$new_job\n\n" + second + "\n"
+        coord_pos = full.find("* xyz 0 1")
+        new_job_pos = full.find("$new_job")
+        self.assertGreater(new_job_pos, coord_pos)
+
+
 if __name__ == "__main__":
     unittest.main()

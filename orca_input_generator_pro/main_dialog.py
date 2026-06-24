@@ -219,6 +219,104 @@ class OrcaSetupDialogPro(QDialog):
         adv_group.setLayout(adv_layout)
         settings_layout.addWidget(adv_group)
 
+        # --- 5. Second Job ($new_job) ---
+        sj_group = QGroupBox("Second Job  ($new_job)")
+        sj_outer = QVBoxLayout()
+
+        self.second_job_enable = QCheckBox(
+            "Enable Second Job  (appends $new_job to input)"
+        )
+        self.second_job_enable.toggled.connect(self._update_second_job_ui)
+        self.second_job_enable.toggled.connect(self.update_preview)
+        sj_outer.addWidget(self.second_job_enable)
+
+        self.second_job_container = QWidget()
+        sj_inner = QVBoxLayout(self.second_job_container)
+        sj_inner.setContentsMargins(0, 4, 0, 0)
+
+        # Resources for Job 2 — %pal nprocs inherits from Job 1 (MPI is fixed at launch)
+        sj_res_group = QGroupBox("%maxcore for Job 2")
+        sj_res_form = QFormLayout()
+        sj_res_note = QLabel(
+            "Processors: inherited from Job 1  (MPI is fixed at launch — $new_job cannot change nprocs)\n"
+            "Note: $new_job is deprecated in ORCA 6; consider %Compound for new workflows."
+        )
+        sj_res_note.setWordWrap(True)
+        sj_res_note.setStyleSheet("color: #B45309; font-size: 11px;")
+        sj_res_form.addRow(sj_res_note)
+        sj_h2 = QHBoxLayout()
+        self.second_job_mem_spin = QSpinBox()
+        self.second_job_mem_spin.setRange(100, 999999)
+        self.second_job_mem_spin.setValue(2000)
+        self.second_job_mem_spin.setSuffix(" MB")
+        self.second_job_mem_spin.valueChanged.connect(self.update_preview)
+        sj_h2.addWidget(self.second_job_mem_spin)
+        sj_res_form.addRow("MaxCore:", sj_h2)
+        sj_res_group.setLayout(sj_res_form)
+        sj_inner.addWidget(sj_res_group)
+
+        # Keywords for Job 2
+        sj_kw_group = QGroupBox("Simple Input Line (!)")
+        sj_kw_layout = QVBoxLayout()
+        self.second_job_keywords = QTextEdit()
+        self.second_job_keywords.setPlainText("! DLPNO-CCSD(T) def2-TZVP TightSCF")
+        self.second_job_keywords.setFixedHeight(60)
+        self.second_job_keywords.textChanged.connect(self.update_preview)
+        sj_kw_layout.addWidget(self.second_job_keywords)
+        sj_kw_group.setLayout(sj_kw_layout)
+        sj_inner.addWidget(sj_kw_group)
+
+        # Coordinate source for Job 2
+        sj_coord_group = QGroupBox("Coordinates")
+        sj_coord_form = QFormLayout()
+        self.second_job_coord_src = QComboBox()
+        self.second_job_coord_src.addItems(
+            [
+                "xyzfile  (optimized geometry from Job 1)",
+                "Copy Job 1 coordinates  (same geometry)",
+            ]
+        )
+        self.second_job_coord_src.currentIndexChanged.connect(
+            self._update_second_job_ui
+        )
+        self.second_job_coord_src.currentIndexChanged.connect(self.update_preview)
+        sj_coord_form.addRow("Source:", self.second_job_coord_src)
+        sj_xyz_row = QHBoxLayout()
+        self.second_job_xyz_name = QLineEdit()
+        self.second_job_xyz_name.setPlaceholderText(
+            "e.g.  myjob.xyz   (ORCA .xyz output from Job 1)"
+        )
+        self.second_job_xyz_name.textChanged.connect(self.update_preview)
+        sj_xyz_row.addWidget(self.second_job_xyz_name)
+        self.second_job_xyz_auto = QPushButton("Auto")
+        self.second_job_xyz_auto.setFixedWidth(50)
+        self.second_job_xyz_auto.setToolTip(
+            "Derive filename from source molecule path"
+        )
+        self.second_job_xyz_auto.clicked.connect(self._auto_fill_second_job_xyz)
+        sj_xyz_row.addWidget(self.second_job_xyz_auto)
+        sj_coord_form.addRow("XYZ file:", sj_xyz_row)
+        sj_coord_group.setLayout(sj_coord_form)
+        sj_inner.addWidget(sj_coord_group)
+
+        # Optional % blocks for Job 2
+        sj_adv_group = QGroupBox("% Blocks  (optional)")
+        sj_adv_layout = QVBoxLayout()
+        self.second_job_adv = QTextEdit()
+        self.second_job_adv.setFixedHeight(80)
+        self.second_job_adv.setPlaceholderText(
+            "Optional % blocks for Job 2 only\ne.g.  %geom MaxIter 500 end"
+        )
+        self.second_job_adv.textChanged.connect(self.update_preview)
+        sj_adv_layout.addWidget(self.second_job_adv)
+        sj_adv_group.setLayout(sj_adv_layout)
+        sj_inner.addWidget(sj_adv_group)
+
+        self.second_job_container.setVisible(False)
+        sj_outer.addWidget(self.second_job_container)
+        sj_group.setLayout(sj_outer)
+        settings_layout.addWidget(sj_group)
+
         settings_layout.addStretch()
         scroll_area.setWidget(settings_container)
         content_layout.addWidget(scroll_area, 3)  # Left side settings
@@ -276,6 +374,71 @@ class OrcaSetupDialogPro(QDialog):
         self.setLayout(main_layout)
         self.update_preview()
 
+    # ------------------------------------------------------------------
+    # Second Job (multi-job / $new_job) helpers
+    # ------------------------------------------------------------------
+
+    def _update_second_job_ui(self):
+        """Toggle visibility / enabled state of Job 2 controls."""
+        enabled = self.second_job_enable.isChecked()
+        self.second_job_container.setVisible(enabled)
+        if enabled:
+            use_xyz = "xyzfile" in self.second_job_coord_src.currentText()
+            self.second_job_xyz_name.setEnabled(use_xyz)
+            self.second_job_xyz_auto.setEnabled(use_xyz)
+
+    def _auto_fill_second_job_xyz(self):
+        """Fill xyz filename from the source molecule path."""
+        name = ""
+        if self.filename:
+            raw = self.filename.replace("\\", "/").split("/")[-1]
+            base = os.path.splitext(raw)[0].lstrip("_")
+            if base:
+                name = f"{base}.xyz"
+        self.second_job_xyz_name.setText(name or "job.xyz")
+
+    def generate_second_job_content(self):
+        """Return the text block placed after the $new_job separator."""
+        parts = []
+
+        # nprocs inherited from Job 1 (MPI is fixed at launch)
+        nprocs = self.nproc_spin.value()
+        if nprocs > 1:
+            parts.append(f"%pal nprocs {nprocs} end")
+        parts.append(f"%maxcore {self.second_job_mem_spin.value()}")
+
+        kw = self.second_job_keywords.toPlainText().strip()
+        if kw:
+            if not kw.startswith("!"):
+                kw = "! " + kw
+            parts.append(f"\n{kw}")
+
+        adv2 = self.second_job_adv.toPlainText().strip()
+        if adv2:
+            parts.append(f"\n{adv2}")
+
+        charge = self.charge_spin.value()
+        mult = self.mult_spin.value()
+        if "xyzfile" in self.second_job_coord_src.currentText():
+            xyz = self.second_job_xyz_name.text().strip()
+            if not xyz:
+                if self.filename:
+                    raw = self.filename.replace("\\", "/").split("/")[-1]
+                    base = os.path.splitext(raw)[0].lstrip("_")
+                    xyz = f"{base}.xyz" if base else "PREVJOB.xyz"
+                else:
+                    xyz = "PREVJOB.xyz"
+            parts.append(f"\n* xyzfile {charge} {mult} {xyz}")
+        else:
+            coord_lines = self.get_coords_lines()
+            parts.append(f"\n* xyz {charge} {mult}")
+            parts.extend(coord_lines)
+            parts.append("*")
+
+        return "\n".join(parts)
+
+    # ------------------------------------------------------------------
+
     def _resolve_live_mol(self):
         """Prefer the currently active molecule via the context API callback."""
         try:
@@ -303,6 +466,12 @@ class OrcaSetupDialogPro(QDialog):
             p["adv_post"] = self.post_adv_edit.toPlainText()
             p["comment"] = self.comment_edit.text()
             p["coord_format"] = self.coord_format_combo.currentText()
+            p["second_job_enabled"] = self.second_job_enable.isChecked()
+            p["second_job_maxcore"] = self.second_job_mem_spin.value()
+            p["second_job_keywords"] = self.second_job_keywords.toPlainText()
+            p["second_job_coord_src"] = self.second_job_coord_src.currentText()
+            p["second_job_xyz_name"] = self.second_job_xyz_name.text()
+            p["second_job_adv"] = self.second_job_adv.toPlainText()
 
         self.preview_text.setText(self.generate_input_content())
 
@@ -333,6 +502,19 @@ class OrcaSetupDialogPro(QDialog):
                 self.comment_edit.setText(p["comment"])
             if "coord_format" in p:
                 self.coord_format_combo.setCurrentText(p["coord_format"])
+            if "second_job_enabled" in p:
+                self.second_job_enable.setChecked(p["second_job_enabled"])
+            if "second_job_maxcore" in p:
+                self.second_job_mem_spin.setValue(p["second_job_maxcore"])
+            if "second_job_keywords" in p:
+                self.second_job_keywords.setPlainText(p["second_job_keywords"])
+            if "second_job_coord_src" in p:
+                self.second_job_coord_src.setCurrentText(p["second_job_coord_src"])
+            if "second_job_xyz_name" in p:
+                self.second_job_xyz_name.setText(p["second_job_xyz_name"])
+            if "second_job_adv" in p:
+                self.second_job_adv.setPlainText(p["second_job_adv"])
+            self._update_second_job_ui()
         finally:
             self.blockSignals(False)
 
@@ -456,6 +638,12 @@ class OrcaSetupDialogPro(QDialog):
                     f.write(content)
 
                 QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
+                # Hint the xyzfile name for the second job if not already set
+                if not self.second_job_xyz_name.text():
+                    saved_base = os.path.splitext(os.path.basename(file_path))[0]
+                    self.second_job_xyz_name.setPlaceholderText(
+                        f"e.g.  {saved_base}.xyz   (ORCA .xyz output from Job 1)"
+                    )
                 # Do not close automatically
                 # self.accept()
             except Exception as e:
@@ -779,7 +967,17 @@ class OrcaSetupDialogPro(QDialog):
 
         # 5. Final Consolidation (Merge blocks, dedup MaxIter etc.)
         full_text = "\n".join(content)
-        return self.consolidate_orca_blocks(full_text)
+        result = self.consolidate_orca_blocks(full_text)
+
+        # 6. Second job — appended after consolidation so $new_job boundary is clean
+        if (
+            getattr(self, "second_job_enable", None)
+            and self.second_job_enable.isChecked()
+        ):
+            second_content = self.generate_second_job_content()
+            result = result.rstrip("\n") + "\n\n$new_job\n\n" + second_content + "\n"
+
+        return result
 
     def consolidate_orca_blocks(self, text):
         """
@@ -1042,6 +1240,17 @@ class OrcaSetupDialogPro(QDialog):
         )
         self.adv_edit.setPlainText(data.get("adv", ""))
         self.post_adv_edit.setPlainText(data.get("adv_post", ""))
+        self.second_job_enable.setChecked(data.get("second_job_enabled", False))
+        self.second_job_mem_spin.setValue(data.get("second_job_maxcore", 2000))
+        self.second_job_keywords.setPlainText(
+            data.get("second_job_keywords", "! DLPNO-CCSD(T) def2-TZVP TightSCF")
+        )
+        src = data.get("second_job_coord_src", "")
+        if src:
+            self.second_job_coord_src.setCurrentText(src)
+        self.second_job_xyz_name.setText(data.get("second_job_xyz_name", ""))
+        self.second_job_adv.setPlainText(data.get("second_job_adv", ""))
+        self._update_second_job_ui()
 
         self.update_preview()
 
@@ -1054,6 +1263,12 @@ class OrcaSetupDialogPro(QDialog):
                 "route": self.keywords_edit.toPlainText(),
                 "adv": self.adv_edit.toPlainText(),
                 "adv_post": self.post_adv_edit.toPlainText(),
+                "second_job_enabled": self.second_job_enable.isChecked(),
+                "second_job_maxcore": self.second_job_mem_spin.value(),
+                "second_job_keywords": self.second_job_keywords.toPlainText(),
+                "second_job_coord_src": self.second_job_coord_src.currentText(),
+                "second_job_xyz_name": self.second_job_xyz_name.text(),
+                "second_job_adv": self.second_job_adv.toPlainText(),
             }
             self.save_presets_to_file()
             self.update_preset_combo()

@@ -722,6 +722,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "IRC (Intrinsic Reaction Coordinate)",
                 "EnGrad (Single Point + Gradient)",
                 "NumGrad (Numerical Gradient)",
+                "NumHess (Numerical Hessian only)",
                 "ESD(ABS) (Vibronic Absorption)",
                 "ESD(FLUOR) (Vibronic Fluorescence)",
             ]
@@ -892,12 +893,33 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.zfs_chk = QCheckBox("Zero-Field Splitting (! ZFS)")
         layout.addRow(self.zfs_chk)
 
+        self.uno_chk = QCheckBox("UNO (Unrestricted Natural Orbitals)")
+        layout.addRow(self.uno_chk)
+        self.somo_chk = QCheckBox("SOMO (Singly Occupied MO analysis)")
+        layout.addRow(self.somo_chk)
+        self.fod_chk = QCheckBox("FOD (Fractional Occupation Density)")
+        layout.addRow(self.fod_chk)
+        self.optrot_chk = QCheckBox("OptRot (Optical Rotation)")
+        layout.addRow(self.optrot_chk)
+
+        layout.addRow(QLabel("— Output Verbosity —"))
+        self.print_level = QComboBox()
+        self.print_level.addItems(["Default", "LargePrint", "MiniPrint", "PrintBasis"])
+        layout.addRow("Print Level:", self.print_level)
+
         layout.addRow(QLabel("— RI / Core —"))
         self.nori_chk = QCheckBox("Disable RI (! NoRI)")
         layout.addRow(self.nori_chk)
         self.frozen_core_combo = QComboBox()
         self.frozen_core_combo.addItems(["Default", "FrozenCore", "NoFrozenCore"])
         layout.addRow("Frozen Core (CC):", self.frozen_core_combo)
+
+        layout.addRow(QLabel("— Broken Symmetry (BS-DFT) —"))
+        self.bs_chk = QCheckBox("Enable Broken Symmetry (adds UKS + %scf BrokenSym)")
+        layout.addRow(self.bs_chk)
+        self.bs_spins = QLineEdit("1,1")
+        self.bs_spins.setPlaceholderText("α_flip,β_flip  e.g. 1,1")
+        layout.addRow("Spin flips (α,β):", self.bs_spins)
 
         layout.addRow(QLabel("— Initial Guess —"))
         self.moread_chk = QCheckBox("Read MOs from file (! MOREAD)")
@@ -1197,16 +1219,22 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.relativistic,
             self.pno_preset,
             self.frozen_core_combo,
+            self.print_level,
             self.pop_nbo,
             self.pop_npa,
             self.pop_chelpg,
             self.pop_hirshfeld,
             self.uco_chk,
+            self.uno_chk,
+            self.somo_chk,
+            self.fod_chk,
+            self.optrot_chk,
             self.pol_chk,
             self.hyperpol_chk,
             self.epr_chk,
             self.zfs_chk,
             self.nori_chk,
+            self.bs_chk,
             self.moread_chk,
             self.tddft_enable,
             self.tddft_nroots,
@@ -1242,6 +1270,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             elif isinstance(w, (QTextEdit, QPlainTextEdit)):
                 w.textChanged.connect(self.update_preview)
         self.moread_file.textChanged.connect(self.update_preview)
+        self.bs_spins.textChanged.connect(self.update_preview)
 
     def update_ui_state(self):
         """Update usability of widgets based on current selection."""
@@ -1446,6 +1475,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("EnGrad")
         elif "NumGrad" in job_txt:
             route_parts.append("NumGrad")
+        elif "NumHess" in job_txt:
+            route_parts.append("NumHess")
         elif "ESD(ABS)" in job_txt:
             route_parts.append("ESD(ABS)")
         elif "ESD(FLUOR)" in job_txt:
@@ -1562,6 +1593,19 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("ZFS")
         if self.uco_chk.isChecked():
             route_parts.append("UCO")
+        if self.uno_chk.isChecked():
+            route_parts.append("UNO")
+        if self.somo_chk.isChecked():
+            route_parts.append("SOMO")
+        if self.fod_chk.isChecked():
+            route_parts.append("FOD")
+        if self.optrot_chk.isChecked():
+            route_parts.append("OptRot")
+
+        # Output verbosity
+        pl = self.print_level.currentText()
+        if pl != "Default":
+            route_parts.append(pl)
 
         # RI / Core
         if self.nori_chk.isChecked():
@@ -1569,6 +1613,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         fc = self.frozen_core_combo.currentText()
         if fc != "Default":
             route_parts.append(fc)
+
+        # Broken symmetry
+        if self.bs_chk.isChecked():
+            route_parts.append("UKS")
 
         # MOREAD
         if self.moread_chk.isChecked():
@@ -1610,7 +1658,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             )
             blocks.append(block)
 
-        # 2. Constraints & Scan
+        # 2. Broken Symmetry %scf block
+        if getattr(self, "bs_chk", None) is not None and self.bs_chk.isChecked():
+            spins = self.bs_spins.text().strip() or "1,1"
+            blocks.append(f"%scf\n  BrokenSym {spins}\nend")
+
+        # 3. Constraints & Scan
         if getattr(self, "constraint_table", None) is not None:
             geom_text = self.get_constraints_text()
             # Add MaxIter 256 if checked
@@ -1657,16 +1710,23 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.relativistic.setCurrentText("None")
         self.pno_preset.setCurrentText("Default")
         self.frozen_core_combo.setCurrentText("Default")
+        self.print_level.setCurrentText("Default")
         self.pop_nbo.setChecked(False)
         self.pop_npa.setChecked(False)
         self.pop_chelpg.setChecked(False)
         self.pop_hirshfeld.setChecked(False)
         self.uco_chk.setChecked(False)
+        self.uno_chk.setChecked(False)
+        self.somo_chk.setChecked(False)
+        self.fod_chk.setChecked(False)
+        self.optrot_chk.setChecked(False)
         self.pol_chk.setChecked(False)
         self.hyperpol_chk.setChecked(False)
         self.epr_chk.setChecked(False)
         self.zfs_chk.setChecked(False)
         self.nori_chk.setChecked(False)
+        self.bs_chk.setChecked(False)
+        self.bs_spins.setText("1,1")
         self.moread_chk.setChecked(False)
         self.moread_file.setText("")
         self.tddft_enable.setChecked(False)
@@ -1742,6 +1802,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.job_type.setCurrentText("EnGrad (Single Point + Gradient)")
             elif tu == "NUMGRAD":
                 self.job_type.setCurrentText("NumGrad (Numerical Gradient)")
+            elif tu == "NUMHESS":
+                self.job_type.setCurrentText("NumHess (Numerical Hessian only)")
             elif tu == "ESD(ABS)":
                 self.job_type.setCurrentText("ESD(ABS) (Vibronic Absorption)")
             elif tu == "ESD(FLUOR)":
@@ -1845,6 +1907,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.pop_hirshfeld.setChecked(True)
             elif tu == "UCO":
                 self.uco_chk.setChecked(True)
+            elif tu == "UNO":
+                self.uno_chk.setChecked(True)
+            elif tu == "SOMO":
+                self.somo_chk.setChecked(True)
+            elif tu == "FOD":
+                self.fod_chk.setChecked(True)
+            elif tu == "OPTROT":
+                self.optrot_chk.setChecked(True)
 
             # 10b. Properties
             if tu == "POLARIZABILITY":
@@ -1855,6 +1925,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.epr_chk.setChecked(True)
             elif tu == "ZFS":
                 self.zfs_chk.setChecked(True)
+
+            # 10c-ext. Output verbosity
+            if tu in ["LARGEPRINT", "MINIPRINT", "PRINTBASIS"]:
+                _pl_map = {
+                    "LARGEPRINT": "LargePrint",
+                    "MINIPRINT": "MiniPrint",
+                    "PRINTBASIS": "PrintBasis",
+                }
+                self.print_level.setCurrentText(_pl_map[tu])
 
             # 10c. RI / Core
             if tu == "NORI":
@@ -1939,6 +2018,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.tddft_iroot.setValue(int(ir.group(1)))
                 self.tddft_triplets.setChecked("triplets true" in bcontent.lower())
                 self.tddft_tda.setChecked("tda true" in bcontent.lower())
+
+            elif bname == "scf":
+                bs_match = re.search(r"BrokenSym\s+([\d,]+)", bcontent, re.I)
+                if bs_match:
+                    self.bs_chk.setChecked(True)
+                    self.bs_spins.setText(bs_match.group(1))
 
             elif bname == "geom":
                 if re.search(r"MaxIter\s+256", bcontent, re.I):

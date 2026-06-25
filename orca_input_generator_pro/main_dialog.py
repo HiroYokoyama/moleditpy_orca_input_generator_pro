@@ -213,6 +213,7 @@ class OrcaSetupDialogPro(QDialog):
                 "%basis ... end",
                 "%cpcm ... end",
                 "%rel ... end",
+                "%mp2 ... end",
                 "%freq ... end",
                 "%loc ... end",
                 "%esd ... end",
@@ -832,6 +833,14 @@ class OrcaSetupDialogPro(QDialog):
                 "  method DKH          # DKH / ZORA / ZORA-4\n"
                 "  order  2            # 2 = DKH2 (standard)\n"
                 "  # UseSOCS true      # spin-orbit for ZORA/DKH geometry opt\n"
+                "end\n"
+            )
+        elif "%mp2" in txt:
+            template = (
+                "%mp2\n"
+                "  RI          true      # RI approximation (faster, needs aux basis)\n"
+                "  Density     relaxed   # relaxed / unrelaxed electron density\n"
+                "  # RI_MP2_ALG 0        # 0=conventional, 1=semi-direct\n"
                 "end\n"
             )
         elif "%freq" in txt:

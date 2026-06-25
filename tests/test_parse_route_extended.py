@@ -240,6 +240,7 @@ def _make_parse_dialog():
         "relativistic",
         "pno_preset",
         "frozen_core_combo",
+        "print_level",
     ]:
         setattr(dlg, attr, _combo())
 
@@ -259,11 +260,16 @@ def _make_parse_dialog():
         "pop_chelpg",
         "pop_hirshfeld",
         "uco_chk",
+        "uno_chk",
+        "somo_chk",
+        "fod_chk",
+        "optrot_chk",
         "pol_chk",
         "hyperpol_chk",
         "epr_chk",
         "zfs_chk",
         "nori_chk",
+        "bs_chk",
         "moread_chk",
         "tddft_enable",
         "tddft_triplets",
@@ -285,10 +291,13 @@ def _make_parse_dialog():
     dlg.tddft_nroots = _spinbox()
     dlg.tddft_iroot = _spinbox()
 
-    # moread_file (QLineEdit stub)
+    # moread_file and bs_spins (QLineEdit stubs)
     dlg.moread_file = MagicMock()
     dlg.moread_file.text.return_value = ""
     dlg.moread_file.setText = MagicMock()
+    dlg.bs_spins = MagicMock()
+    dlg.bs_spins.text.return_value = "1,1"
+    dlg.bs_spins.setText = MagicMock()
 
     # constraint_table
     ct = MagicMock()
@@ -386,16 +395,24 @@ def _make_preview_dialog(
     dlg.pno_preset = _combo(pno_preset)
     dlg.pno_preset.isEnabled.return_value = pno_preset_enabled
     dlg.frozen_core_combo = _combo("Default")
+    dlg.print_level = _combo("Default")
     dlg.pop_nbo = _check(False)
     dlg.pop_npa = _check(pop_npa)
     dlg.pop_chelpg = _check(pop_chelpg)
     dlg.pop_hirshfeld = _check(pop_hirshfeld)
     dlg.uco_chk = _check(False)
+    dlg.uno_chk = _check(False)
+    dlg.somo_chk = _check(False)
+    dlg.fod_chk = _check(False)
+    dlg.optrot_chk = _check(False)
     dlg.pol_chk = _check(False)
     dlg.hyperpol_chk = _check(False)
     dlg.epr_chk = _check(False)
     dlg.zfs_chk = _check(False)
     dlg.nori_chk = _check(False)
+    dlg.bs_chk = _check(False)
+    dlg.bs_spins = MagicMock()
+    dlg.bs_spins.text.return_value = "1,1"
     dlg.scf_slowconv = _check(False)
     dlg.scf_veryslowconv = _check(False)
     dlg.moread_chk = _check(moread_chk)
@@ -1239,6 +1256,145 @@ class TestNewJobTypesParseRoute(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # IRC job type
 # ---------------------------------------------------------------------------
+
+
+class TestNumHessPreview(unittest.TestCase):
+    def test_numhess_emits_numhess(self):
+        dlg = _make_preview_dialog(method="B3LYP", job="NumHess (Numerical Hessian only)")
+        self.assertIn("NumHess", _route(dlg).split())
+
+    def test_numhess_does_not_emit_freq(self):
+        dlg = _make_preview_dialog(method="B3LYP", job="NumHess (Numerical Hessian only)")
+        self.assertNotIn("Freq", _route(dlg).split())
+
+
+class TestNumHessParseRoute(unittest.TestCase):
+    def test_parse_numhess(self):
+        dlg = _parse("! B3LYP def2-SVP NumHess")
+        dlg.job_type.setCurrentText.assert_any_call("NumHess (Numerical Hessian only)")
+
+
+class TestUnoSomoFodOptRotPreview(unittest.TestCase):
+    """update_preview emits UNO, SOMO, FOD, OptRot when checkboxes checked."""
+
+    def _r(self, **kw):
+        dlg = _make_preview_dialog(method="B3LYP")
+        for attr, val in kw.items():
+            setattr(dlg, attr, _check(val))
+        return _route(dlg)
+
+    def test_uno_emitted(self):
+        self.assertIn("UNO", self._r(uno_chk=True).split())
+
+    def test_somo_emitted(self):
+        self.assertIn("SOMO", self._r(somo_chk=True).split())
+
+    def test_fod_emitted(self):
+        self.assertIn("FOD", self._r(fod_chk=True).split())
+
+    def test_optrot_emitted(self):
+        self.assertIn("OptRot", self._r(optrot_chk=True).split())
+
+    def test_none_by_default(self):
+        r = self._r()
+        for kw in ("UNO", "SOMO", "FOD", "OptRot"):
+            self.assertNotIn(kw, r.split())
+
+
+class TestUnoSomoFodOptRotParseRoute(unittest.TestCase):
+    def test_parse_uno(self):
+        dlg = _parse("! B3LYP def2-SVP UNO")
+        dlg.uno_chk.setChecked.assert_any_call(True)
+
+    def test_parse_somo(self):
+        dlg = _parse("! B3LYP def2-SVP SOMO")
+        dlg.somo_chk.setChecked.assert_any_call(True)
+
+    def test_parse_fod(self):
+        dlg = _parse("! B3LYP def2-SVP FOD")
+        dlg.fod_chk.setChecked.assert_any_call(True)
+
+    def test_parse_optrot(self):
+        dlg = _parse("! B3LYP def2-SVP OptRot")
+        dlg.optrot_chk.setChecked.assert_any_call(True)
+
+
+class TestPrintLevelPreview(unittest.TestCase):
+    """update_preview emits LargePrint/MiniPrint/PrintBasis."""
+
+    def _r(self, level):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.print_level = _combo(level)
+        return _route(dlg)
+
+    def test_largeprint_emitted(self):
+        self.assertIn("LargePrint", self._r("LargePrint").split())
+
+    def test_miniprint_emitted(self):
+        self.assertIn("MiniPrint", self._r("MiniPrint").split())
+
+    def test_printbasis_emitted(self):
+        self.assertIn("PrintBasis", self._r("PrintBasis").split())
+
+    def test_default_not_emitted(self):
+        r = self._r("Default")
+        for kw in ("LargePrint", "MiniPrint", "PrintBasis"):
+            self.assertNotIn(kw, r.split())
+
+
+class TestPrintLevelParseRoute(unittest.TestCase):
+    def test_parse_largeprint(self):
+        dlg = _parse("! B3LYP def2-SVP LargePrint")
+        dlg.print_level.setCurrentText.assert_any_call("LargePrint")
+
+    def test_parse_miniprint(self):
+        dlg = _parse("! B3LYP def2-SVP MiniPrint")
+        dlg.print_level.setCurrentText.assert_any_call("MiniPrint")
+
+    def test_parse_printbasis(self):
+        dlg = _parse("! B3LYP def2-SVP PrintBasis")
+        dlg.print_level.setCurrentText.assert_any_call("PrintBasis")
+
+
+class TestBrokenSymmetryPreview(unittest.TestCase):
+    """update_preview emits UKS when BS enabled; get_extra_blocks_text adds %scf BrokenSym."""
+
+    def _bs_dlg(self, spins="1,1"):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.bs_chk = _check(True)
+        dlg.bs_spins = MagicMock()
+        dlg.bs_spins.text.return_value = spins
+        return dlg
+
+    def test_bs_emits_uks(self):
+        dlg = self._bs_dlg()
+        self.assertIn("UKS", _route(dlg).split())
+
+    def test_bs_disabled_no_uks(self):
+        dlg = _make_preview_dialog(method="B3LYP")
+        self.assertNotIn("UKS", _route(dlg).split())
+
+    def test_bs_extra_block_has_brokensym(self):
+        from orca_input_generator_pro.keyword_builder import OrcaKeywordBuilderDialog
+        dlg = self._bs_dlg(spins="1,1")
+        dlg.tddft_enable = _check(False)
+        dlg.constraint_table = MagicMock()
+        dlg.constraint_table.rowCount.return_value = 0
+        dlg.iter256_chk = _check(False)
+        dlg.get_constraints_text = lambda: ""
+        extra = OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+        self.assertIn("BrokenSym", extra)
+        self.assertIn("1,1", extra)
+
+
+class TestBrokenSymmetryParseRoute(unittest.TestCase):
+    def test_parse_brokensym_checks_bs_chk(self):
+        dlg = _parse("! UKS B3LYP def2-SVP\n\n%scf\n  BrokenSym 1,1\nend")
+        dlg.bs_chk.setChecked.assert_any_call(True)
+
+    def test_parse_brokensym_sets_spins(self):
+        dlg = _parse("! UKS B3LYP def2-SVP\n\n%scf\n  BrokenSym 1,1\nend")
+        dlg.bs_spins.setText.assert_any_call("1,1")
 
 
 class TestEnGradNumGradEsdPreview(unittest.TestCase):

@@ -840,6 +840,23 @@ class TestAutoInsertBlocksForRoute(unittest.TestCase):
         dlg.adv_edit.setPlainText.assert_not_called()
 
 
+class TestInsertBlockTemplateMp2(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%mp2 ... end")
+
+    def test_mp2_starts_with_percent_mp2(self):
+        self.assertTrue(self._t().strip().startswith("%mp2"))
+
+    def test_mp2_has_ri(self):
+        self.assertIn("RI", self._t())
+
+    def test_mp2_has_density(self):
+        self.assertIn("Density", self._t())
+
+    def test_mp2_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
 class TestInsertBlockTemplateFreq(unittest.TestCase):
     def _t(self):
         return _insert_template("%freq ... end")

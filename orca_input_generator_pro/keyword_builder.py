@@ -490,6 +490,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         )
         layout.addRow("Aux Basis (RI):", self.aux_basis)
 
+        self.cabs_basis = QComboBox()
+        self.cabs_basis.addItems(
+            [
+                "None",
+                "cc-pVDZ-F12-CABS",
+                "cc-pVTZ-F12-CABS",
+                "cc-pVQZ-F12-CABS",
+                "aug-cc-pVDZ/C",
+                "aug-cc-pVTZ/C",
+                "cc-pVTZ-F12-MP2Fit",
+            ]
+        )
+        layout.addRow("CABS Basis (F12):", self.cabs_basis)
+
         self.tab_method.setLayout(layout)
 
     def update_method_list(self):
@@ -705,6 +719,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "NEB-CI (Reaction Path)",
                 "NEB-TS (TS via NEB)",
                 "MD (Molecular Dynamics)",
+                "IRC (Intrinsic Reaction Coordinate)",
             ]
         )
         layout.addWidget(QLabel("Job Task:"))
@@ -838,9 +853,30 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.grid_combo.setCurrentText("Default")
         layout.addRow("Grid:", self.grid_combo)
 
-        # NBO
+        self.relativistic = QComboBox()
+        self.relativistic.addItems(["None", "DKH2", "ZORA", "X2C", "DKH"])
+        layout.addRow("Relativistic:", self.relativistic)
+
+        self.pno_preset = QComboBox()
+        self.pno_preset.addItems(["Default", "NormalPNO", "TightPNO", "LoosePNO"])
+        layout.addRow("PNO Preset (DLPNO):", self.pno_preset)
+
+        layout.addRow(QLabel("— Population Analysis —"))
         self.pop_nbo = QCheckBox("NBO Analysis (! NBO)")
         layout.addRow(self.pop_nbo)
+        self.pop_npa = QCheckBox("NPA Charges (! NPA)")
+        layout.addRow(self.pop_npa)
+        self.pop_chelpg = QCheckBox("CHELPG Charges (! CHELPG)")
+        layout.addRow(self.pop_chelpg)
+        self.pop_hirshfeld = QCheckBox("Hirshfeld Charges (! Hirshfeld)")
+        layout.addRow(self.pop_hirshfeld)
+
+        layout.addRow(QLabel("— Initial Guess —"))
+        self.moread_chk = QCheckBox("Read MOs from file (! MOREAD)")
+        layout.addRow(self.moread_chk)
+        self.moread_file = QLineEdit()
+        self.moread_file.setPlaceholderText("e.g.  previous.gbw")
+        layout.addRow("MO File:", self.moread_file)
 
         self.tab_props.setLayout(layout)
 
@@ -1127,7 +1163,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.scf_tight,
             self.scf_verytight,
             self.scf_extreme,
+            self.cabs_basis,
+            self.relativistic,
+            self.pno_preset,
             self.pop_nbo,
+            self.pop_npa,
+            self.pop_chelpg,
+            self.pop_hirshfeld,
+            self.moread_chk,
             self.tddft_enable,
             self.tddft_nroots,
             self.tddft_triplets,
@@ -1159,6 +1202,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 w.valueChanged.connect(self.update_preview)
             elif isinstance(w, (QTextEdit, QPlainTextEdit)):
                 w.textChanged.connect(self.update_preview)
+        self.moread_file.textChanged.connect(self.update_preview)
 
     def update_ui_state(self):
         """Update usability of widgets based on current selection."""
@@ -1214,6 +1258,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         self.opt_group.setVisible(is_opt)
         self.freq_group.setVisible(is_freq)
+
+        # CABS basis: only relevant for explicitly-correlated F12 methods
+        is_f12 = "F12" in method_text.upper()
+        self.cabs_basis.setEnabled(is_f12)
+
+        # PNO preset: only for DLPNO methods
+        is_dlpno = "DLPNO" in method_text.upper()
+        self.pno_preset.setEnabled(is_dlpno)
 
         # 4. TD-DFT tab: only valid for DFT / HF-MP2 (not CC, MR, semi-empirical)
         tddft_ok = "DFT" in mtype or "HF/MP2" in mtype
@@ -1276,6 +1328,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         else:
             route_parts.append(method)
             route_parts.append(basis)
+
+            # CABS basis for F12 methods
+            if self.cabs_basis.isEnabled():
+                cabs = self.cabs_basis.currentText()
+                if cabs != "None":
+                    route_parts.append(cabs)
 
             # RIJCOSX / RI
             if self.rijcosx.isEnabled() and self.rijcosx.isChecked():
@@ -1348,6 +1406,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("NEB-TS")
         elif "Molecular Dynamics" in job_txt:
             route_parts.append("MD")
+        elif "IRC" in job_txt:
+            route_parts.append("IRC")
         elif "SP" in job_txt:
             pass  # No keyword
 
@@ -1407,9 +1467,33 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if grid != "Default":
             route_parts.append(grid)
 
-        # NBO
+        # Relativistic
+        rel = self.relativistic.currentText()
+        if rel != "None":
+            route_parts.append(rel)
+
+        # PNO preset (DLPNO only)
+        if self.pno_preset.isEnabled():
+            pno = self.pno_preset.currentText()
+            if pno != "Default":
+                route_parts.append(pno)
+
+        # Population / charge analysis
         if self.pop_nbo.isChecked():
             route_parts.append("NBO")
+        if self.pop_npa.isChecked():
+            route_parts.append("NPA")
+        if self.pop_chelpg.isChecked():
+            route_parts.append("CHELPG")
+        if self.pop_hirshfeld.isChecked():
+            route_parts.append("Hirshfeld")
+
+        # MOREAD
+        if self.moread_chk.isChecked():
+            route_parts.append("MOREAD")
+            mf = self.moread_file.text().strip()
+            if mf:
+                route_parts.append(f'"{mf}"')
 
         self.route_line = " ".join(route_parts)
         self.preview_str = self.route_line
@@ -1485,7 +1569,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.dispersion.setCurrentText("None")
         self.solv_model.setCurrentText("None")
         self.rijcosx.setChecked(False)
+        self.cabs_basis.setCurrentText("None")
+        self.relativistic.setCurrentText("None")
+        self.pno_preset.setCurrentText("Default")
         self.pop_nbo.setChecked(False)
+        self.pop_npa.setChecked(False)
+        self.pop_chelpg.setChecked(False)
+        self.pop_hirshfeld.setChecked(False)
+        self.moread_chk.setChecked(False)
+        self.moread_file.setText("")
         self.tddft_enable.setChecked(False)
         self.constraint_table.setRowCount(0)
 
@@ -1553,6 +1645,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.job_type.setCurrentText("NEB-TS (TS via NEB)")
             elif tu == "MD":
                 self.job_type.setCurrentText("MD (Molecular Dynamics)")
+            elif tu == "IRC":
+                self.job_type.setCurrentText("IRC (Intrinsic Reaction Coordinate)")
 
             # 3. Opt Options
             if tu == "TIGHTOPT":
@@ -1635,9 +1729,47 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             elif tu == "EXTREMESCF":
                 self.scf_extreme.setChecked(True)
 
-            # 10. NBO
+            # 10. Population / charge analysis
             if tu == "NBO":
                 self.pop_nbo.setChecked(True)
+            elif tu == "NPA":
+                self.pop_npa.setChecked(True)
+            elif tu == "CHELPG":
+                self.pop_chelpg.setChecked(True)
+            elif tu == "HIRSHFELD":
+                self.pop_hirshfeld.setChecked(True)
+
+            # 11. Relativistic
+            if tu in ["DKH2", "ZORA", "X2C", "DKH"]:
+                self.relativistic.setCurrentText(tu)
+
+            # 12. PNO preset
+            _pno_map = {
+                "NORMALPNO": "NormalPNO",
+                "TIGHTPNO": "TightPNO",
+                "LOOSEPNO": "LoosePNO",
+            }
+            if tu in _pno_map:
+                self.pno_preset.setCurrentText(_pno_map[tu])
+
+            # 13. MOREAD
+            if tu == "MOREAD":
+                self.moread_chk.setChecked(True)
+                mo_match = re.search(r'MOREAD\s+"([^"]+)"', route, re.IGNORECASE)
+                if mo_match:
+                    self.moread_file.setText(mo_match.group(1))
+
+            # 14. CABS basis (not in ALL_ORCA_BASIS_SETS — check explicitly)
+            _cabs_map = {
+                "CC-PVDZ-F12-CABS": "cc-pVDZ-F12-CABS",
+                "CC-PVTZ-F12-CABS": "cc-pVTZ-F12-CABS",
+                "CC-PVQZ-F12-CABS": "cc-pVQZ-F12-CABS",
+                "AUG-CC-PVDZ/C": "aug-cc-pVDZ/C",
+                "AUG-CC-PVTZ/C": "aug-cc-pVTZ/C",
+                "CC-PVTZ-F12-MP2FIT": "cc-pVTZ-F12-MP2Fit",
+            }
+            if tu in _cabs_map:
+                self.cabs_basis.setCurrentText(_cabs_map[tu])
 
         # --- AFTER THE LOOP ends ---
         # 11. Detect MaxIter 256 in the whole input string

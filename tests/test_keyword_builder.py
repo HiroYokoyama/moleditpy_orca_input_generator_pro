@@ -214,7 +214,18 @@ def _make_dialog(
     ]:
         setattr(dlg, name, _check(False))
 
+    dlg.cabs_basis = _combo("None")
+    dlg.cabs_basis.isEnabled.return_value = False
+    dlg.relativistic = _combo("None")
+    dlg.pno_preset = _combo("Default")
+    dlg.pno_preset.isEnabled.return_value = False
     dlg.pop_nbo = _check(False)
+    dlg.pop_npa = _check(False)
+    dlg.pop_chelpg = _check(False)
+    dlg.pop_hirshfeld = _check(False)
+    dlg.moread_chk = _check(False)
+    dlg.moread_file = MagicMock()
+    dlg.moread_file.text.return_value = ""
     dlg.tddft_enable = _check(False)
     dlg.iter256_chk = _check(False)
     dlg.constraint_table = None

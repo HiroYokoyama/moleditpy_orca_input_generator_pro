@@ -185,6 +185,7 @@ _JOB_ITEMS = [
     "NEB-CI (Reaction Path)",
     "NEB-TS (TS via NEB)",
     "MD (Molecular Dynamics)",
+    "IRC (Intrinsic Reaction Coordinate)",
 ]
 
 
@@ -230,11 +231,14 @@ def _make_parse_dialog():
         "method_name",
         "basis_set",
         "aux_basis",
+        "cabs_basis",
         "grid_combo",
         "job_type",
         "solv_model",
         "solvent",
         "dispersion",
+        "relativistic",
+        "pno_preset",
     ]:
         setattr(dlg, attr, _combo())
 
@@ -250,6 +254,10 @@ def _make_parse_dialog():
         "freq_raman",
         "rijcosx",
         "pop_nbo",
+        "pop_npa",
+        "pop_chelpg",
+        "pop_hirshfeld",
+        "moread_chk",
         "tddft_enable",
         "tddft_triplets",
         "tddft_tda",
@@ -267,6 +275,11 @@ def _make_parse_dialog():
     # SpinBoxes
     dlg.tddft_nroots = _spinbox()
     dlg.tddft_iroot = _spinbox()
+
+    # moread_file (QLineEdit stub)
+    dlg.moread_file = MagicMock()
+    dlg.moread_file.text.return_value = ""
+    dlg.moread_file.setText = MagicMock()
 
     # constraint_table
     ct = MagicMock()
@@ -305,6 +318,16 @@ def _make_preview_dialog(
     rijcosx=False,
     freq_visible=False,
     freq_num=False,
+    relativistic="None",
+    pno_preset="Default",
+    pno_preset_enabled=False,
+    pop_npa=False,
+    pop_chelpg=False,
+    pop_hirshfeld=False,
+    moread_chk=False,
+    moread_file="",
+    cabs_basis="None",
+    cabs_enabled=False,
 ):
     dlg = types.SimpleNamespace()
     dlg.ui_ready = True
@@ -348,7 +371,18 @@ def _make_preview_dialog(
     ]:
         setattr(dlg, name, _check(False))
 
+    dlg.cabs_basis = _combo(cabs_basis)
+    dlg.cabs_basis.isEnabled.return_value = cabs_enabled
+    dlg.relativistic = _combo(relativistic)
+    dlg.pno_preset = _combo(pno_preset)
+    dlg.pno_preset.isEnabled.return_value = pno_preset_enabled
     dlg.pop_nbo = _check(False)
+    dlg.pop_npa = _check(pop_npa)
+    dlg.pop_chelpg = _check(pop_chelpg)
+    dlg.pop_hirshfeld = _check(pop_hirshfeld)
+    dlg.moread_chk = _check(moread_chk)
+    dlg.moread_file = MagicMock()
+    dlg.moread_file.text.return_value = moread_file
     dlg.tddft_enable = _check(False)
     dlg.iter256_chk = _check(False)
     dlg.constraint_table = MagicMock()
@@ -918,8 +952,10 @@ def _make_ui_state_dialog(method="B3LYP"):
     dlg.method_name = _combo(method)
     dlg.basis_set = MagicMock()
     dlg.aux_basis = MagicMock()
+    dlg.cabs_basis = MagicMock()
     dlg.dispersion = MagicMock()
     dlg.rijcosx = MagicMock()
+    dlg.pno_preset = MagicMock()
     dlg.solv_model = _combo("None")
     dlg.solvent = MagicMock()
     dlg.job_type = _combo("Single Point Energy (SP)")
@@ -1180,6 +1216,237 @@ class TestNewJobTypesParseRoute(unittest.TestCase):
     def test_parse_md(self):
         dlg = _parse("! GFN2-xTB MD")
         dlg.job_type.setCurrentText.assert_any_call("MD (Molecular Dynamics)")
+
+
+# ---------------------------------------------------------------------------
+# IRC job type
+# ---------------------------------------------------------------------------
+
+
+class TestIrcPreview(unittest.TestCase):
+    """update_preview emits IRC keyword for the IRC job type."""
+
+    def test_irc_emits_irc(self):
+        dlg = _make_preview_dialog(method="B3LYP", job="IRC (Intrinsic Reaction Coordinate)")
+        route = _route(dlg)
+        self.assertIn("IRC", route.split())
+
+    def test_irc_does_not_emit_opt(self):
+        dlg = _make_preview_dialog(method="B3LYP", job="IRC (Intrinsic Reaction Coordinate)")
+        route = _route(dlg)
+        self.assertNotIn("Opt", route.split())
+
+
+class TestIrcParseRoute(unittest.TestCase):
+    """parse_route recognises the IRC keyword."""
+
+    def test_parse_irc(self):
+        dlg = _parse("! B3LYP def2-SVP IRC")
+        dlg.job_type.setCurrentText.assert_any_call("IRC (Intrinsic Reaction Coordinate)")
+
+
+# ---------------------------------------------------------------------------
+# Relativistic approximations
+# ---------------------------------------------------------------------------
+
+
+class TestRelativisticPreview(unittest.TestCase):
+    """update_preview emits relativistic keywords when selected."""
+
+    def _route_with_rel(self, rel):
+        dlg = _make_preview_dialog(method="B3LYP", relativistic=rel)
+        return _route(dlg)
+
+    def test_dkh2_emits_dkh2(self):
+        self.assertIn("DKH2", self._route_with_rel("DKH2").split())
+
+    def test_zora_emits_zora(self):
+        self.assertIn("ZORA", self._route_with_rel("ZORA").split())
+
+    def test_x2c_emits_x2c(self):
+        self.assertIn("X2C", self._route_with_rel("X2C").split())
+
+    def test_none_relativistic_not_emitted(self):
+        route = self._route_with_rel("None")
+        for kw in ("DKH2", "ZORA", "X2C", "DKH"):
+            self.assertNotIn(kw, route.split())
+
+
+class TestRelativisticParseRoute(unittest.TestCase):
+    """parse_route sets relativistic combo for DKH2, ZORA, X2C."""
+
+    def test_parse_dkh2(self):
+        dlg = _parse("! B3LYP def2-SVP DKH2")
+        dlg.relativistic.setCurrentText.assert_any_call("DKH2")
+
+    def test_parse_zora(self):
+        dlg = _parse("! B3LYP def2-SVP ZORA")
+        dlg.relativistic.setCurrentText.assert_any_call("ZORA")
+
+    def test_parse_x2c(self):
+        dlg = _parse("! B3LYP def2-SVP X2C")
+        dlg.relativistic.setCurrentText.assert_any_call("X2C")
+
+
+# ---------------------------------------------------------------------------
+# PNO preset
+# ---------------------------------------------------------------------------
+
+
+class TestPnoPresetPreview(unittest.TestCase):
+    """update_preview emits PNO preset keywords for DLPNO methods."""
+
+    def _route_with_pno(self, pno):
+        dlg = _make_preview_dialog(method="DLPNO-CCSD(T)", pno_preset=pno, pno_preset_enabled=True)
+        return _route(dlg)
+
+    def test_tightpno_emits_tightpno(self):
+        self.assertIn("TightPNO", self._route_with_pno("TightPNO").split())
+
+    def test_normalpno_emits_normalpno(self):
+        self.assertIn("NormalPNO", self._route_with_pno("NormalPNO").split())
+
+    def test_loosepno_emits_loosepno(self):
+        self.assertIn("LoosePNO", self._route_with_pno("LoosePNO").split())
+
+    def test_default_pno_not_emitted(self):
+        route = self._route_with_pno("Default")
+        for kw in ("TightPNO", "NormalPNO", "LoosePNO"):
+            self.assertNotIn(kw, route.split())
+
+
+class TestPnoPresetParseRoute(unittest.TestCase):
+    """parse_route sets pno_preset combo for TightPNO, NormalPNO, LoosePNO."""
+
+    def test_parse_tightpno(self):
+        dlg = _parse("! DLPNO-CCSD(T) def2-TZVP TightPNO")
+        dlg.pno_preset.setCurrentText.assert_any_call("TightPNO")
+
+    def test_parse_normalpno(self):
+        dlg = _parse("! DLPNO-CCSD(T) def2-TZVP NormalPNO")
+        dlg.pno_preset.setCurrentText.assert_any_call("NormalPNO")
+
+    def test_parse_loosepno(self):
+        dlg = _parse("! DLPNO-CCSD(T) def2-TZVP LoosePNO")
+        dlg.pno_preset.setCurrentText.assert_any_call("LoosePNO")
+
+
+# ---------------------------------------------------------------------------
+# Charge analysis: NPA, CHELPG, Hirshfeld
+# ---------------------------------------------------------------------------
+
+
+class TestChargeAnalysisPreview(unittest.TestCase):
+    """update_preview emits NPA/CHELPG/Hirshfeld when checkboxes are checked."""
+
+    def _route_with_pop(self, **pop_flags):
+        dlg = _make_preview_dialog(method="B3LYP", **pop_flags)
+        return _route(dlg)
+
+    def test_npa_emits_npa(self):
+        self.assertIn("NPA", self._route_with_pop(pop_npa=True).split())
+
+    def test_chelpg_emits_chelpg(self):
+        self.assertIn("CHELPG", self._route_with_pop(pop_chelpg=True).split())
+
+    def test_hirshfeld_emits_hirshfeld(self):
+        self.assertIn("Hirshfeld", self._route_with_pop(pop_hirshfeld=True).split())
+
+    def test_no_pop_flags_absent(self):
+        route = self._route_with_pop()
+        for kw in ("NPA", "CHELPG", "Hirshfeld"):
+            self.assertNotIn(kw, route.split())
+
+
+class TestChargeAnalysisParseRoute(unittest.TestCase):
+    """parse_route checks pop_npa/pop_chelpg/pop_hirshfeld for NPA/CHELPG/Hirshfeld."""
+
+    def test_parse_npa(self):
+        dlg = _parse("! B3LYP def2-SVP NPA")
+        dlg.pop_npa.setChecked.assert_any_call(True)
+
+    def test_parse_chelpg(self):
+        dlg = _parse("! B3LYP def2-SVP CHELPG")
+        dlg.pop_chelpg.setChecked.assert_any_call(True)
+
+    def test_parse_hirshfeld(self):
+        dlg = _parse("! B3LYP def2-SVP Hirshfeld")
+        dlg.pop_hirshfeld.setChecked.assert_any_call(True)
+
+
+# ---------------------------------------------------------------------------
+# MOREAD
+# ---------------------------------------------------------------------------
+
+
+class TestMoreadPreview(unittest.TestCase):
+    """update_preview emits MOREAD with filename when checkbox is checked."""
+
+    def test_moread_emits_moread(self):
+        dlg = _make_preview_dialog(method="B3LYP", moread_chk=True, moread_file="prev.gbw")
+        route = _route(dlg)
+        self.assertIn("MOREAD", route.upper())
+
+    def test_moread_includes_filename(self):
+        dlg = _make_preview_dialog(method="B3LYP", moread_chk=True, moread_file="prev.gbw")
+        route = _route(dlg)
+        self.assertIn("prev.gbw", route)
+
+    def test_moread_unchecked_absent(self):
+        dlg = _make_preview_dialog(method="B3LYP", moread_chk=False)
+        route = _route(dlg)
+        self.assertNotIn("MOREAD", route.upper())
+
+
+class TestMoreadParseRoute(unittest.TestCase):
+    """parse_route enables moread_chk and sets moread_file when MOREAD present."""
+
+    def test_parse_moread_checks_checkbox(self):
+        dlg = _parse('! B3LYP def2-SVP MOREAD "prev.gbw"')
+        dlg.moread_chk.setChecked.assert_any_call(True)
+
+    def test_parse_moread_sets_filename(self):
+        dlg = _parse('! B3LYP def2-SVP MOREAD "prev.gbw"')
+        dlg.moread_file.setText.assert_any_call("prev.gbw")
+
+
+# ---------------------------------------------------------------------------
+# CABS auxiliary basis (F12 methods)
+# ---------------------------------------------------------------------------
+
+
+class TestCabsBasisPreview(unittest.TestCase):
+    """update_preview emits CABS basis alongside F12 method when selected."""
+
+    def test_cabs_dvdz_emitted_for_f12(self):
+        dlg = _make_preview_dialog(
+            method="DLPNO-CCSD(T)-F12",
+            cabs_basis="cc-pVDZ-F12-CABS",
+            cabs_enabled=True,
+        )
+        route = _route(dlg)
+        self.assertIn("cc-pVDZ-F12-CABS", route)
+
+    def test_cabs_disabled_not_emitted(self):
+        dlg = _make_preview_dialog(
+            method="DLPNO-CCSD(T)-F12",
+            cabs_basis="cc-pVDZ-F12-CABS",
+            cabs_enabled=False,
+        )
+        route = _route(dlg)
+        self.assertNotIn("cc-pVDZ-F12-CABS", route)
+
+
+class TestCabsBasisParseRoute(unittest.TestCase):
+    """parse_route sets cabs_basis combo when CABS basis found in route."""
+
+    def test_parse_cabs_dvdz(self):
+        dlg = _parse("! DLPNO-CCSD(T)-F12 cc-pVDZ-F12 cc-pVDZ-F12-CABS")
+        dlg.cabs_basis.setCurrentText.assert_any_call("cc-pVDZ-F12-CABS")
+
+    def test_parse_cabs_dvtz(self):
+        dlg = _parse("! DLPNO-CCSD(T)-F12 cc-pVTZ-F12 cc-pVTZ-F12-CABS")
+        dlg.cabs_basis.setCurrentText.assert_any_call("cc-pVTZ-F12-CABS")
 
 
 if __name__ == "__main__":

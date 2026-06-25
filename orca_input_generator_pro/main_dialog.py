@@ -206,8 +206,13 @@ class OrcaSetupDialogPro(QDialog):
                 "%rocis ... end",
                 "%mrci ... end",
                 "%casscf ... end",
+                "%mdci ... end",
                 "%neb ... end",
                 "%md ... end",
+                "%compound ... EndRun",
+                "%basis ... end",
+                "%cpcm ... end",
+                "%rel ... end",
             ]
         )
         blk_h_layout.addWidget(self.block_combo, 1)
@@ -703,6 +708,14 @@ class OrcaSetupDialogPro(QDialog):
             )
         elif "%casscf" in txt:
             template = "%casscf\n Nel 2\n Norb 2\n Mult 1\n nroots 5\nend\n"
+        elif "%mdci" in txt:
+            template = (
+                "%mdci\n"
+                "  TCutPNO   1e-7   # TightPNO: 1e-7, NormalPNO: 3.3e-7, LoosePNO: 1e-6\n"
+                "  TCutPairs 1e-5   # TightPNO: 1e-5, NormalPNO: 1e-4,  LoosePNO: 1e-3\n"
+                "  TCutMKN   1e-4   # TightPNO: 1e-4, NormalPNO: 1e-3,  LoosePNO: 1e-3\n"
+                "end\n"
+            )
         elif "%neb" in txt:
             template = (
                 "%neb\n"
@@ -718,6 +731,43 @@ class OrcaSetupDialogPro(QDialog):
                 "  Temp        300      # K\n"
                 "  InitVel     Random\n"
                 "  Thermostat  NHCQ  Tau 10\n"
+                "end\n"
+            )
+        elif "%compound" in txt:
+            template = (
+                "%Compound\n"
+                "New_Step\n"
+                "  ! B3LYP def2-SVP Opt TightSCF\n"
+                "  * xyzfile 0 1 start.xyz\n"
+                "Step_End\n"
+                "\n"
+                "New_Step\n"
+                "  ! DLPNO-CCSD(T) def2-TZVP TightSCF\n"
+                "  Read_Geom 1\n"
+                "  * xyzfile 0 1\n"
+                "Step_End\n"
+                "EndRun\n"
+            )
+        elif "%basis" in txt:
+            template = (
+                "%basis\n"
+                "  Basis    \"def2-TZVP\"\n"
+                "  # AuxBasis \"def2/J\"\n"
+                "  # NewGTO 26 \"def2-TZVP\" end  # element-specific override\n"
+                "end\n"
+            )
+        elif "%cpcm" in txt:
+            template = (
+                "%cpcm\n"
+                "  Epsilon    80.4\n"
+                "  Refrac     1.33\n"
+                "end\n"
+            )
+        elif "%rel" in txt:
+            template = (
+                "%rel\n"
+                "  method DKH\n"
+                "  order  2\n"
                 "end\n"
             )
         elif "%eprnmr" in txt:

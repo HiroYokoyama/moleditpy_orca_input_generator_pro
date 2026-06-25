@@ -840,5 +840,86 @@ class TestAutoInsertBlocksForRoute(unittest.TestCase):
         dlg.adv_edit.setPlainText.assert_not_called()
 
 
+class TestInsertBlockTemplateMdci(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%mdci ... end")
+
+    def test_mdci_starts_with_percent_mdci(self):
+        self.assertTrue(self._t().strip().startswith("%mdci"))
+
+    def test_mdci_has_tcutpno(self):
+        self.assertIn("TCutPNO", self._t())
+
+    def test_mdci_has_tcutpairs(self):
+        self.assertIn("TCutPairs", self._t())
+
+    def test_mdci_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateCompound(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%compound ... EndRun")
+
+    def test_compound_starts_with_percent_compound(self):
+        t = self._t().strip()
+        self.assertTrue(t.lower().startswith("%compound"))
+
+    def test_compound_has_new_step(self):
+        self.assertIn("New_Step", self._t())
+
+    def test_compound_has_step_end(self):
+        self.assertIn("Step_End", self._t())
+
+    def test_compound_ends_with_endrun(self):
+        t = self._t().strip()
+        self.assertTrue(t.endswith("EndRun") or "EndRun" in t)
+
+
+class TestInsertBlockTemplateBasis(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%basis ... end")
+
+    def test_basis_starts_with_percent_basis(self):
+        self.assertTrue(self._t().strip().startswith("%basis"))
+
+    def test_basis_has_basis_keyword(self):
+        self.assertIn("Basis", self._t())
+
+    def test_basis_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateCpcm(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%cpcm ... end")
+
+    def test_cpcm_starts_with_percent_cpcm(self):
+        self.assertTrue(self._t().strip().startswith("%cpcm"))
+
+    def test_cpcm_has_epsilon(self):
+        self.assertIn("Epsilon", self._t())
+
+    def test_cpcm_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateRel(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%rel ... end")
+
+    def test_rel_starts_with_percent_rel(self):
+        self.assertTrue(self._t().strip().startswith("%rel"))
+
+    def test_rel_has_method(self):
+        self.assertIn("method", self._t())
+
+    def test_rel_has_order(self):
+        self.assertIn("order", self._t())
+
+    def test_rel_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
 if __name__ == "__main__":
     unittest.main()

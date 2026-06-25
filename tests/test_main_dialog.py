@@ -576,5 +576,62 @@ class TestNewJobBoundary(unittest.TestCase):
         self.assertGreater(new_job_pos, coord_pos)
 
 
+# ---------------------------------------------------------------------------
+# Tests: insert_block_template — %mrci correct ORCA syntax
+# ---------------------------------------------------------------------------
+
+
+def _insert_template(block_label):
+    """Call insert_block_template unbound, return text inserted into adv_edit."""
+    inserted = []
+
+    dlg = types.SimpleNamespace()
+    dlg.block_combo = MagicMock()
+    dlg.block_combo.currentText.return_value = block_label
+
+    text_edit = MagicMock()
+    cursor = MagicMock()
+    cursor.insertText.side_effect = lambda t: inserted.append(t)
+    text_edit.textCursor.return_value = cursor
+
+    dlg.adv_tabs = MagicMock()
+    dlg.adv_tabs.currentWidget.return_value = text_edit
+
+    from PyQt6.QtWidgets import QTextEdit as _QTE  # noqa: F401 — used by isinstance check
+    import PyQt6.QtWidgets as _qtw
+
+    _qtw.QTextEdit = type("QTextEdit", (), {})
+    text_edit.__class__ = _qtw.QTextEdit
+
+    OrcaSetupDialogPro.insert_block_template(dlg)
+    return "".join(inserted)
+
+
+class TestInsertBlockTemplateMrci(unittest.TestCase):
+    def test_mrci_uses_newblock_not_NewBlocks(self):
+        t = _insert_template("%mrci ... end")
+        self.assertNotIn("NewBlocks", t)
+
+    def test_mrci_has_newblock_keyword(self):
+        t = _insert_template("%mrci ... end")
+        self.assertIn("newblock", t)
+
+    def test_mrci_has_refs_cas(self):
+        t = _insert_template("%mrci ... end")
+        self.assertIn("refs cas", t)
+
+    def test_mrci_has_citype(self):
+        t = _insert_template("%mrci ... end")
+        self.assertIn("CIType", t)
+
+    def test_mrci_has_nroots(self):
+        t = _insert_template("%mrci ... end")
+        self.assertIn("nroots", t)
+
+    def test_mrci_outer_block_closed(self):
+        t = _insert_template("%mrci ... end")
+        self.assertTrue(t.strip().endswith("end"))
+
+
 if __name__ == "__main__":
     unittest.main()

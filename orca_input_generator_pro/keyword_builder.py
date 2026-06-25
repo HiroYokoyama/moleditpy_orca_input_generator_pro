@@ -1146,7 +1146,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if is_semi:
             self.rijcosx.setEnabled(False)
             self.rijcosx.setChecked(False)
-            self.rijcosx.setText("RIJCOSX (N/A)")
+            self.rijcosx.setText("RIJCOSX (N/A for semi-empirical)")
+        elif is_3c:
+            self.rijcosx.setEnabled(False)
+            self.rijcosx.setChecked(False)
+            self.rijcosx.setText("RIJCOSX (built-in for 3c methods)")
         else:
             self.rijcosx.setEnabled(True)
             if "Wavefunction" in mtype:
@@ -1225,20 +1229,29 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
             # RIJCOSX / RI
             if self.rijcosx.isEnabled() and self.rijcosx.isChecked():
+                aux = self.aux_basis.currentText()
                 if "Wavefunction" in mtype:
                     route_parts.append("RI")
+                    # Def2/J and Def2/JK are Coulomb-only auxiliaries — wrong for WF RI
+                    # correlation. Use exact comparison so "Auto (Def2/J, etc)" falls
+                    # through to ORCA's default rather than being mapped to AutoAux.
+                    if aux == "NoAux":
+                        route_parts.append("NoAux")
+                    elif aux in ("Def2/J", "Def2/JK"):
+                        route_parts.append("AutoAux")
+                    elif aux == "AutoAux":
+                        route_parts.append("AutoAux")
+                    # "Auto (Def2/J, etc)" or "None" → let ORCA pick its default
                 else:
                     route_parts.append("RIJCOSX")
-
-                aux = self.aux_basis.currentText()
-                if "Def2/JK" in aux:
-                    route_parts.append("Def2/JK")
-                elif "Def2/J" in aux:
-                    route_parts.append("Def2/J")
-                elif "AutoAux" in aux:
-                    route_parts.append("AutoAux")
-                elif "NoAux" in aux:
-                    route_parts.append("NoAux")
+                    if "Def2/JK" in aux:
+                        route_parts.append("Def2/JK")
+                    elif "Def2/J" in aux:
+                        route_parts.append("Def2/J")
+                    elif "AutoAux" in aux:
+                        route_parts.append("AutoAux")
+                    elif "NoAux" in aux:
+                        route_parts.append("NoAux")
 
         # Job Type and Opt Options
         job_txt = self.job_type.currentText()

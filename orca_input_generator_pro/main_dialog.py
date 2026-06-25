@@ -681,7 +681,15 @@ class OrcaSetupDialogPro(QDialog):
         elif "%cis" in txt:
             template = "%cis\n NRoots 10\nend\n"
         elif "%mrci" in txt:
-            template = "%mrci\n NewBlocks 1 1\nend\n"
+            template = (
+                "%mrci\n"
+                "  CIType    MRCI\n"
+                "  newblock  1  *\n"
+                "    refs cas(2,2) end\n"
+                "    nroots  5\n"
+                "  end\n"
+                "end\n"
+            )
         elif "%casscf" in txt:
             template = "%casscf\n Nel 2\n Norb 2\n Mult 1\nend\n"
         elif "%eprnmr" in txt:

@@ -851,5 +851,114 @@ class TestGetExtraBlocksTDDFTOptions(unittest.TestCase):
         self.assertNotIn("%tddft", t)
 
 
+# ---------------------------------------------------------------------------
+# update_preview: WF method + RI uses correct auxiliary basis
+# ---------------------------------------------------------------------------
+
+
+class TestUpdatePreviewWFMethodRI(unittest.TestCase):
+    """WF method + RI: Def2/J and Def2/JK are Coulomb-only — AutoAux emitted instead."""
+
+    def _wf_ri_route(self, aux):
+        dlg = _make_preview_dialog(method="MP2", basis="def2-TZVP", rijcosx=True)
+        dlg.rijcosx.isEnabled.return_value = True
+        dlg.aux_basis = _combo(aux)
+        return _route(dlg)
+
+    def test_def2j_with_wf_emits_autoaux_not_def2j(self):
+        r = self._wf_ri_route("Def2/J")
+        self.assertIn("AutoAux", r)
+        self.assertNotIn("Def2/J", r)
+
+    def test_def2jk_with_wf_emits_autoaux_not_def2jk(self):
+        r = self._wf_ri_route("Def2/JK")
+        self.assertIn("AutoAux", r)
+        tokens = r.split()
+        self.assertNotIn("Def2/JK", tokens)
+        self.assertNotIn("Def2/J", tokens)
+
+    def test_autoaux_with_wf_emits_autoaux(self):
+        r = self._wf_ri_route("AutoAux")
+        self.assertIn("AutoAux", r)
+
+    def test_noaux_with_wf_emits_noaux(self):
+        r = self._wf_ri_route("NoAux")
+        self.assertIn("NoAux", r)
+        self.assertNotIn("Def2/J", r)
+
+    def test_auto_with_wf_emits_nothing_extra(self):
+        # "Auto (Def2/J, etc)" → let ORCA choose; no explicit aux keyword in route
+        r = self._wf_ri_route("Auto (Def2/J, etc)")
+        tokens = r.split()
+        self.assertNotIn("Def2/J", tokens)
+        self.assertNotIn("AutoAux", tokens)
+
+    def test_wf_ri_emits_ri_not_rijcosx(self):
+        r = self._wf_ri_route("AutoAux")
+        tokens = r.split()
+        self.assertIn("RI", tokens)
+        self.assertNotIn("RIJCOSX", tokens)
+
+
+# ---------------------------------------------------------------------------
+# update_ui_state: 3c methods disable RIJCOSX checkbox
+# ---------------------------------------------------------------------------
+
+
+def _make_ui_state_dialog(method="B3LYP"):
+    """Minimal namespace for testing update_ui_state directly."""
+    dlg = types.SimpleNamespace()
+    dlg.ui_ready = True
+    dlg.method_name = _combo(method)
+    dlg.basis_set = MagicMock()
+    dlg.aux_basis = MagicMock()
+    dlg.rijcosx = MagicMock()
+    dlg.solv_model = _combo("None")
+    dlg.solvent = MagicMock()
+    dlg.job_type = _combo("Single Point Energy (SP)")
+    dlg.opt_group = MagicMock()
+    dlg.freq_group = MagicMock()
+    dlg.get_inferred_category = (
+        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    )
+    return dlg
+
+
+class TestUpdateUiState3cMethods(unittest.TestCase):
+    """update_ui_state must disable RIJCOSX for 3c composite methods."""
+
+    def _run(self, method):
+        dlg = _make_ui_state_dialog(method)
+        OrcaKeywordBuilderDialog.update_ui_state(dlg)
+        return dlg
+
+    def test_b97_3c_disables_rijcosx(self):
+        dlg = self._run("B97-3c")
+        dlg.rijcosx.setEnabled.assert_called_with(False)
+
+    def test_b97_3c_unchecks_rijcosx(self):
+        dlg = self._run("B97-3c")
+        dlg.rijcosx.setChecked.assert_called_with(False)
+
+    def test_r2scan_3c_disables_rijcosx(self):
+        dlg = self._run("r2SCAN-3c")
+        dlg.rijcosx.setEnabled.assert_called_with(False)
+
+    def test_pbeh_3c_disables_rijcosx(self):
+        dlg = self._run("PBEh-3c")
+        dlg.rijcosx.setEnabled.assert_called_with(False)
+
+    def test_b3lyp_leaves_rijcosx_enabled(self):
+        dlg = self._run("B3LYP")
+        dlg.rijcosx.setEnabled.assert_called_with(True)
+
+    def test_3c_rijcosx_label_mentions_builtin(self):
+        dlg = self._run("B97-3c")
+        call_args = dlg.rijcosx.setText.call_args
+        self.assertIsNotNone(call_args)
+        label = call_args[0][0].lower()
+        self.assertIn("built-in", label)
+
+
 if __name__ == "__main__":
     unittest.main()

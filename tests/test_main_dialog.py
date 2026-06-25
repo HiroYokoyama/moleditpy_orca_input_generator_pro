@@ -87,6 +87,8 @@ def _install_stubs():
     qt_gui.QTextCharFormat = MagicMock
     qt_gui.QAction = MagicMock
     qt_gui.QIcon = MagicMock
+    qt_gui.QKeySequence = MagicMock
+    qt_gui.QShortcut = MagicMock
 
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core
@@ -162,6 +164,23 @@ OrcaSetupDialogPro = _main_mod.OrcaSetupDialogPro
 def consolidate(text):
     """Call consolidate_orca_blocks as unbound — self not needed."""
     return OrcaSetupDialogPro.consolidate_orca_blocks(None, text)
+
+
+def _make_doc_dlg(saved_content="! B3LYP\n", current_content=None, inp_file=None):
+    """Minimal namespace for testing document-state helpers."""
+    dlg = types.SimpleNamespace()
+    dlg.current_inp_file = inp_file
+    dlg._saved_inp_content = saved_content
+    dlg._current_content = (
+        current_content if current_content is not None else saved_content
+    )
+    pt = MagicMock()
+    pt.toPlainText.return_value = (
+        current_content if current_content is not None else saved_content
+    )
+    dlg.preview_text = pt
+    dlg._is_modified = lambda: OrcaSetupDialogPro._is_modified(dlg)
+    return dlg
 
 
 # ---------------------------------------------------------------------------
@@ -605,6 +624,63 @@ def _insert_template(block_label):
 
     OrcaSetupDialogPro.insert_block_template(dlg)
     return "".join(inserted)
+
+
+# ---------------------------------------------------------------------------
+# Tests: document state (_is_modified, _update_title)
+# ---------------------------------------------------------------------------
+
+
+class TestIsModified(unittest.TestCase):
+    def test_no_file_never_modified(self):
+        dlg = _make_doc_dlg(inp_file=None)
+        self.assertFalse(OrcaSetupDialogPro._is_modified(dlg))
+
+    def test_no_saved_content_never_modified(self):
+        dlg = _make_doc_dlg(inp_file="/tmp/x.inp")
+        dlg._saved_inp_content = None
+        self.assertFalse(OrcaSetupDialogPro._is_modified(dlg))
+
+    def test_identical_content_not_modified(self):
+        dlg = _make_doc_dlg(
+            inp_file="/tmp/x.inp", saved_content="A", current_content="A"
+        )
+        self.assertFalse(OrcaSetupDialogPro._is_modified(dlg))
+
+    def test_changed_content_is_modified(self):
+        dlg = _make_doc_dlg(
+            inp_file="/tmp/x.inp", saved_content="A", current_content="B"
+        )
+        self.assertTrue(OrcaSetupDialogPro._is_modified(dlg))
+
+
+class TestUpdateTitle(unittest.TestCase):
+    def _run(self, **kw):
+        dlg = _make_doc_dlg(**kw)
+        dlg.setWindowTitle = MagicMock()
+        OrcaSetupDialogPro._update_title(dlg)
+        return dlg.setWindowTitle.call_args[0][0]
+
+    def test_no_file_shows_plugin_name(self):
+        title = self._run(inp_file=None)
+        from orca_input_generator_pro import PLUGIN_NAME
+
+        self.assertIn(PLUGIN_NAME, title)
+        self.assertNotIn("*", title)
+
+    def test_saved_file_shows_basename(self):
+        title = self._run(
+            inp_file="/path/to/job.inp", saved_content="A", current_content="A"
+        )
+        self.assertIn("job.inp", title)
+        self.assertNotIn("*", title)
+
+    def test_modified_file_shows_asterisk(self):
+        title = self._run(
+            inp_file="/path/to/job.inp", saved_content="A", current_content="B"
+        )
+        self.assertIn("job.inp", title)
+        self.assertIn("*", title)
 
 
 class TestInsertBlockTemplateMrci(unittest.TestCase):

@@ -103,6 +103,8 @@ def _install_stubs():
     qt_gui.QTextCharFormat = MagicMock
     qt_gui.QAction = MagicMock
     qt_gui.QIcon = MagicMock
+    qt_gui.QKeySequence = MagicMock
+    qt_gui.QShortcut = MagicMock
 
     pyqt6.QtWidgets = qt_widgets
     pyqt6.QtCore = qt_core

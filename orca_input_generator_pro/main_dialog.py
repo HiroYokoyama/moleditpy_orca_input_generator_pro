@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QInputDialog,
     QCheckBox,
 )
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtGui import QFont, QPalette, QColor, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt
 
 from rdkit import Chem
@@ -58,8 +58,13 @@ class OrcaSetupDialogPro(QDialog):
         self.persistent_settings = persistent_settings
         self.mark_modified = mark_modified
         self.get_molecule = get_molecule
+        self.current_inp_file = None  # path of the .inp file last saved/opened
+        self._saved_inp_content = None  # content at last save (for dirty detection)
+        self._current_content = ""  # cached output of the most recent generate
         self.ui_ready = False
         self.setup_ui()
+        ctrl_s = QShortcut(QKeySequence.StandardKey.Save, self)
+        ctrl_s.activated.connect(self._on_ctrl_s)
         self.load_presets_from_file()
         self.load_persistent_settings()
         self.calc_initial_charge_mult()
@@ -471,7 +476,9 @@ class OrcaSetupDialogPro(QDialog):
             p["second_job_xyz_name"] = self.second_job_xyz_name.text()
             p["second_job_adv"] = self.second_job_adv.toPlainText()
 
-        self.preview_text.setText(self.generate_input_content())
+        self._current_content = self.generate_input_content()
+        self.preview_text.setText(self._current_content)
+        self._update_title()
 
         if self.mark_modified is not None:
             try:
@@ -635,15 +642,17 @@ class OrcaSetupDialogPro(QDialog):
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
 
-                QMessageBox.information(self, "Success", f"File saved:\n{file_path}")
+                self.current_inp_file = file_path
+                self._saved_inp_content = content
+                self._update_title()
+
+                QMessageBox.information(self, "Saved", f"File saved:\n{file_path}")
                 # Hint the xyzfile name for the second job if not already set
                 if not self.second_job_xyz_name.text():
                     saved_base = os.path.splitext(os.path.basename(file_path))[0]
                     self.second_job_xyz_name.setPlaceholderText(
                         f"e.g.  {saved_base}.xyz   (ORCA .xyz output from Job 1)"
                     )
-                # Do not close automatically
-                # self.accept()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
@@ -1357,7 +1366,64 @@ class OrcaSetupDialogPro(QDialog):
     def closeEvent(self, event):
         if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
             self.builder_dialog.close()
+        if self.current_inp_file and self._is_modified():
+            name = os.path.basename(self.current_inp_file)
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                f'Save changes to "{name}"?',
+                QMessageBox.StandardButton.Save
+                | QMessageBox.StandardButton.Discard
+                | QMessageBox.StandardButton.Cancel,
+            )
+            if reply == QMessageBox.StandardButton.Save:
+                self._save_current_file()
+                if self._is_modified():  # save failed
+                    event.ignore()
+                    return
+            elif reply == QMessageBox.StandardButton.Cancel:
+                event.ignore()
+                return
         super().closeEvent(event)
+
+    def _is_modified(self):
+        """True when the current preview differs from the last-saved snapshot.
+
+        Uses the in-memory snapshot for speed (called on every UI change).
+        The close dialog additionally reads from disk to catch external edits.
+        """
+        if self.current_inp_file is None or self._saved_inp_content is None:
+            return False
+        return self.preview_text.toPlainText() != self._saved_inp_content
+
+    def _update_title(self):
+        base = f"{PLUGIN_NAME} v{PLUGIN_VERSION}"
+        if self.current_inp_file:
+            name = os.path.basename(self.current_inp_file)
+            dirty = " *" if self._is_modified() else ""
+            self.setWindowTitle(f"{name}{dirty} — {base}")
+        else:
+            self.setWindowTitle(base)
+
+    def _save_current_file(self):
+        """Overwrite current_inp_file with the current preview content."""
+        if not self.current_inp_file:
+            return
+        try:
+            content = self.preview_text.toPlainText()
+            with open(self.current_inp_file, "w", encoding="utf-8") as f:
+                f.write(content)
+            self._saved_inp_content = content
+            self._current_content = content
+            self._update_title()
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Could not save file:\n{e}")
+
+    def _on_ctrl_s(self):
+        if self.current_inp_file:
+            self._save_current_file()
+        else:
+            self.save_file()  # show SaveAs dialog
 
     def accept(self):
         if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:

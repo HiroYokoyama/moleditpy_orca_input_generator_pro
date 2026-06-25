@@ -181,6 +181,10 @@ _JOB_ITEMS = [
     "Transition State Opt (OptTS)",
     "Gradient",
     "Hessian",
+    "GOAT (Global Search)",
+    "NEB-CI (Reaction Path)",
+    "NEB-TS (TS via NEB)",
+    "MD (Molecular Dynamics)",
 ]
 
 
@@ -1119,6 +1123,63 @@ class TestTddftTabDisabledForCC(unittest.TestCase):
 
     def test_mp2_enables_tddft_tab(self):
         self.assertTrue(self._tab_enabled("MP2"))
+
+
+# ---------------------------------------------------------------------------
+# New job types: GOAT, NEB-CI, NEB-TS, MD
+# ---------------------------------------------------------------------------
+
+
+class TestNewJobTypesPreview(unittest.TestCase):
+    """update_preview emits the correct ORCA keyword for each new job type."""
+
+    def _route(self, job):
+        dlg = _make_preview_dialog(method="B3LYP", job=job)
+        return _route(dlg)
+
+    def test_goat_emits_goat(self):
+        self.assertIn("GOAT", self._route("GOAT (Global Search)").split())
+
+    def test_neb_ci_emits_neb_ci(self):
+        self.assertIn("NEB-CI", self._route("NEB-CI (Reaction Path)").split())
+
+    def test_neb_ts_emits_neb_ts(self):
+        self.assertIn("NEB-TS", self._route("NEB-TS (TS via NEB)").split())
+
+    def test_md_emits_md(self):
+        self.assertIn("MD", self._route("MD (Molecular Dynamics)").split())
+
+    def test_goat_does_not_emit_opt(self):
+        tokens = self._route("GOAT (Global Search)").split()
+        self.assertNotIn("Opt", tokens)
+
+    def test_neb_ci_does_not_emit_opt(self):
+        tokens = self._route("NEB-CI (Reaction Path)").split()
+        self.assertNotIn("Opt", tokens)
+
+    def test_md_does_not_emit_freq(self):
+        tokens = self._route("MD (Molecular Dynamics)").split()
+        self.assertNotIn("Freq", tokens)
+
+
+class TestNewJobTypesParseRoute(unittest.TestCase):
+    """parse_route recognises GOAT, NEB-CI, NEB-TS, MD keywords."""
+
+    def test_parse_goat(self):
+        dlg = _parse("! B3LYP def2-SVP GOAT")
+        dlg.job_type.setCurrentText.assert_any_call("GOAT (Global Search)")
+
+    def test_parse_neb_ci(self):
+        dlg = _parse("! B3LYP def2-SVP NEB-CI")
+        dlg.job_type.setCurrentText.assert_any_call("NEB-CI (Reaction Path)")
+
+    def test_parse_neb_ts(self):
+        dlg = _parse("! B3LYP def2-SVP NEB-TS")
+        dlg.job_type.setCurrentText.assert_any_call("NEB-TS (TS via NEB)")
+
+    def test_parse_md(self):
+        dlg = _parse("! GFN2-xTB MD")
+        dlg.job_type.setCurrentText.assert_any_call("MD (Molecular Dynamics)")
 
 
 if __name__ == "__main__":

@@ -743,5 +743,25 @@ class TestInsertBlockTemplateCasscf(unittest.TestCase):
         self.assertTrue(self._t().strip().endswith("end"))
 
 
+class TestInsertBlockTemplateMd(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%md ... end")
+
+    def test_md_has_timestep(self):
+        self.assertIn("TimeStep", self._t())
+
+    def test_md_has_totaltime(self):
+        self.assertIn("TotalTime", self._t())
+
+    def test_md_has_temp(self):
+        self.assertIn("Temp", self._t())
+
+    def test_md_has_thermostat(self):
+        self.assertIn("Thermostat", self._t())
+
+    def test_md_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
 if __name__ == "__main__":
     unittest.main()

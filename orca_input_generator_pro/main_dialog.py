@@ -206,6 +206,7 @@ class OrcaSetupDialogPro(QDialog):
                 "%rocis ... end",
                 "%mrci ... end",
                 "%casscf ... end",
+                "%md ... end",
             ]
         )
         blk_h_layout.addWidget(self.block_combo, 1)
@@ -702,6 +703,16 @@ class OrcaSetupDialogPro(QDialog):
             )
         elif "%casscf" in txt:
             template = "%casscf\n Nel 2\n Norb 2\n Mult 1\n nroots 5\nend\n"
+        elif "%md" in txt:
+            template = (
+                "%md\n"
+                "  TimeStep    0.5      # fs\n"
+                "  TotalTime   1000     # fs\n"
+                "  Temp        300      # K\n"
+                "  InitVel     Random\n"
+                "  Thermostat  NHCQ  Tau 10\n"
+                "end\n"
+            )
         elif "%eprnmr" in txt:
             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL}\nend\n"
             # Switch to Post-Coordinate tab automatically

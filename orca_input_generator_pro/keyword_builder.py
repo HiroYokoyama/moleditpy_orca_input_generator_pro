@@ -701,6 +701,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "Transition State Opt (OptTS)",
                 "Gradient",
                 "Hessian",
+                "GOAT (Global Search)",
+                "NEB-CI (Reaction Path)",
+                "NEB-TS (TS via NEB)",
+                "MD (Molecular Dynamics)",
             ]
         )
         layout.addWidget(QLabel("Job Task:"))
@@ -1336,6 +1340,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("Hessian")
         elif "NMR" in job_txt:
             route_parts.append("NMR")
+        elif "GOAT" in job_txt:
+            route_parts.append("GOAT")
+        elif "NEB-CI" in job_txt:
+            route_parts.append("NEB-CI")
+        elif "NEB-TS" in job_txt:
+            route_parts.append("NEB-TS")
+        elif "Molecular Dynamics" in job_txt:
+            route_parts.append("MD")
         elif "SP" in job_txt:
             pass  # No keyword
 
@@ -1533,6 +1545,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     if tu in self.job_type.itemText(i).upper():
                         self.job_type.setCurrentIndex(i)
                         break
+            elif tu == "GOAT":
+                self.job_type.setCurrentText("GOAT (Global Search)")
+            elif tu == "NEB-CI":
+                self.job_type.setCurrentText("NEB-CI (Reaction Path)")
+            elif tu == "NEB-TS":
+                self.job_type.setCurrentText("NEB-TS (TS via NEB)")
+            elif tu == "MD":
+                self.job_type.setCurrentText("MD (Molecular Dynamics)")
 
             # 3. Opt Options
             if tu == "TIGHTOPT":

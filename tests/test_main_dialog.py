@@ -991,5 +991,50 @@ class TestInsertBlockTemplateRel(unittest.TestCase):
         self.assertTrue(self._t().strip().endswith("end"))
 
 
+class TestInsertBlockTemplateDft(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%dft ... end")
+
+    def test_starts_with_percent_dft(self):
+        self.assertTrue(self._t().strip().startswith("%dft"))
+
+    def test_has_grid(self):
+        self.assertIn("Grid", self._t())
+
+    def test_has_gridx(self):
+        self.assertIn("GridX", self._t())
+
+    def test_has_defgrid2(self):
+        self.assertIn("DefGrid2", self._t())
+
+    def test_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateFrag(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%frag (BSSE/Counterpoise)")
+
+    def test_contains_percent_frag(self):
+        self.assertIn("%frag", self._t())
+
+    def test_has_nfrags(self):
+        self.assertIn("NFrags", self._t())
+
+    def test_has_fragment_definitions(self):
+        self.assertIn("Frag1", self._t())
+        self.assertIn("Frag2", self._t())
+
+    def test_has_charge_and_mult(self):
+        self.assertIn("Charge1", self._t())
+        self.assertIn("Mult1", self._t())
+
+    def test_has_ghost_frags_companion(self):
+        self.assertIn("GhostFrags", self._t())
+
+    def test_block_closed(self):
+        self.assertIn("end", self._t())
+
+
 if __name__ == "__main__":
     unittest.main()

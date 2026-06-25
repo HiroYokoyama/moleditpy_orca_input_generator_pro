@@ -1795,5 +1795,151 @@ class TestCabsBasisParseRoute(unittest.TestCase):
         dlg.cabs_basis.setCurrentText.assert_any_call("cc-pVTZ-F12-CABS")
 
 
+class TestScfGuessPreview(unittest.TestCase):
+    """update_preview emits %scf Guess block for non-Default SCF guess."""
+
+    def _extra(self, guess):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.scf_guess = _combo(guess)
+        dlg.tddft_enable = _check(False)
+        dlg.constraint_table = MagicMock()
+        dlg.constraint_table.rowCount.return_value = 0
+        dlg.iter256_chk = _check(False)
+        dlg.get_constraints_text = lambda: ""
+        return OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+
+    def test_pmodel_guess_block(self):
+        self.assertIn("PModel", self._extra("PModel"))
+
+    def test_hueckel_guess_block(self):
+        self.assertIn("Hueckel", self._extra("Hueckel"))
+
+    def test_hcore_guess_block(self):
+        self.assertIn("HCore", self._extra("HCore"))
+
+    def test_patom_guess_block(self):
+        self.assertIn("PAtom", self._extra("PAtom"))
+
+    def test_default_no_guess_block(self):
+        self.assertNotIn("Guess", self._extra("Default"))
+
+    def test_guess_block_has_scf_section(self):
+        self.assertIn("%scf", self._extra("PModel"))
+
+
+class TestScfGuessParseRoute(unittest.TestCase):
+    """parse_route sets scf_guess combo from %scf Guess sub-keyword."""
+
+    def test_parse_pmodel(self):
+        dlg = _parse("! B3LYP def2-SVP\n\n%scf\n  Guess PModel\nend")
+        dlg.scf_guess.setCurrentText.assert_any_call("PModel")
+
+    def test_parse_hueckel(self):
+        dlg = _parse("! B3LYP def2-SVP\n\n%scf\n  Guess Hueckel\nend")
+        dlg.scf_guess.setCurrentText.assert_any_call("Hueckel")
+
+    def test_parse_hcore(self):
+        dlg = _parse("! B3LYP def2-SVP\n\n%scf\n  Guess HCore\nend")
+        dlg.scf_guess.setCurrentText.assert_any_call("HCore")
+
+    def test_parse_patom(self):
+        dlg = _parse("! B3LYP def2-SVP\n\n%scf\n  Guess PAtom\nend")
+        dlg.scf_guess.setCurrentText.assert_any_call("PAtom")
+
+
+class TestCosxPreview(unittest.TestCase):
+    """update_preview emits COSX when cosx_chk is checked."""
+
+    def _r(self, cosx=False):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.cosx_chk = _check(cosx)
+        return _route(dlg)
+
+    def test_cosx_emitted(self):
+        self.assertIn("COSX", self._r(cosx=True).split())
+
+    def test_cosx_not_emitted_by_default(self):
+        self.assertNotIn("COSX", self._r().split())
+
+
+class TestCosxParseRoute(unittest.TestCase):
+    """parse_route sets cosx_chk for COSX keyword."""
+
+    def test_parse_cosx(self):
+        dlg = _parse("! B3LYP def2-SVP COSX")
+        dlg.cosx_chk.setChecked.assert_any_call(True)
+
+    def test_no_cosx_not_set_true(self):
+        dlg = _parse("! B3LYP def2-SVP RIJCOSX Def2/J Opt")
+        calls = [c for c in dlg.cosx_chk.setChecked.call_args_list if c.args == (True,)]
+        self.assertEqual(calls, [])
+
+
+class TestRiSomfPreview(unittest.TestCase):
+    """update_preview emits RI-SOMF(1X) when somf_chk is checked."""
+
+    def _r(self, somf=False):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.somf_chk = _check(somf)
+        return _route(dlg)
+
+    def test_risomf_emitted(self):
+        self.assertIn("RI-SOMF(1X)", self._r(somf=True))
+
+    def test_risomf_not_emitted_by_default(self):
+        self.assertNotIn("RI-SOMF(1X)", self._r())
+
+
+class TestRiSomfParseRoute(unittest.TestCase):
+    """parse_route sets somf_chk for RI-SOMF(1X) keyword."""
+
+    def test_parse_risomf(self):
+        dlg = _parse("! B3LYP def2-SVP RI-SOMF(1X)")
+        dlg.somf_chk.setChecked.assert_any_call(True)
+
+
+class TestKeepDensIntsPreview(unittest.TestCase):
+    """update_preview emits KeepDens and KeepInts when checkboxes are checked."""
+
+    def _r(self, keepdens=False, keepints=False):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.keepdens_chk = _check(keepdens)
+        dlg.keepints_chk = _check(keepints)
+        return _route(dlg)
+
+    def test_keepdens_emitted(self):
+        self.assertIn("KeepDens", self._r(keepdens=True).split())
+
+    def test_keepints_emitted(self):
+        self.assertIn("KeepInts", self._r(keepints=True).split())
+
+    def test_both_emitted_together(self):
+        r = self._r(keepdens=True, keepints=True)
+        self.assertIn("KeepDens", r.split())
+        self.assertIn("KeepInts", r.split())
+
+    def test_neither_emitted_by_default(self):
+        r = self._r()
+        self.assertNotIn("KeepDens", r.split())
+        self.assertNotIn("KeepInts", r.split())
+
+
+class TestKeepDensIntsParseRoute(unittest.TestCase):
+    """parse_route sets keepdens_chk / keepints_chk for retention keywords."""
+
+    def test_parse_keepdens(self):
+        dlg = _parse("! B3LYP def2-SVP KeepDens")
+        dlg.keepdens_chk.setChecked.assert_any_call(True)
+
+    def test_parse_keepints(self):
+        dlg = _parse("! B3LYP def2-SVP KeepInts")
+        dlg.keepints_chk.setChecked.assert_any_call(True)
+
+    def test_parse_both(self):
+        dlg = _parse("! B3LYP def2-SVP KeepDens KeepInts")
+        dlg.keepdens_chk.setChecked.assert_any_call(True)
+        dlg.keepints_chk.setChecked.assert_any_call(True)
+
+
 if __name__ == "__main__":
     unittest.main()

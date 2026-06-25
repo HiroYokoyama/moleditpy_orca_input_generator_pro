@@ -912,6 +912,7 @@ def _make_ui_state_dialog(method="B3LYP"):
     dlg.method_name = _combo(method)
     dlg.basis_set = MagicMock()
     dlg.aux_basis = MagicMock()
+    dlg.dispersion = MagicMock()
     dlg.rijcosx = MagicMock()
     dlg.solv_model = _combo("None")
     dlg.solvent = MagicMock()
@@ -925,7 +926,7 @@ def _make_ui_state_dialog(method="B3LYP"):
 
 
 class TestUpdateUiState3cMethods(unittest.TestCase):
-    """update_ui_state must disable RIJCOSX for 3c composite methods."""
+    """update_ui_state must disable RIJCOSX and dispersion for 3c composite methods."""
 
     def _run(self, method):
         dlg = _make_ui_state_dialog(method)
@@ -958,6 +959,44 @@ class TestUpdateUiState3cMethods(unittest.TestCase):
         self.assertIsNotNone(call_args)
         label = call_args[0][0].lower()
         self.assertIn("built-in", label)
+
+    def test_3c_disables_dispersion(self):
+        dlg = self._run("B97-3c")
+        dlg.dispersion.setEnabled.assert_called_with(False)
+
+    def test_semi_empirical_disables_dispersion(self):
+        dlg = self._run("GFN2-xTB")
+        dlg.dispersion.setEnabled.assert_called_with(False)
+
+    def test_dft_leaves_dispersion_enabled(self):
+        dlg = self._run("B3LYP")
+        dlg.dispersion.setEnabled.assert_called_with(True)
+
+
+class TestUpdatePreviewDispersion3c(unittest.TestCase):
+    """Dispersion must not be emitted for 3c or semi-empirical methods."""
+
+    def _route_with_disp(self, method, disp="D3BJ"):
+        dlg = _make_preview_dialog(method=method)
+        dlg.dispersion = _combo(disp)
+        dlg.dispersion.isEnabled.return_value = False
+        return _route(dlg)
+
+    def test_3c_d3bj_not_emitted(self):
+        r = self._route_with_disp("B97-3c", "D3BJ")
+        tokens = r.split()
+        self.assertNotIn("D3BJ", tokens)
+
+    def test_semi_d3bj_not_emitted(self):
+        r = self._route_with_disp("GFN2-xTB", "D3BJ")
+        tokens = r.split()
+        self.assertNotIn("D3BJ", tokens)
+
+    def test_dft_d3bj_emitted_when_enabled(self):
+        dlg = _make_preview_dialog(method="B3LYP", disp="D3BJ")
+        dlg.dispersion.isEnabled.return_value = True
+        r = _route(dlg)
+        self.assertIn("D3BJ", r)
 
 
 if __name__ == "__main__":

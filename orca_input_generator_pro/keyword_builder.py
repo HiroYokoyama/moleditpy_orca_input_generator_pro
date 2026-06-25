@@ -1136,9 +1136,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         is_3c = "3C" in method_text.upper()
         no_basis = is_semi or is_3c
 
-        # Disable Basis Set & Aux Basis for Semi-Empirical and 3c
+        # Disable Basis Set, Aux Basis, and Dispersion for semi-empirical and 3c
+        # (3c has D3 built-in; semi-empirical has own dispersion or none)
         self.basis_set.setEnabled(not no_basis)
         self.aux_basis.setEnabled(not no_basis)
+        self.dispersion.setEnabled(not no_basis)
 
         # Handling RI / RIJCOSX
         if is_semi:
@@ -1319,10 +1321,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 elif "SMD" == solv:
                     route_parts.append(f"SMD({solvent})")
 
-        # Dispersion
-        disp = self.dispersion.currentText()
-        if disp != "None":
-            route_parts.append(disp)
+        # Dispersion (skipped for 3c/semi-empirical where it is built-in or N/A)
+        if self.dispersion.isEnabled():
+            disp = self.dispersion.currentText()
+            if disp != "None":
+                route_parts.append(disp)
 
         # SCF / Grid
         if self.scf_sloppy.isChecked():

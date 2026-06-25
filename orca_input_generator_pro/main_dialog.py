@@ -203,6 +203,7 @@ class OrcaSetupDialogPro(QDialog):
                 "%plots ... end",
                 "%tddft ... end",
                 "%cis ... end",
+                "%rocis ... end",
                 "%mrci ... end",
                 "%casscf ... end",
             ]
@@ -687,6 +688,8 @@ class OrcaSetupDialogPro(QDialog):
             )
         elif "%cis" in txt:
             template = "%cis\n NRoots 10\nend\n"
+        elif "%rocis" in txt:
+            template = "%rocis\n  NRoots    10\n  MaxDim    50\n  DoQuad    true\nend\n"
         elif "%mrci" in txt:
             template = (
                 "%mrci\n"
@@ -698,7 +701,7 @@ class OrcaSetupDialogPro(QDialog):
                 "end\n"
             )
         elif "%casscf" in txt:
-            template = "%casscf\n Nel 2\n Norb 2\n Mult 1\nend\n"
+            template = "%casscf\n Nel 2\n Norb 2\n Mult 1\n nroots 5\nend\n"
         elif "%eprnmr" in txt:
             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL}\nend\n"
             # Switch to Post-Coordinate tab automatically

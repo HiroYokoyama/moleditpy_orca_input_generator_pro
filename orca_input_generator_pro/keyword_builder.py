@@ -223,6 +223,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "wB97M-V",
                 "wB97X",
                 "wB97X-D3",
+                "wB97X-D4",
                 "wB97X-V",
                 "wPBE",
                 "wPBEh",
@@ -258,13 +259,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "M06-2X",
                 "M06-HF",
                 "M06-L",
+                "MN12-L",
+                "MN15",
                 "O3LYP",
+                "OPBE",
                 "PBE",
                 "PBE0",
                 "PBEh-3c",
                 "PW91",
+                "r2SCAN",
                 "r2SCAN-3c",
+                "revPBE",
+                "revPBE0",
                 "SCAN",
+                "SSB-D",
                 "TPSS",
                 "TPSSh",
                 "X3LYP",
@@ -507,13 +515,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "M06-2X",
                     "M06-HF",
                     "M06-L",
+                    "MN12-L",
+                    "MN15",
                     "O3LYP",
+                    "OPBE",
                     "PBE",
                     "PBE0",
                     "PBEh-3c",
                     "PW91",
+                    "r2SCAN",
                     "r2SCAN-3c",
+                    "revPBE",
+                    "revPBE0",
                     "SCAN",
+                    "SSB-D",
                     "TPSS",
                     "TPSSh",
                     "X3LYP",
@@ -528,6 +543,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "wB97M-V",
                     "wB97X",
                     "wB97X-D3",
+                    "wB97X-D4",
                     "wB97X-V",
                     "wPBE",
                     "wPBEh",
@@ -761,7 +777,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout = QFormLayout()
 
         self.solv_model = QComboBox()
-        self.solv_model.addItems(["None", "CPCM", "SMD", "CPC(Water) (Short)"])
+        self.solv_model.addItems(["None", "CPCM", "SMD", "ALPB", "CPC(Water) (Short)"])
         self.solv_model.currentIndexChanged.connect(self.update_ui_state)
         layout.addRow("Solvation Model:", self.solv_model)
 
@@ -813,6 +829,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "Grid5",
                 "Grid6",
                 "NoGrid",
+                "NoFinalGrid",
             ]
         )
         self.grid_combo.setCurrentText("Default")
@@ -1189,7 +1206,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.opt_group.setVisible(is_opt)
         self.freq_group.setVisible(is_freq)
 
-        # 4. TD-DFT (Removed from Route Builder, handled via blocks)
+        # 4. TD-DFT tab: only valid for DFT / HF-MP2 (not CC, MR, semi-empirical)
+        tddft_ok = "DFT" in mtype or "HF/MP2" in mtype
+        tab_idx = self.tabs.indexOf(self.tab_tddft)
+        if tab_idx >= 0:
+            self.tabs.setTabEnabled(tab_idx, tddft_ok)
+            if not tddft_ok and getattr(self, "tddft_enable", None) is not None:
+                self.tddft_enable.blockSignals(True)
+                self.tddft_enable.setChecked(False)
+                self.tddft_enable.blockSignals(False)
 
     def enforce_scf_mutual_exclusion(self):
         ctx = self.sender()
@@ -1336,6 +1361,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     route_parts.append(f"CPCM({solvent})")
                 elif "SMD" == solv:
                     route_parts.append(f"SMD({solvent})")
+                elif "ALPB" == solv:
+                    route_parts.append(f"ALPB({solvent})")
 
         # Dispersion (skipped for 3c/semi-empirical where it is built-in or N/A)
         if self.dispersion.isEnabled():
@@ -1523,7 +1550,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.freq_raman.setChecked(True)
 
             # 5. Solvation
-            if "(" in tu and any(x in tu for x in ["CPCM", "SMD"]):
+            if "(" in tu and any(x in tu for x in ["CPCM", "SMD", "ALPB"]):
                 s_model = tu.split("(")[0]
                 s_name = t.split("(")[1].split(")")[0]
 
@@ -1531,6 +1558,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.solv_model.setCurrentText("CPCM")
                 elif s_model == "SMD":
                     self.solv_model.setCurrentText("SMD")
+                elif s_model == "ALPB":
+                    self.solv_model.setCurrentText("ALPB")
 
                 for i in range(self.solvent.count()):
                     if self.solvent.itemText(i).upper() == s_name.upper():

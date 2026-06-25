@@ -921,6 +921,10 @@ def _make_ui_state_dialog(method="B3LYP"):
     dlg.job_type = _combo("Single Point Energy (SP)")
     dlg.opt_group = MagicMock()
     dlg.freq_group = MagicMock()
+    dlg.tddft_enable = MagicMock()
+    dlg.tab_tddft = object()  # sentinel — just needs a stable identity
+    dlg.tabs = MagicMock()
+    dlg.tabs.indexOf.return_value = 3  # tab index ≥ 0 so enable/disable runs
     dlg.get_inferred_category = (
         lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )

@@ -745,9 +745,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout = QFormLayout()
 
         self.solv_model = QComboBox()
-        self.solv_model.addItems(
-            ["None", "CPCM", "SMD", "CPC(Water) (Short)"]
-        )
+        self.solv_model.addItems(["None", "CPCM", "SMD", "CPC(Water) (Short)"])
         self.solv_model.currentIndexChanged.connect(self.update_ui_state)
         layout.addRow("Solvation Model:", self.solv_model)
 

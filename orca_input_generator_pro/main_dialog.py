@@ -290,9 +290,7 @@ class OrcaSetupDialogPro(QDialog):
         sj_xyz_row.addWidget(self.second_job_xyz_name)
         self.second_job_xyz_auto = QPushButton("Auto")
         self.second_job_xyz_auto.setFixedWidth(50)
-        self.second_job_xyz_auto.setToolTip(
-            "Derive filename from source molecule path"
-        )
+        self.second_job_xyz_auto.setToolTip("Derive filename from source molecule path")
         self.second_job_xyz_auto.clicked.connect(self._auto_fill_second_job_xyz)
         sj_xyz_row.addWidget(self.second_job_xyz_auto)
         sj_coord_form.addRow("XYZ file:", sj_xyz_row)

@@ -433,6 +433,46 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
         self.assertIn("STEOM-CCSD", ALL_ORCA_METHODS)
         self.assertIn("ROCIS", ALL_ORCA_METHODS)
 
+    # --- New DFT functionals ---
+    def test_r2scan_is_dft_gga(self):
+        self.assertIn("DFT", _cat("r2SCAN"))
+
+    def test_revpbe_is_dft_gga(self):
+        self.assertIn("DFT", _cat("revPBE"))
+
+    def test_revpbe0_is_dft_gga(self):
+        self.assertIn("DFT", _cat("revPBE0"))
+
+    def test_mn15_is_dft_gga(self):
+        self.assertIn("DFT", _cat("MN15"))
+
+    def test_mn12_l_is_dft_gga(self):
+        self.assertIn("DFT", _cat("MN12-L"))
+
+    def test_opbe_is_dft_gga(self):
+        self.assertIn("DFT", _cat("OPBE"))
+
+    def test_ssb_d_is_dft_gga(self):
+        self.assertIn("DFT", _cat("SSB-D"))
+
+    def test_wb97x_d4_is_range_separated(self):
+        self.assertEqual(_cat("wB97X-D4"), "DFT (Range-Separated)")
+
+    def test_new_functionals_in_constants_list(self):
+        from orca_input_generator_pro.constants import ALL_ORCA_METHODS
+
+        for m in [
+            "r2SCAN",
+            "revPBE",
+            "revPBE0",
+            "MN15",
+            "MN12-L",
+            "OPBE",
+            "SSB-D",
+            "wB97X-D4",
+        ]:
+            self.assertIn(m, ALL_ORCA_METHODS, f"{m} missing from ALL_ORCA_METHODS")
+
 
 if __name__ == "__main__":
     unittest.main()

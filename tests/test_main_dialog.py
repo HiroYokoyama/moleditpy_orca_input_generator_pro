@@ -709,5 +709,39 @@ class TestInsertBlockTemplateMrci(unittest.TestCase):
         self.assertTrue(t.strip().endswith("end"))
 
 
+class TestInsertBlockTemplateRocis(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%rocis ... end")
+
+    def test_rocis_has_nroots(self):
+        self.assertIn("NRoots", self._t())
+
+    def test_rocis_has_maxdim(self):
+        self.assertIn("MaxDim", self._t())
+
+    def test_rocis_has_doquad(self):
+        self.assertIn("DoQuad", self._t())
+
+    def test_rocis_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateCasscf(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%casscf ... end")
+
+    def test_casscf_has_nel(self):
+        self.assertIn("Nel", self._t())
+
+    def test_casscf_has_norb(self):
+        self.assertIn("Norb", self._t())
+
+    def test_casscf_has_nroots(self):
+        self.assertIn("nroots", self._t())
+
+    def test_casscf_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
 if __name__ == "__main__":
     unittest.main()

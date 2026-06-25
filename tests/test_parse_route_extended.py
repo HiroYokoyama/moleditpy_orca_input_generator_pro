@@ -1005,5 +1005,121 @@ class TestUpdatePreviewDispersion3c(unittest.TestCase):
         self.assertIn("D3BJ", r)
 
 
+# ---------------------------------------------------------------------------
+# update_preview: ALPB solvation
+# ---------------------------------------------------------------------------
+
+
+class TestUpdatePreviewAlpb(unittest.TestCase):
+    """ALPB solvation model must emit ALPB(Solvent) in the route line."""
+
+    def _alpb_route(self, solvent="Water"):
+        dlg = _make_preview_dialog(method="B3LYP", solv="ALPB")
+        dlg.solvent = _combo(solvent)
+        return _route(dlg)
+
+    def test_alpb_emits_alpb_water(self):
+        r = self._alpb_route("Water")
+        self.assertIn("ALPB(Water)", r)
+
+    def test_alpb_emits_alpb_acetonitrile(self):
+        r = self._alpb_route("Acetonitrile")
+        self.assertIn("ALPB(Acetonitrile)", r)
+
+    def test_alpb_does_not_emit_cpcm(self):
+        r = self._alpb_route("Water")
+        self.assertNotIn("CPCM", r)
+
+    def test_alpb_does_not_emit_smd(self):
+        r = self._alpb_route("Water")
+        self.assertNotIn("SMD", r)
+
+    def test_cpcm_still_distinct_from_alpb(self):
+        dlg = _make_preview_dialog(method="B3LYP", solv="CPCM")
+        dlg.solvent = _combo("Water")
+        r = _route(dlg)
+        self.assertIn("CPCM(Water)", r)
+        self.assertNotIn("ALPB", r)
+
+
+# ---------------------------------------------------------------------------
+# update_ui_state: TDDFT tab disabled for CC / MR / semi-empirical
+# ---------------------------------------------------------------------------
+
+
+class TestAlpbGuardNonSemi(unittest.TestCase):
+    """ALPB must auto-reset to None when a non-semi-empirical method is selected."""
+
+    def _run(self, method):
+        dlg = _make_ui_state_dialog(method)
+        dlg.solv_model = _combo("ALPB")
+        OrcaKeywordBuilderDialog.update_ui_state(dlg)
+        return dlg
+
+    def test_dft_resets_alpb_to_none(self):
+        dlg = self._run("B3LYP")
+        dlg.solv_model.setCurrentText.assert_called_with("None")
+
+    def test_cc_resets_alpb_to_none(self):
+        dlg = self._run("CCSD")
+        dlg.solv_model.setCurrentText.assert_called_with("None")
+
+    def test_semi_empirical_keeps_alpb(self):
+        dlg = self._run("GFN2-xTB")
+        # setCurrentText("None") must NOT have been called
+        calls = [
+            c for c in dlg.solv_model.setCurrentText.call_args_list if c[0][0] == "None"
+        ]
+        self.assertEqual(len(calls), 0)
+
+
+class TestTddftTabDisabledForCC(unittest.TestCase):
+    """TD-DFT tab must be disabled for CC, MR, and semi-empirical methods."""
+
+    def _run(self, method):
+        dlg = _make_ui_state_dialog(method)
+        OrcaKeywordBuilderDialog.update_ui_state(dlg)
+        return dlg
+
+    def _tab_enabled(self, method):
+        dlg = self._run(method)
+        calls = dlg.tabs.setTabEnabled.call_args_list
+        # find call for tab index 3
+        for c in calls:
+            if c[0][0] == 3:
+                return c[0][1]
+        return None  # setTabEnabled never called
+
+    def test_ccsd_disables_tddft_tab(self):
+        self.assertFalse(self._tab_enabled("CCSD"))
+
+    def test_dlpno_ccsd_t_disables_tddft_tab(self):
+        self.assertFalse(self._tab_enabled("DLPNO-CCSD(T)"))
+
+    def test_eom_ccsd_disables_tddft_tab(self):
+        self.assertFalse(self._tab_enabled("EOM-CCSD"))
+
+    def test_casscf_disables_tddft_tab(self):
+        self.assertFalse(self._tab_enabled("CASSCF"))
+
+    def test_nevpt2_disables_tddft_tab(self):
+        self.assertFalse(self._tab_enabled("NEVPT2"))
+
+    def test_gfn2_xtb_disables_tddft_tab(self):
+        self.assertFalse(self._tab_enabled("GFN2-xTB"))
+
+    def test_b3lyp_enables_tddft_tab(self):
+        self.assertTrue(self._tab_enabled("B3LYP"))
+
+    def test_cam_b3lyp_enables_tddft_tab(self):
+        self.assertTrue(self._tab_enabled("CAM-B3LYP"))
+
+    def test_hf_enables_tddft_tab(self):
+        self.assertTrue(self._tab_enabled("HF"))
+
+    def test_mp2_enables_tddft_tab(self):
+        self.assertTrue(self._tab_enabled("MP2"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -829,7 +829,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "Grid5",
                 "Grid6",
                 "NoGrid",
-                "NoFinalGrid",
             ]
         )
         self.grid_combo.setCurrentText("Default")
@@ -1192,6 +1191,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.rijcosx.setText("RIJCOSX (Speed up Hybrid DFT)")
 
         # 2. Solvation
+        # ALPB is xTB-only in ORCA 6 — auto-reset if a non-semi-empirical method is set
+        if not is_semi and self.solv_model.currentText() == "ALPB":
+            self.solv_model.blockSignals(True)
+            self.solv_model.setCurrentText("None")
+            self.solv_model.blockSignals(False)
+
         solv = self.solv_model.currentText()
         is_solvated = solv != "None"
         self.solvent.setEnabled(is_solvated)

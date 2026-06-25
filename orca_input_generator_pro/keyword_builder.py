@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QGridLayout,
     QSizePolicy,
+    QScrollArea,
 )
 from PyQt6.QtCore import Qt
 from rdkit.Chem import rdMolTransforms
@@ -841,6 +842,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.tab_solvation.setLayout(layout)
 
     def setup_props_tab(self):
+        inner = QWidget()
         layout = QFormLayout()
 
         self.rijcosx = QCheckBox("RIJCOSX / RI approximation")
@@ -943,7 +945,17 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.cosx_chk = QCheckBox("COSX (chain-of-spheres exchange, without RI Coulomb)")
         layout.addRow(self.cosx_chk)
 
-        self.tab_props.setLayout(layout)
+        inner.setLayout(layout)
+
+        scroll = QScrollArea()
+        scroll.setWidget(inner)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+
+        tab_layout = QVBoxLayout()
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll)
+        self.tab_props.setLayout(tab_layout)
 
     def setup_tddft_tab(self):
         layout = QFormLayout()

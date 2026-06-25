@@ -1726,33 +1726,44 @@ class TestChargeAnalysisParseRoute(unittest.TestCase):
 
 
 class TestMoreadPreview(unittest.TestCase):
-    """update_preview emits MOREAD with filename when checkbox is checked."""
+    """update_preview emits MOREAD on route; %moinp "file" goes in extra blocks."""
 
-    def test_moread_emits_moread(self):
+    def _extra(self, moread_chk=False, moread_file=""):
+        dlg = _make_preview_dialog(method="B3LYP", moread_chk=moread_chk, moread_file=moread_file)
+        dlg.tddft_enable = _check(False)
+        dlg.constraint_table = MagicMock()
+        dlg.constraint_table.rowCount.return_value = 0
+        dlg.iter256_chk = _check(False)
+        dlg.get_constraints_text = lambda: ""
+        return OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+
+    def test_moread_emits_moread_on_route(self):
         dlg = _make_preview_dialog(method="B3LYP", moread_chk=True, moread_file="prev.gbw")
-        route = _route(dlg)
-        self.assertIn("MOREAD", route.upper())
+        self.assertIn("MOREAD", _route(dlg).upper())
 
-    def test_moread_includes_filename(self):
-        dlg = _make_preview_dialog(method="B3LYP", moread_chk=True, moread_file="prev.gbw")
-        route = _route(dlg)
-        self.assertIn("prev.gbw", route)
+    def test_moread_filename_in_moinp_directive(self):
+        extra = self._extra(moread_chk=True, moread_file="prev.gbw")
+        self.assertIn("%moinp", extra.lower())
+        self.assertIn("prev.gbw", extra)
 
-    def test_moread_unchecked_absent(self):
+    def test_moread_no_filename_no_moinp(self):
+        extra = self._extra(moread_chk=True, moread_file="")
+        self.assertNotIn("%moinp", extra.lower())
+
+    def test_moread_unchecked_no_route_keyword(self):
         dlg = _make_preview_dialog(method="B3LYP", moread_chk=False)
-        route = _route(dlg)
-        self.assertNotIn("MOREAD", route.upper())
+        self.assertNotIn("MOREAD", _route(dlg).upper())
 
 
 class TestMoreadParseRoute(unittest.TestCase):
-    """parse_route enables moread_chk and sets moread_file when MOREAD present."""
+    """parse_route enables moread_chk and reads filename from %moinp directive."""
 
     def test_parse_moread_checks_checkbox(self):
-        dlg = _parse('! B3LYP def2-SVP MOREAD "prev.gbw"')
+        dlg = _parse('! B3LYP def2-SVP MOREAD\n%moinp "prev.gbw"')
         dlg.moread_chk.setChecked.assert_any_call(True)
 
-    def test_parse_moread_sets_filename(self):
-        dlg = _parse('! B3LYP def2-SVP MOREAD "prev.gbw"')
+    def test_parse_moread_sets_filename_from_moinp(self):
+        dlg = _parse('! B3LYP def2-SVP MOREAD\n%moinp "prev.gbw"')
         dlg.moread_file.setText.assert_any_call("prev.gbw")
 
 

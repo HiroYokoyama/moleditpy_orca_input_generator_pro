@@ -927,7 +927,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.scf_guess = QComboBox()
         self.scf_guess.addItems(["Default", "PModel", "Hueckel", "HCore", "PAtom"])
         layout.addRow("SCF Guess (%scf):", self.scf_guess)
-        self.moread_chk = QCheckBox("Read MOs from file (! MOREAD)")
+        self.moread_chk = QCheckBox("Read MOs from file (! MOREAD + %moinp)")
         layout.addRow(self.moread_chk)
         self.moread_file = QLineEdit()
         self.moread_file.setPlaceholderText("e.g.  previous.gbw")
@@ -1664,12 +1664,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if self.bs_chk.isChecked():
             route_parts.append("UKS")
 
-        # MOREAD
+        # MOREAD (filename goes in %moinp directive, not on the route line)
         if self.moread_chk.isChecked():
             route_parts.append("MOREAD")
-            mf = self.moread_file.text().strip()
-            if mf:
-                route_parts.append(f'"{mf}"')
 
         self.route_line = " ".join(route_parts)
         self.preview_str = self.route_line
@@ -1709,11 +1706,17 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             spins = self.bs_spins.text().strip() or "1,1"
             blocks.append(f"%scf\n  BrokenSym {spins}\nend")
 
-        # 2b. SCF Guess (via %scf block; MOREAD is handled on the route line separately)
+        # 2b. SCF Guess (via %scf block)
         if getattr(self, "scf_guess", None) is not None:
             guess = self.scf_guess.currentText()
             if guess != "Default":
                 blocks.append(f"%scf\n  Guess {guess}\nend")
+
+        # 2c. MOREAD filename via %moinp directive
+        if getattr(self, "moread_chk", None) is not None and self.moread_chk.isChecked():
+            mf = self.moread_file.text().strip()
+            if mf:
+                blocks.append(f'%moinp "{mf}"')
 
         # 3. Constraints & Scan
         if getattr(self, "constraint_table", None) is not None:
@@ -2013,10 +2016,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             if tu in _pno_map:
                 self.pno_preset.setCurrentText(_pno_map[tu])
 
-            # 13. MOREAD
+            # 13. MOREAD (filename is in a separate %moinp "..." directive)
             if tu == "MOREAD":
                 self.moread_chk.setChecked(True)
-                mo_match = re.search(r'MOREAD\s+"([^"]+)"', route, re.IGNORECASE)
+                mo_match = re.search(r'%moinp\s+"([^"]+)"', route, re.IGNORECASE)
                 if mo_match:
                     self.moread_file.setText(mo_match.group(1))
 

@@ -206,6 +206,7 @@ class OrcaSetupDialogPro(QDialog):
                 "%rocis ... end",
                 "%mrci ... end",
                 "%casscf ... end",
+                "%neb ... end",
                 "%md ... end",
             ]
         )
@@ -648,7 +649,6 @@ class OrcaSetupDialogPro(QDialog):
                 self._saved_inp_content = content
                 self._update_title()
 
-                QMessageBox.information(self, "Saved", f"File saved:\n{file_path}")
                 # Hint the xyzfile name for the second job if not already set
                 if not self.second_job_xyz_name.text():
                     saved_base = os.path.splitext(os.path.basename(file_path))[0]
@@ -703,6 +703,13 @@ class OrcaSetupDialogPro(QDialog):
             )
         elif "%casscf" in txt:
             template = "%casscf\n Nel 2\n Norb 2\n Mult 1\n nroots 5\nend\n"
+        elif "%neb" in txt:
+            template = (
+                "%neb\n"
+                "  Product   \"product.xyz\"\n"
+                "  NImages    8\n"
+                "end\n"
+            )
         elif "%md" in txt:
             template = (
                 "%md\n"
@@ -752,9 +759,40 @@ class OrcaSetupDialogPro(QDialog):
     def on_builder_finished(self, result):
         if result == QDialog.DialogCode.Accepted:
             if getattr(self, "builder_dialog", None) is not None:
-                self.keywords_edit.setPlainText(self.builder_dialog.get_route())
+                route = self.builder_dialog.get_route()
+                self.keywords_edit.setPlainText(route)
+                self._auto_insert_blocks_for_route(route)
 
         self.update_preview()
+
+    def _auto_insert_blocks_for_route(self, route):
+        """Insert required % blocks when certain job types are chosen in the builder."""
+        upper_tokens = set(route.upper().split())
+        combined = (
+            self.adv_edit.toPlainText() + "\n" + self.post_adv_edit.toPlainText()
+        ).lower()
+
+        inserts = []
+        if ("NEB-CI" in route.upper() or "NEB-TS" in route.upper()) and "%neb" not in combined:
+            inserts.append(
+                '%neb\n  Product   "product.xyz"\n  NImages    8\nend\n'
+            )
+        if "MD" in upper_tokens and "%md" not in combined:
+            inserts.append(
+                "%md\n"
+                "  TimeStep    0.5      # fs\n"
+                "  TotalTime   1000     # fs\n"
+                "  Temp        300      # K\n"
+                "  InitVel     Random\n"
+                "  Thermostat  NHCQ  Tau 10\n"
+                "end\n"
+            )
+
+        if inserts:
+            current = self.adv_edit.toPlainText()
+            addition = "\n".join(inserts)
+            new_text = (current.rstrip() + "\n" + addition).lstrip() if current.strip() else addition
+            self.adv_edit.setPlainText(new_text)
 
     def get_coords_lines(self):
         if not self._resolve_live_mol():
@@ -1417,7 +1455,7 @@ class OrcaSetupDialogPro(QDialog):
             dirty = " *" if self._is_modified() else ""
             self.setWindowTitle(f"{name}{dirty} — {base}")
         else:
-            self.setWindowTitle(base)
+            self.setWindowTitle(f"{base} *")
 
     def _save_current_file(self):
         """Overwrite current_inp_file with the current preview content."""

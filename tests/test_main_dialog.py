@@ -661,12 +661,12 @@ class TestUpdateTitle(unittest.TestCase):
         OrcaSetupDialogPro._update_title(dlg)
         return dlg.setWindowTitle.call_args[0][0]
 
-    def test_no_file_shows_plugin_name(self):
+    def test_no_file_shows_plugin_name_and_star(self):
         title = self._run(inp_file=None)
         from orca_input_generator_pro import PLUGIN_NAME
 
         self.assertIn(PLUGIN_NAME, title)
-        self.assertNotIn("*", title)
+        self.assertIn("*", title)  # unsaved document always shows *
 
     def test_saved_file_shows_basename(self):
         title = self._run(
@@ -761,6 +761,83 @@ class TestInsertBlockTemplateMd(unittest.TestCase):
 
     def test_md_block_closed(self):
         self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateNeb(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%neb ... end")
+
+    def test_neb_starts_with_percent_neb(self):
+        self.assertTrue(self._t().strip().startswith("%neb"))
+
+    def test_neb_has_product(self):
+        self.assertIn("Product", self._t())
+
+    def test_neb_has_nimages(self):
+        self.assertIn("NImages", self._t())
+
+    def test_neb_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+# ---------------------------------------------------------------------------
+# Tests: _auto_insert_blocks_for_route
+# ---------------------------------------------------------------------------
+
+
+def _auto_dlg(adv_content="", post_adv_content=""):
+    dlg = types.SimpleNamespace()
+    adv = MagicMock()
+    adv.toPlainText.return_value = adv_content
+    dlg.adv_edit = adv
+    post_adv = MagicMock()
+    post_adv.toPlainText.return_value = post_adv_content
+    dlg.post_adv_edit = post_adv
+    return dlg
+
+
+class TestAutoInsertBlocksForRoute(unittest.TestCase):
+    def test_neb_ci_inserts_neb_block(self):
+        dlg = _auto_dlg()
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP NEB-CI")
+        dlg.adv_edit.setPlainText.assert_called_once()
+        inserted = dlg.adv_edit.setPlainText.call_args[0][0]
+        self.assertIn("%neb", inserted)
+        self.assertIn("Product", inserted)
+
+    def test_neb_ts_inserts_neb_block(self):
+        dlg = _auto_dlg()
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP NEB-TS")
+        inserted = dlg.adv_edit.setPlainText.call_args[0][0]
+        self.assertIn("%neb", inserted)
+
+    def test_md_inserts_md_block(self):
+        dlg = _auto_dlg()
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP MD")
+        dlg.adv_edit.setPlainText.assert_called_once()
+        inserted = dlg.adv_edit.setPlainText.call_args[0][0]
+        self.assertIn("%md", inserted)
+        self.assertIn("TimeStep", inserted)
+
+    def test_existing_neb_not_duplicated(self):
+        dlg = _auto_dlg(adv_content="%neb\n  Product x.xyz\nend\n")
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP NEB-CI")
+        dlg.adv_edit.setPlainText.assert_not_called()
+
+    def test_existing_md_not_duplicated(self):
+        dlg = _auto_dlg(adv_content="%md\n  TimeStep 0.5\nend\n")
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP MD")
+        dlg.adv_edit.setPlainText.assert_not_called()
+
+    def test_opt_route_no_insert(self):
+        dlg = _auto_dlg()
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP Opt")
+        dlg.adv_edit.setPlainText.assert_not_called()
+
+    def test_neb_in_post_adv_not_duplicated(self):
+        dlg = _auto_dlg(post_adv_content="%neb\n  Product x.xyz\nend\n")
+        OrcaSetupDialogPro._auto_insert_blocks_for_route(dlg, "! B3LYP def2-SVP NEB-CI")
+        dlg.adv_edit.setPlainText.assert_not_called()
 
 
 if __name__ == "__main__":

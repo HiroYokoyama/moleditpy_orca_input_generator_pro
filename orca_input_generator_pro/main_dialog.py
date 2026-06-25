@@ -177,14 +177,31 @@ class OrcaSetupDialogPro(QDialog):
 
         # --- 3b. Coordinate Format ---
         coord_group = QGroupBox("Coordinate Format")
-        coord_layout = QHBoxLayout()
+        coord_vbox = QVBoxLayout()
         self.coord_format_combo = QComboBox()
-        self.coord_format_combo.addItems(
-            ["Cartesian (XYZ)", "Internal (* int)", "Internal (* gzmt)"]
-        )
-        self.coord_format_combo.currentIndexChanged.connect(self.update_preview)
-        coord_layout.addWidget(self.coord_format_combo)
-        coord_group.setLayout(coord_layout)
+        self.coord_format_combo.addItems([
+            "Cartesian (XYZ)",
+            "XYZ File (xyzfile)",
+            "None (no coordinates)",
+            "Internal (* int)",
+            "Internal (* gzmt)",
+        ])
+        self.coord_format_combo.currentIndexChanged.connect(self._on_coord_format_changed)
+        coord_vbox.addWidget(self.coord_format_combo)
+
+        # XYZ file name field (visible only for "XYZ File" mode)
+        xyzfile_row = QHBoxLayout()
+        xyzfile_row.addWidget(QLabel("XYZ file:"))
+        self.xyzfile_name_edit = QLineEdit()
+        self.xyzfile_name_edit.setPlaceholderText("molecule.xyz")
+        self.xyzfile_name_edit.textChanged.connect(self.update_preview)
+        xyzfile_row.addWidget(self.xyzfile_name_edit)
+        self.xyzfile_row_widget = QWidget()
+        self.xyzfile_row_widget.setLayout(xyzfile_row)
+        self.xyzfile_row_widget.setVisible(False)
+        coord_vbox.addWidget(self.xyzfile_row_widget)
+
+        coord_group.setLayout(coord_vbox)
         settings_layout.addWidget(coord_group)
 
         # --- 4. Advanced/Blocks ---
@@ -469,6 +486,11 @@ class OrcaSetupDialogPro(QDialog):
             logging.warning("_resolve_live_mol failed: %s", _e)
         return self.mol
 
+    def _on_coord_format_changed(self):
+        is_xyzfile = "xyzfile" in self.coord_format_combo.currentText()
+        self.xyzfile_row_widget.setVisible(is_xyzfile)
+        self.update_preview()
+
     def update_preview(self):
         if not getattr(self, "ui_ready", False):
             return
@@ -573,7 +595,9 @@ class OrcaSetupDialogPro(QDialog):
     def save_file(self):
         # 1. 座標データの取得 (Check for error first)
         coord_style = self.coord_format_combo.currentText()
-        if "XYZ" in coord_style:
+        if "None" in coord_style or "xyzfile" in coord_style:
+            lines = []  # no inline coordinates to validate
+        elif "XYZ" in coord_style:
             lines = self.get_coords_lines()
         elif "gzmt" in coord_style:
             lines = self.get_zmatrix_gzmt_lines()
@@ -780,10 +804,14 @@ class OrcaSetupDialogPro(QDialog):
         elif "%neb" in txt:
             template = (
                 "%neb\n"
-                '  Product    "product.xyz"   # xyz file of product geometry\n'
-                "  NImages    8               # number of images (6–12 typical)\n"
-                "  # Spring   0.01            # spring constant (a.u.)\n"
-                "  # Free_End true            # relax product endpoint\n"
+                '  Product        "product.xyz"   # REQUIRED: xyz file of product geometry\n'
+                "  NImages        8               # images between endpoints (6–12 typical)\n"
+                "  # SpringConst  0.01            # spring constant in Eh/Bohr²\n"
+                "  # Opt_Method   LBFGS           # LBFGS / VPO / FIRE\n"
+                "  # Interpolation IDPP           # IDPP / linear / XTB0 / XTB1 / XTB2\n"
+                "  # MaxIter      500             # max NEB cycles\n"
+                "  # Free_End     false           # relax product endpoint\n"
+                "  # PrintLevel   1               # 0–4 verbosity\n"
                 "end\n"
             )
         elif "%md" in txt:
@@ -965,7 +993,11 @@ class OrcaSetupDialogPro(QDialog):
         ).lower()
 
         inserts = []
-        if ("NEB-CI" in route.upper() or "NEB-TS" in route.upper()) and "%neb" not in combined:
+        _NEB_VARIANTS = {
+            "NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
+            "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP",
+        }
+        if any(v in upper_tokens for v in _NEB_VARIANTS) and "%neb" not in combined:
             inserts.append(
                 '%neb\n  Product   "product.xyz"\n  NImages    8\nend\n'
             )
@@ -1187,18 +1219,26 @@ class OrcaSetupDialogPro(QDialog):
             content.append(f"\n{adv}")
 
         # --- Coordinates ---
-        is_cartesian = "Cartesian" in self.coord_format_combo.currentText()
+        coord_style = self.coord_format_combo.currentText()
         content.append("")  # Spacer
 
         charge = self.charge_spin.value()
         mult = self.mult_spin.value()
 
-        if is_cartesian:
+        if "None" in coord_style:
+            pass  # no coordinate block — used for %compound / EndRun style jobs
+        elif "xyzfile" in coord_style:
+            xyz = getattr(self, "xyzfile_name_edit", None)
+            xyz_name = xyz.text().strip() if xyz else ""
+            if not xyz_name:
+                xyz_name = "molecule.xyz"
+            content.append(f"* xyzfile {charge} {mult} {xyz_name}")
+        elif "Cartesian" in coord_style:
             content.append(f"* xyz {charge} {mult}")
             content.extend(self.get_coords_lines())
             content.append("*")
         else:
-            is_gzmt = "gzmt" in self.coord_format_combo.currentText()
+            is_gzmt = "gzmt" in coord_style
             if is_gzmt:
                 header = "* gzmt"
                 zmat_lines = self.get_zmatrix_gzmt_lines()

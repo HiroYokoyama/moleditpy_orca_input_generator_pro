@@ -717,8 +717,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "Gradient",
                 "Hessian",
                 "GOAT (Global Search)",
-                "NEB-CI (Reaction Path)",
-                "NEB-TS (TS via NEB)",
+                "NEB (Nudged Elastic Band)",
                 "MD (Molecular Dynamics)",
                 "IRC (Intrinsic Reaction Coordinate)",
                 "EnGrad (Single Point + Gradient)",
@@ -731,6 +730,28 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addWidget(QLabel("Job Task:"))
         layout.addWidget(self.job_type)
         self.job_type.currentIndexChanged.connect(self.update_ui_state)
+
+        # NEB sub-panel (visible only when NEB job is selected)
+        self.neb_group = QGroupBox("NEB Variant")
+        neb_vbox = QVBoxLayout()
+        self.neb_variant = QComboBox()
+        self.neb_variant.addItems([
+            "NEB",
+            "NEB-CI",
+            "NEB-TS",
+            "FAST-NEB-TS",
+            "LOOSE-NEB-TS",
+            "TIGHT-NEB-TS",
+            "ZOOM-NEB",
+            "ZOOM-NEB-CI",
+            "ZOOM-NEB-TS",
+            "NEB-IDPP",
+        ])
+        self.neb_variant.currentIndexChanged.connect(self.update_preview)
+        neb_vbox.addWidget(self.neb_variant)
+        self.neb_group.setLayout(neb_vbox)
+        self.neb_group.setVisible(False)
+        layout.addWidget(self.neb_group)
 
         # SCF Options (Moved to below Task)
         self.scf_group = QGroupBox("SCF Convergence")
@@ -1358,6 +1379,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         self.opt_group.setVisible(is_opt)
         self.freq_group.setVisible(is_freq)
+        self.neb_group.setVisible("NEB" in job_txt)
 
         # CABS basis: only relevant for explicitly-correlated F12 methods
         is_f12 = "F12" in method_text.upper()
@@ -1521,10 +1543,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("NMR")
         elif "GOAT" in job_txt:
             route_parts.append("GOAT")
-        elif "NEB-CI" in job_txt:
-            route_parts.append("NEB-CI")
-        elif "NEB-TS" in job_txt:
-            route_parts.append("NEB-TS")
+        elif "NEB" in job_txt:
+            route_parts.append(self.neb_variant.currentText())
         elif "Molecular Dynamics" in job_txt:
             route_parts.append("MD")
         elif "IRC" in job_txt:
@@ -1747,6 +1767,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.freq_raman.setChecked(False)
 
         self.job_type.setCurrentText("Single Point Energy (SP)")
+        self.neb_variant.setCurrentIndex(0)
 
         self.scf_sloppy.setChecked(False)
         self.scf_loose.setChecked(False)
@@ -1850,10 +1871,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         break
             elif tu == "GOAT":
                 self.job_type.setCurrentText("GOAT (Global Search)")
-            elif tu == "NEB-CI":
-                self.job_type.setCurrentText("NEB-CI (Reaction Path)")
-            elif tu == "NEB-TS":
-                self.job_type.setCurrentText("NEB-TS (TS via NEB)")
+            elif tu in ("NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
+                        "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP"):
+                self.job_type.setCurrentText("NEB (Nudged Elastic Band)")
+                self.neb_variant.setCurrentText(tu)
             elif tu == "MD":
                 self.job_type.setCurrentText("MD (Molecular Dynamics)")
             elif tu == "IRC":

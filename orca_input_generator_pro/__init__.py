@@ -3,7 +3,7 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "3.3.2"
+PLUGIN_VERSION = "3.3.3"
 PLUGIN_AUTHOR = "HiroYokoyama"
 PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "4.*"

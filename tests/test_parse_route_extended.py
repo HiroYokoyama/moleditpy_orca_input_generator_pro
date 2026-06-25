@@ -182,10 +182,19 @@ _JOB_ITEMS = [
     "Gradient",
     "Hessian",
     "GOAT (Global Search)",
-    "NEB-CI (Reaction Path)",
-    "NEB-TS (TS via NEB)",
+    "NEB (Nudged Elastic Band)",
     "MD (Molecular Dynamics)",
     "IRC (Intrinsic Reaction Coordinate)",
+    "EnGrad (Single Point + Gradient)",
+    "NumGrad (Numerical Gradient)",
+    "NumHess (Numerical Hessian only)",
+    "ESD(ABS) (Vibronic Absorption)",
+    "ESD(FLUOR) (Vibronic Fluorescence)",
+]
+
+_NEB_VARIANTS = [
+    "NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
+    "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP",
 ]
 
 
@@ -242,6 +251,7 @@ def _make_parse_dialog():
         "frozen_core_combo",
         "print_level",
         "scf_guess",
+        "neb_variant",
     ]:
         setattr(dlg, attr, _combo())
 
@@ -421,6 +431,7 @@ def _make_preview_dialog(
     dlg.scf_slowconv = _check(False)
     dlg.scf_veryslowconv = _check(False)
     dlg.scf_guess = _combo("Default")
+    dlg.neb_variant = _combo("NEB-TS")
     dlg.moread_chk = _check(moread_chk)
     dlg.moread_file = MagicMock()
     dlg.moread_file.text.return_value = moread_file
@@ -1006,6 +1017,7 @@ def _make_ui_state_dialog(method="B3LYP"):
     dlg.job_type = _combo("Single Point Energy (SP)")
     dlg.opt_group = MagicMock()
     dlg.freq_group = MagicMock()
+    dlg.neb_group = MagicMock()
     dlg.tddft_enable = MagicMock()
     dlg.tab_tddft = object()  # sentinel — just needs a stable identity
     dlg.tabs = MagicMock()
@@ -1207,25 +1219,32 @@ class TestTddftTabDisabledForCC(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# New job types: GOAT, NEB-CI, NEB-TS, MD
+# New job types: GOAT, NEB variants, MD
 # ---------------------------------------------------------------------------
 
 
 class TestNewJobTypesPreview(unittest.TestCase):
     """update_preview emits the correct ORCA keyword for each new job type."""
 
-    def _route(self, job):
+    def _route(self, job, neb_variant="NEB-TS"):
         dlg = _make_preview_dialog(method="B3LYP", job=job)
+        dlg.neb_variant = _combo(neb_variant)
         return _route(dlg)
 
     def test_goat_emits_goat(self):
         self.assertIn("GOAT", self._route("GOAT (Global Search)").split())
 
-    def test_neb_ci_emits_neb_ci(self):
-        self.assertIn("NEB-CI", self._route("NEB-CI (Reaction Path)").split())
-
     def test_neb_ts_emits_neb_ts(self):
-        self.assertIn("NEB-TS", self._route("NEB-TS (TS via NEB)").split())
+        self.assertIn("NEB-TS", self._route("NEB (Nudged Elastic Band)", "NEB-TS").split())
+
+    def test_neb_ci_emits_neb_ci(self):
+        self.assertIn("NEB-CI", self._route("NEB (Nudged Elastic Band)", "NEB-CI").split())
+
+    def test_zoom_neb_ts_emits_zoom_neb_ts(self):
+        self.assertIn("ZOOM-NEB-TS", self._route("NEB (Nudged Elastic Band)", "ZOOM-NEB-TS").split())
+
+    def test_fast_neb_ts_emits_fast_neb_ts(self):
+        self.assertIn("FAST-NEB-TS", self._route("NEB (Nudged Elastic Band)", "FAST-NEB-TS").split())
 
     def test_md_emits_md(self):
         self.assertIn("MD", self._route("MD (Molecular Dynamics)").split())
@@ -1234,8 +1253,8 @@ class TestNewJobTypesPreview(unittest.TestCase):
         tokens = self._route("GOAT (Global Search)").split()
         self.assertNotIn("Opt", tokens)
 
-    def test_neb_ci_does_not_emit_opt(self):
-        tokens = self._route("NEB-CI (Reaction Path)").split()
+    def test_neb_does_not_emit_opt(self):
+        tokens = self._route("NEB (Nudged Elastic Band)", "NEB-CI").split()
         self.assertNotIn("Opt", tokens)
 
     def test_md_does_not_emit_freq(self):
@@ -1244,7 +1263,7 @@ class TestNewJobTypesPreview(unittest.TestCase):
 
 
 class TestNewJobTypesParseRoute(unittest.TestCase):
-    """parse_route recognises GOAT, NEB-CI, NEB-TS, MD keywords."""
+    """parse_route recognises GOAT, NEB variants, MD keywords."""
 
     def test_parse_goat(self):
         dlg = _parse("! B3LYP def2-SVP GOAT")
@@ -1252,11 +1271,28 @@ class TestNewJobTypesParseRoute(unittest.TestCase):
 
     def test_parse_neb_ci(self):
         dlg = _parse("! B3LYP def2-SVP NEB-CI")
-        dlg.job_type.setCurrentText.assert_any_call("NEB-CI (Reaction Path)")
+        dlg.job_type.setCurrentText.assert_any_call("NEB (Nudged Elastic Band)")
+        dlg.neb_variant.setCurrentText.assert_any_call("NEB-CI")
 
     def test_parse_neb_ts(self):
         dlg = _parse("! B3LYP def2-SVP NEB-TS")
-        dlg.job_type.setCurrentText.assert_any_call("NEB-TS (TS via NEB)")
+        dlg.job_type.setCurrentText.assert_any_call("NEB (Nudged Elastic Band)")
+        dlg.neb_variant.setCurrentText.assert_any_call("NEB-TS")
+
+    def test_parse_zoom_neb_ts(self):
+        dlg = _parse("! B3LYP def2-SVP ZOOM-NEB-TS")
+        dlg.job_type.setCurrentText.assert_any_call("NEB (Nudged Elastic Band)")
+        dlg.neb_variant.setCurrentText.assert_any_call("ZOOM-NEB-TS")
+
+    def test_parse_fast_neb_ts(self):
+        dlg = _parse("! B3LYP def2-SVP FAST-NEB-TS")
+        dlg.job_type.setCurrentText.assert_any_call("NEB (Nudged Elastic Band)")
+        dlg.neb_variant.setCurrentText.assert_any_call("FAST-NEB-TS")
+
+    def test_parse_neb_idpp(self):
+        dlg = _parse("! B3LYP def2-SVP NEB-IDPP")
+        dlg.job_type.setCurrentText.assert_any_call("NEB (Nudged Elastic Band)")
+        dlg.neb_variant.setCurrentText.assert_any_call("NEB-IDPP")
 
     def test_parse_md(self):
         dlg = _parse("! GFN2-xTB MD")

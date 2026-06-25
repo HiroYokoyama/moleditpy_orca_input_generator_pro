@@ -241,6 +241,7 @@ def _make_dialog(
     dlg.scf_slowconv = _check(False)
     dlg.scf_veryslowconv = _check(False)
     dlg.scf_guess = _combo("Default")
+    dlg.neb_variant = _combo("NEB-TS")
     dlg.moread_chk = _check(False)
     dlg.somf_chk = _check(False)
     dlg.keepdens_chk = _check(False)

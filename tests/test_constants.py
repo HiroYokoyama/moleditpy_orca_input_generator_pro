@@ -400,6 +400,37 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
     def test_double_hybrid_case_insensitive(self):
         self.assertEqual(_cat("b2plyp"), _cat("B2PLYP"))
 
+    def test_eom_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("EOM-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_dlpno_eom_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("DLPNO-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_ip_eom_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("IP-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_ea_eom_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("EA-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_sf_eom_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("SF-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_steom_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("STEOM-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_steom_dlpno_ccsd_is_coupled_cluster(self):
+        self.assertEqual(_cat("STEOM-DLPNO-CCSD"), "Wavefunction (Coupled Cluster)")
+
+    def test_rocis_is_wavefunction_hf_mp2(self):
+        self.assertEqual(_cat("ROCIS"), "Wavefunction (HF/MP2)")
+
+    def test_eom_in_constants_list(self):
+        from orca_input_generator_pro.constants import ALL_ORCA_METHODS
+
+        self.assertIn("EOM-CCSD", ALL_ORCA_METHODS)
+        self.assertIn("STEOM-CCSD", ALL_ORCA_METHODS)
+        self.assertIn("ROCIS", ALL_ORCA_METHODS)
+
 
 if __name__ == "__main__":
     unittest.main()

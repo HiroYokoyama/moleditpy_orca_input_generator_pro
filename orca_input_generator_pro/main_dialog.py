@@ -216,8 +216,6 @@ class OrcaSetupDialogPro(QDialog):
                 "%freq ... end",
                 "%loc ... end",
                 "%esd ... end",
-                "%pal nprocs N end",
-                "%maxcore N",
             ]
         )
         blk_h_layout.addWidget(self.block_combo, 1)
@@ -806,10 +804,6 @@ class OrcaSetupDialogPro(QDialog):
                 "  DOHT       true\n"
                 "end\n"
             )
-        elif "%pal" in txt:
-            template = "%pal nprocs 8 end\n"
-        elif "%maxcore" in txt:
-            template = "%maxcore 4000\n"
         elif "%eprnmr" in txt:
             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL}\nend\n"
             # Switch to Post-Coordinate tab automatically

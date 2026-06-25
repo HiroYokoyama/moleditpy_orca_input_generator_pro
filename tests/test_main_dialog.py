@@ -894,26 +894,6 @@ class TestInsertBlockTemplateEsd(unittest.TestCase):
         self.assertTrue(self._t().strip().endswith("end"))
 
 
-class TestInsertBlockTemplatePal(unittest.TestCase):
-    def test_pal_contains_nprocs(self):
-        t = _insert_template("%pal nprocs N end")
-        self.assertIn("nprocs", t)
-
-    def test_pal_contains_pal(self):
-        t = _insert_template("%pal nprocs N end")
-        self.assertIn("%pal", t)
-
-
-class TestInsertBlockTemplateMaxcore(unittest.TestCase):
-    def test_maxcore_contains_maxcore(self):
-        t = _insert_template("%maxcore N")
-        self.assertIn("%maxcore", t)
-
-    def test_maxcore_contains_number(self):
-        t = _insert_template("%maxcore N")
-        self.assertTrue(any(c.isdigit() for c in t))
-
-
 class TestInsertBlockTemplateMdci(unittest.TestCase):
     def _t(self):
         return _insert_template("%mdci ... end")

@@ -240,7 +240,12 @@ def _make_dialog(
     dlg.bs_spins.text.return_value = "1,1"
     dlg.scf_slowconv = _check(False)
     dlg.scf_veryslowconv = _check(False)
+    dlg.scf_guess = _combo("Default")
     dlg.moread_chk = _check(False)
+    dlg.somf_chk = _check(False)
+    dlg.keepdens_chk = _check(False)
+    dlg.keepints_chk = _check(False)
+    dlg.cosx_chk = _check(False)
     dlg.moread_file = MagicMock()
     dlg.moread_file.text.return_value = ""
     dlg.tddft_enable = _check(False)

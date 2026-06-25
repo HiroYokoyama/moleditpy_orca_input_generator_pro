@@ -922,11 +922,26 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addRow("Spin flips (α,β):", self.bs_spins)
 
         layout.addRow(QLabel("— Initial Guess —"))
+        self.scf_guess = QComboBox()
+        self.scf_guess.addItems(["Default", "PModel", "Hueckel", "HCore", "PAtom"])
+        layout.addRow("SCF Guess (%scf):", self.scf_guess)
         self.moread_chk = QCheckBox("Read MOs from file (! MOREAD)")
         layout.addRow(self.moread_chk)
         self.moread_file = QLineEdit()
         self.moread_file.setPlaceholderText("e.g.  previous.gbw")
         layout.addRow("MO File:", self.moread_file)
+
+        layout.addRow(QLabel("— Spin-Orbit / File Retention —"))
+        self.somf_chk = QCheckBox("RI-SOMF(1X) (spin-orbit coupling integrals)")
+        layout.addRow(self.somf_chk)
+        self.keepdens_chk = QCheckBox("KeepDens (retain density files on disk)")
+        layout.addRow(self.keepdens_chk)
+        self.keepints_chk = QCheckBox("KeepInts (retain integral file for reuse)")
+        layout.addRow(self.keepints_chk)
+
+        layout.addRow(QLabel("— Exchange Approximation —"))
+        self.cosx_chk = QCheckBox("COSX (chain-of-spheres exchange, without RI Coulomb)")
+        layout.addRow(self.cosx_chk)
 
         self.tab_props.setLayout(layout)
 
@@ -1235,7 +1250,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.zfs_chk,
             self.nori_chk,
             self.bs_chk,
+            self.scf_guess,
             self.moread_chk,
+            self.somf_chk,
+            self.keepdens_chk,
+            self.keepints_chk,
+            self.cosx_chk,
             self.tddft_enable,
             self.tddft_nroots,
             self.tddft_triplets,
@@ -1614,6 +1634,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if fc != "Default":
             route_parts.append(fc)
 
+        # COSX (standalone chain-of-spheres without RI Coulomb)
+        if self.cosx_chk.isChecked():
+            route_parts.append("COSX")
+
+        # Spin-orbit coupling
+        if self.somf_chk.isChecked():
+            route_parts.append("RI-SOMF(1X)")
+
+        # File retention keywords
+        if self.keepdens_chk.isChecked():
+            route_parts.append("KeepDens")
+        if self.keepints_chk.isChecked():
+            route_parts.append("KeepInts")
+
         # Broken symmetry
         if self.bs_chk.isChecked():
             route_parts.append("UKS")
@@ -1662,6 +1696,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if getattr(self, "bs_chk", None) is not None and self.bs_chk.isChecked():
             spins = self.bs_spins.text().strip() or "1,1"
             blocks.append(f"%scf\n  BrokenSym {spins}\nend")
+
+        # 2b. SCF Guess (via %scf block; MOREAD is handled on the route line separately)
+        if getattr(self, "scf_guess", None) is not None:
+            guess = self.scf_guess.currentText()
+            if guess != "Default":
+                blocks.append(f"%scf\n  Guess {guess}\nend")
 
         # 3. Constraints & Scan
         if getattr(self, "constraint_table", None) is not None:
@@ -1727,8 +1767,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.nori_chk.setChecked(False)
         self.bs_chk.setChecked(False)
         self.bs_spins.setText("1,1")
+        self.scf_guess.setCurrentText("Default")
         self.moread_chk.setChecked(False)
         self.moread_file.setText("")
+        self.somf_chk.setChecked(False)
+        self.keepdens_chk.setChecked(False)
+        self.keepints_chk.setChecked(False)
+        self.cosx_chk.setChecked(False)
         self.tddft_enable.setChecked(False)
         self.constraint_table.setRowCount(0)
 
@@ -1963,6 +2008,16 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 if mo_match:
                     self.moread_file.setText(mo_match.group(1))
 
+            # 15. Spin-orbit / file retention
+            if tu == "RI-SOMF(1X)":
+                self.somf_chk.setChecked(True)
+            elif tu == "KEEPDENS":
+                self.keepdens_chk.setChecked(True)
+            elif tu == "KEEPINTS":
+                self.keepints_chk.setChecked(True)
+            elif tu == "COSX":
+                self.cosx_chk.setChecked(True)
+
             # 14. CABS basis (not in ALL_ORCA_BASIS_SETS — check explicitly)
             _cabs_map = {
                 "CC-PVDZ-F12-CABS": "cc-pVDZ-F12-CABS",
@@ -2024,6 +2079,17 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 if bs_match:
                     self.bs_chk.setChecked(True)
                     self.bs_spins.setText(bs_match.group(1))
+                guess_match = re.search(r"Guess\s+(\w+)", bcontent, re.I)
+                if guess_match:
+                    _gmap = {
+                        "PMODEL": "PModel",
+                        "HUECKEL": "Hueckel",
+                        "HCORE": "HCore",
+                        "PATOM": "PAtom",
+                    }
+                    self.scf_guess.setCurrentText(
+                        _gmap.get(guess_match.group(1).upper(), "Default")
+                    )
 
             elif bname == "geom":
                 if re.search(r"MaxIter\s+256", bcontent, re.I):

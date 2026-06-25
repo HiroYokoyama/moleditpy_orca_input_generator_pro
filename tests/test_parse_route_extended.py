@@ -241,6 +241,7 @@ def _make_parse_dialog():
         "pno_preset",
         "frozen_core_combo",
         "print_level",
+        "scf_guess",
     ]:
         setattr(dlg, attr, _combo())
 
@@ -271,6 +272,10 @@ def _make_parse_dialog():
         "nori_chk",
         "bs_chk",
         "moread_chk",
+        "somf_chk",
+        "keepdens_chk",
+        "keepints_chk",
+        "cosx_chk",
         "tddft_enable",
         "tddft_triplets",
         "tddft_tda",
@@ -415,9 +420,14 @@ def _make_preview_dialog(
     dlg.bs_spins.text.return_value = "1,1"
     dlg.scf_slowconv = _check(False)
     dlg.scf_veryslowconv = _check(False)
+    dlg.scf_guess = _combo("Default")
     dlg.moread_chk = _check(moread_chk)
     dlg.moread_file = MagicMock()
     dlg.moread_file.text.return_value = moread_file
+    dlg.somf_chk = _check(False)
+    dlg.keepdens_chk = _check(False)
+    dlg.keepints_chk = _check(False)
+    dlg.cosx_chk = _check(False)
     dlg.tddft_enable = _check(False)
     dlg.iter256_chk = _check(False)
     dlg.constraint_table = MagicMock()

@@ -214,6 +214,8 @@ class OrcaSetupDialogPro(QDialog):
                 "%cpcm ... end",
                 "%rel ... end",
                 "%mp2 ... end",
+                "%dft ... end",
+                "%frag (BSSE/Counterpoise)",
                 "%freq ... end",
                 "%loc ... end",
                 "%esd ... end",
@@ -841,6 +843,33 @@ class OrcaSetupDialogPro(QDialog):
                 "  RI          true      # RI approximation (faster, needs aux basis)\n"
                 "  Density     relaxed   # relaxed / unrelaxed electron density\n"
                 "  # RI_MP2_ALG 0        # 0=conventional, 1=semi-direct\n"
+                "end\n"
+            )
+        elif "%dft" in txt:
+            template = (
+                "%dft\n"
+                "  Grid        DefGrid2   # DFT integration grid (DefGrid1/DefGrid2/DefGrid3)\n"
+                "  GridX       DefGrid1   # HF exchange grid (can be smaller for speed)\n"
+                "  # IntAcc    4.34       # radial accuracy; each +1 adds ~15 radial points\n"
+                "  # FinalGrid DefGrid3   # final energy grid (default = same as Grid)\n"
+                "  # NewExchangeFunc 1 HF 0.20 end  # custom HF exchange fraction\n"
+                "end\n"
+            )
+        elif "%frag" in txt:
+            template = (
+                "# Counterpoise (BSSE) correction — ORCA 6 fragment approach\n"
+                "# Define fragments; run 3 jobs: dimer, ghost-frag-2, ghost-frag-1\n"
+                "%frag\n"
+                "  NFrags   2              # total number of fragments\n"
+                "  Frag1 = {0,1,2}         # 0-based atom indices for fragment 1\n"
+                "  Frag2 = {3,4,5}         # 0-based atom indices for fragment 2\n"
+                "  Charge1 = 0  Mult1 = 1  # charge & multiplicity of fragment 1\n"
+                "  Charge2 = 0  Mult2 = 1  # charge & multiplicity of fragment 2\n"
+                "end\n"
+                "\n"
+                "# For monomer A calculation (fragment 2 as ghost basis only):\n"
+                "%geom\n"
+                "  GhostFrags {2}          # fragment 2 atoms become ghost atoms\n"
                 "end\n"
             )
         elif "%freq" in txt:

@@ -720,6 +720,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "NEB-TS (TS via NEB)",
                 "MD (Molecular Dynamics)",
                 "IRC (Intrinsic Reaction Coordinate)",
+                "EnGrad (Single Point + Gradient)",
+                "NumGrad (Numerical Gradient)",
+                "ESD(ABS) (Vibronic Absorption)",
+                "ESD(FLUOR) (Vibronic Fluorescence)",
             ]
         )
         layout.addWidget(QLabel("Job Task:"))
@@ -737,6 +741,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.scf_tight = QCheckBox("Tight")
         self.scf_verytight = QCheckBox("VeryTight")
         self.scf_extreme = QCheckBox("Extreme")
+        self.scf_slowconv = QCheckBox("SlowConv")
+        self.scf_veryslowconv = QCheckBox("VerySlowConv")
 
         # Row 1
         scf_layout.addWidget(self.scf_sloppy, 0, 0)
@@ -747,6 +753,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         scf_layout.addWidget(self.scf_tight, 1, 0)
         scf_layout.addWidget(self.scf_verytight, 1, 1)
         scf_layout.addWidget(self.scf_extreme, 1, 2)
+        # Row 3: damping helpers (orthogonal to threshold)
+        scf_layout.addWidget(self.scf_slowconv, 2, 0)
+        scf_layout.addWidget(self.scf_veryslowconv, 2, 1)
 
         self.scf_group.setLayout(scf_layout)
         layout.addWidget(self.scf_group)
@@ -870,6 +879,25 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addRow(self.pop_chelpg)
         self.pop_hirshfeld = QCheckBox("Hirshfeld Charges (! Hirshfeld)")
         layout.addRow(self.pop_hirshfeld)
+        self.uco_chk = QCheckBox("UCO (Unrestricted Corresponding Orbitals)")
+        layout.addRow(self.uco_chk)
+
+        layout.addRow(QLabel("— Properties —"))
+        self.pol_chk = QCheckBox("Polarizability")
+        layout.addRow(self.pol_chk)
+        self.hyperpol_chk = QCheckBox("Hyperpolarizability (Hyperpol)")
+        layout.addRow(self.hyperpol_chk)
+        self.epr_chk = QCheckBox("EPR g-tensor (! EPR)")
+        layout.addRow(self.epr_chk)
+        self.zfs_chk = QCheckBox("Zero-Field Splitting (! ZFS)")
+        layout.addRow(self.zfs_chk)
+
+        layout.addRow(QLabel("— RI / Core —"))
+        self.nori_chk = QCheckBox("Disable RI (! NoRI)")
+        layout.addRow(self.nori_chk)
+        self.frozen_core_combo = QComboBox()
+        self.frozen_core_combo.addItems(["Default", "FrozenCore", "NoFrozenCore"])
+        layout.addRow("Frozen Core (CC):", self.frozen_core_combo)
 
         layout.addRow(QLabel("— Initial Guess —"))
         self.moread_chk = QCheckBox("Read MOs from file (! MOREAD)")
@@ -1163,13 +1191,22 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.scf_tight,
             self.scf_verytight,
             self.scf_extreme,
+            self.scf_slowconv,
+            self.scf_veryslowconv,
             self.cabs_basis,
             self.relativistic,
             self.pno_preset,
+            self.frozen_core_combo,
             self.pop_nbo,
             self.pop_npa,
             self.pop_chelpg,
             self.pop_hirshfeld,
+            self.uco_chk,
+            self.pol_chk,
+            self.hyperpol_chk,
+            self.epr_chk,
+            self.zfs_chk,
+            self.nori_chk,
             self.moread_chk,
             self.tddft_enable,
             self.tddft_nroots,
@@ -1195,6 +1232,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.scf_extreme,
                 ]:
                     w.clicked.connect(self.enforce_scf_mutual_exclusion)
+                if w in [self.scf_slowconv, self.scf_veryslowconv]:
+                    w.clicked.connect(self.enforce_slowconv_mutual_exclusion)
                 # Mutual exclusivity for Opt
                 if w in [self.opt_tight, self.opt_verytight, self.opt_loose]:
                     w.clicked.connect(self.enforce_opt_mutual_exclusion)
@@ -1297,6 +1336,17 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 cb.blockSignals(False)
         self.update_preview()
 
+    def enforce_slowconv_mutual_exclusion(self):
+        ctx = self.sender()
+        if not ctx.isChecked():
+            return
+        for cb in [self.scf_slowconv, self.scf_veryslowconv]:
+            if cb != ctx:
+                cb.blockSignals(True)
+                cb.setChecked(False)
+                cb.blockSignals(False)
+        self.update_preview()
+
     def enforce_opt_mutual_exclusion(self):
         ctx = self.sender()
         if not ctx.isChecked():
@@ -1392,6 +1442,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         elif "Scan" in job_txt:
             # Relaxed Surface Scan in ORCA should use Opt header with %geom Scan block
             route_parts.append(opt_conv if opt_conv else "Opt")
+        elif "EnGrad" in job_txt:
+            route_parts.append("EnGrad")
+        elif "NumGrad" in job_txt:
+            route_parts.append("NumGrad")
+        elif "ESD(ABS)" in job_txt:
+            route_parts.append("ESD(ABS)")
+        elif "ESD(FLUOR)" in job_txt:
+            route_parts.append("ESD(FLUOR)")
         elif "Gradient" in job_txt:
             route_parts.append("Gradient")
         elif "Hessian" in job_txt:
@@ -1463,6 +1521,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         elif self.scf_extreme.isChecked():
             route_parts.append("ExtremeSCF")
 
+        if self.scf_slowconv.isChecked():
+            route_parts.append("SlowConv")
+        elif self.scf_veryslowconv.isChecked():
+            route_parts.append("VerySlowConv")
+
         grid = self.grid_combo.currentText()
         if grid != "Default":
             route_parts.append(grid)
@@ -1487,6 +1550,25 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("CHELPG")
         if self.pop_hirshfeld.isChecked():
             route_parts.append("Hirshfeld")
+
+        # Properties
+        if self.pol_chk.isChecked():
+            route_parts.append("Polarizability")
+        if self.hyperpol_chk.isChecked():
+            route_parts.append("Hyperpol")
+        if self.epr_chk.isChecked():
+            route_parts.append("EPR")
+        if self.zfs_chk.isChecked():
+            route_parts.append("ZFS")
+        if self.uco_chk.isChecked():
+            route_parts.append("UCO")
+
+        # RI / Core
+        if self.nori_chk.isChecked():
+            route_parts.append("NoRI")
+        fc = self.frozen_core_combo.currentText()
+        if fc != "Default":
+            route_parts.append(fc)
 
         # MOREAD
         if self.moread_chk.isChecked():
@@ -1565,6 +1647,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.scf_tight.setChecked(False)
         self.scf_verytight.setChecked(False)
         self.scf_extreme.setChecked(False)
+        self.scf_slowconv.setChecked(False)
+        self.scf_veryslowconv.setChecked(False)
 
         self.dispersion.setCurrentText("None")
         self.solv_model.setCurrentText("None")
@@ -1572,10 +1656,17 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.cabs_basis.setCurrentText("None")
         self.relativistic.setCurrentText("None")
         self.pno_preset.setCurrentText("Default")
+        self.frozen_core_combo.setCurrentText("Default")
         self.pop_nbo.setChecked(False)
         self.pop_npa.setChecked(False)
         self.pop_chelpg.setChecked(False)
         self.pop_hirshfeld.setChecked(False)
+        self.uco_chk.setChecked(False)
+        self.pol_chk.setChecked(False)
+        self.hyperpol_chk.setChecked(False)
+        self.epr_chk.setChecked(False)
+        self.zfs_chk.setChecked(False)
+        self.nori_chk.setChecked(False)
         self.moread_chk.setChecked(False)
         self.moread_file.setText("")
         self.tddft_enable.setChecked(False)
@@ -1647,6 +1738,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.job_type.setCurrentText("MD (Molecular Dynamics)")
             elif tu == "IRC":
                 self.job_type.setCurrentText("IRC (Intrinsic Reaction Coordinate)")
+            elif tu == "ENGRAD":
+                self.job_type.setCurrentText("EnGrad (Single Point + Gradient)")
+            elif tu == "NUMGRAD":
+                self.job_type.setCurrentText("NumGrad (Numerical Gradient)")
+            elif tu == "ESD(ABS)":
+                self.job_type.setCurrentText("ESD(ABS) (Vibronic Absorption)")
+            elif tu == "ESD(FLUOR)":
+                self.job_type.setCurrentText("ESD(FLUOR) (Vibronic Fluorescence)")
 
             # 3. Opt Options
             if tu == "TIGHTOPT":
@@ -1729,6 +1828,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             elif tu == "EXTREMESCF":
                 self.scf_extreme.setChecked(True)
 
+            # 9b. SCF damping helpers
+            if tu == "SLOWCONV":
+                self.scf_slowconv.setChecked(True)
+            elif tu == "VERYSLOWCONV":
+                self.scf_veryslowconv.setChecked(True)
+
             # 10. Population / charge analysis
             if tu == "NBO":
                 self.pop_nbo.setChecked(True)
@@ -1738,6 +1843,26 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.pop_chelpg.setChecked(True)
             elif tu == "HIRSHFELD":
                 self.pop_hirshfeld.setChecked(True)
+            elif tu == "UCO":
+                self.uco_chk.setChecked(True)
+
+            # 10b. Properties
+            if tu == "POLARIZABILITY":
+                self.pol_chk.setChecked(True)
+            elif tu == "HYPERPOL":
+                self.hyperpol_chk.setChecked(True)
+            elif tu == "EPR":
+                self.epr_chk.setChecked(True)
+            elif tu == "ZFS":
+                self.zfs_chk.setChecked(True)
+
+            # 10c. RI / Core
+            if tu == "NORI":
+                self.nori_chk.setChecked(True)
+            elif tu == "FROZENCORE":
+                self.frozen_core_combo.setCurrentText("FrozenCore")
+            elif tu == "NOFROZENCORE":
+                self.frozen_core_combo.setCurrentText("NoFrozenCore")
 
             # 11. Relativistic
             if tu in ["DKH2", "ZORA", "X2C", "DKH"]:

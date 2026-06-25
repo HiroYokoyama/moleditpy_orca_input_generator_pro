@@ -213,6 +213,11 @@ class OrcaSetupDialogPro(QDialog):
                 "%basis ... end",
                 "%cpcm ... end",
                 "%rel ... end",
+                "%freq ... end",
+                "%loc ... end",
+                "%esd ... end",
+                "%pal nprocs N end",
+                "%maxcore N",
             ]
         )
         blk_h_layout.addWidget(self.block_combo, 1)
@@ -768,8 +773,43 @@ class OrcaSetupDialogPro(QDialog):
                 "%rel\n"
                 "  method DKH\n"
                 "  order  2\n"
+                "  # UseSOCS true   # for ZORA/DKH geometry optimizations\n"
                 "end\n"
             )
+        elif "%freq" in txt:
+            template = (
+                "%freq\n"
+                "  Temp        298.15   # K\n"
+                "  Pressure    1.0      # atm\n"
+                "  # AnFreq    true     # Analytical frequencies\n"
+                "  # doVCD     true     # VCD (requires AnFreq)\n"
+                "  # doROA     true     # ROA (requires AnFreq)\n"
+                "  # dx        0.005    # Displacement for NumFreq\n"
+                "  # Central   true     # Central differences\n"
+                "end\n"
+            )
+        elif "%loc" in txt:
+            template = (
+                "%loc\n"
+                "  LocMet  PipekMezey   # or FB (Foster-Boys)\n"
+                "  OCC     true\n"
+                "  # VIRT  true\n"
+                "end\n"
+            )
+        elif "%esd" in txt:
+            template = (
+                "%esd\n"
+                '  ESDFLAG    ABS            # ABS or FLUOR\n'
+                '  GSHESSIAN  "gs.hess"\n'
+                '  ESHESSIAN  "es.hess"\n'
+                "  HESSFLAG   VG             # Vertical Gradient approx\n"
+                "  DOHT       true\n"
+                "end\n"
+            )
+        elif "%pal" in txt:
+            template = "%pal nprocs 8 end\n"
+        elif "%maxcore" in txt:
+            template = "%maxcore 4000\n"
         elif "%eprnmr" in txt:
             template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL}\nend\n"
             # Switch to Post-Coordinate tab automatically

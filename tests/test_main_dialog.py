@@ -840,6 +840,80 @@ class TestAutoInsertBlocksForRoute(unittest.TestCase):
         dlg.adv_edit.setPlainText.assert_not_called()
 
 
+class TestInsertBlockTemplateFreq(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%freq ... end")
+
+    def test_freq_starts_with_percent_freq(self):
+        self.assertTrue(self._t().strip().startswith("%freq"))
+
+    def test_freq_has_temp(self):
+        self.assertIn("Temp", self._t())
+
+    def test_freq_has_pressure(self):
+        self.assertIn("Pressure", self._t())
+
+    def test_freq_has_vcd_comment(self):
+        self.assertIn("doVCD", self._t())
+
+    def test_freq_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateLoc(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%loc ... end")
+
+    def test_loc_starts_with_percent_loc(self):
+        self.assertTrue(self._t().strip().startswith("%loc"))
+
+    def test_loc_has_locmet(self):
+        self.assertIn("LocMet", self._t())
+
+    def test_loc_has_pipek_mezey(self):
+        self.assertIn("PipekMezey", self._t())
+
+    def test_loc_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplateEsd(unittest.TestCase):
+    def _t(self):
+        return _insert_template("%esd ... end")
+
+    def test_esd_starts_with_percent_esd(self):
+        self.assertTrue(self._t().strip().startswith("%esd"))
+
+    def test_esd_has_esdflag(self):
+        self.assertIn("ESDFLAG", self._t())
+
+    def test_esd_has_gshessian(self):
+        self.assertIn("GSHESSIAN", self._t())
+
+    def test_esd_block_closed(self):
+        self.assertTrue(self._t().strip().endswith("end"))
+
+
+class TestInsertBlockTemplatePal(unittest.TestCase):
+    def test_pal_contains_nprocs(self):
+        t = _insert_template("%pal nprocs N end")
+        self.assertIn("nprocs", t)
+
+    def test_pal_contains_pal(self):
+        t = _insert_template("%pal nprocs N end")
+        self.assertIn("%pal", t)
+
+
+class TestInsertBlockTemplateMaxcore(unittest.TestCase):
+    def test_maxcore_contains_maxcore(self):
+        t = _insert_template("%maxcore N")
+        self.assertIn("%maxcore", t)
+
+    def test_maxcore_contains_number(self):
+        t = _insert_template("%maxcore N")
+        self.assertTrue(any(c.isdigit() for c in t))
+
+
 class TestInsertBlockTemplateMdci(unittest.TestCase):
     def _t(self):
         return _insert_template("%mdci ... end")

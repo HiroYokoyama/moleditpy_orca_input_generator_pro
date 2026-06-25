@@ -239,6 +239,7 @@ def _make_parse_dialog():
         "dispersion",
         "relativistic",
         "pno_preset",
+        "frozen_core_combo",
     ]:
         setattr(dlg, attr, _combo())
 
@@ -257,6 +258,12 @@ def _make_parse_dialog():
         "pop_npa",
         "pop_chelpg",
         "pop_hirshfeld",
+        "uco_chk",
+        "pol_chk",
+        "hyperpol_chk",
+        "epr_chk",
+        "zfs_chk",
+        "nori_chk",
         "moread_chk",
         "tddft_enable",
         "tddft_triplets",
@@ -268,6 +275,8 @@ def _make_parse_dialog():
         "scf_tight",
         "scf_verytight",
         "scf_extreme",
+        "scf_slowconv",
+        "scf_veryslowconv",
         "iter256_chk",
     ]:
         setattr(dlg, attr, _check())
@@ -376,10 +385,19 @@ def _make_preview_dialog(
     dlg.relativistic = _combo(relativistic)
     dlg.pno_preset = _combo(pno_preset)
     dlg.pno_preset.isEnabled.return_value = pno_preset_enabled
+    dlg.frozen_core_combo = _combo("Default")
     dlg.pop_nbo = _check(False)
     dlg.pop_npa = _check(pop_npa)
     dlg.pop_chelpg = _check(pop_chelpg)
     dlg.pop_hirshfeld = _check(pop_hirshfeld)
+    dlg.uco_chk = _check(False)
+    dlg.pol_chk = _check(False)
+    dlg.hyperpol_chk = _check(False)
+    dlg.epr_chk = _check(False)
+    dlg.zfs_chk = _check(False)
+    dlg.nori_chk = _check(False)
+    dlg.scf_slowconv = _check(False)
+    dlg.scf_veryslowconv = _check(False)
     dlg.moread_chk = _check(moread_chk)
     dlg.moread_file = MagicMock()
     dlg.moread_file.text.return_value = moread_file
@@ -1221,6 +1239,168 @@ class TestNewJobTypesParseRoute(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # IRC job type
 # ---------------------------------------------------------------------------
+
+
+class TestEnGradNumGradEsdPreview(unittest.TestCase):
+    """update_preview emits correct keywords for EnGrad, NumGrad, ESD job types."""
+
+    def _r(self, job):
+        return _route(_make_preview_dialog(method="B3LYP", job=job))
+
+    def test_engrad_emits_engrad(self):
+        self.assertIn("EnGrad", self._r("EnGrad (Single Point + Gradient)").split())
+
+    def test_numgrad_emits_numgrad(self):
+        self.assertIn("NumGrad", self._r("NumGrad (Numerical Gradient)").split())
+
+    def test_esd_abs_emits_esd_abs(self):
+        self.assertIn("ESD(ABS)", self._r("ESD(ABS) (Vibronic Absorption)"))
+
+    def test_esd_fluor_emits_esd_fluor(self):
+        self.assertIn("ESD(FLUOR)", self._r("ESD(FLUOR) (Vibronic Fluorescence)"))
+
+    def test_engrad_does_not_emit_opt(self):
+        self.assertNotIn("Opt", self._r("EnGrad (Single Point + Gradient)").split())
+
+
+class TestEnGradNumGradEsdParseRoute(unittest.TestCase):
+    """parse_route recognises EnGrad, NumGrad, ESD(ABS), ESD(FLUOR)."""
+
+    def test_parse_engrad(self):
+        dlg = _parse("! B3LYP def2-SVP EnGrad")
+        dlg.job_type.setCurrentText.assert_any_call("EnGrad (Single Point + Gradient)")
+
+    def test_parse_numgrad(self):
+        dlg = _parse("! B3LYP def2-SVP NumGrad")
+        dlg.job_type.setCurrentText.assert_any_call("NumGrad (Numerical Gradient)")
+
+    def test_parse_esd_abs(self):
+        dlg = _parse("! B3LYP def2-SVP ESD(ABS)")
+        dlg.job_type.setCurrentText.assert_any_call("ESD(ABS) (Vibronic Absorption)")
+
+    def test_parse_esd_fluor(self):
+        dlg = _parse("! B3LYP def2-SVP ESD(FLUOR)")
+        dlg.job_type.setCurrentText.assert_any_call("ESD(FLUOR) (Vibronic Fluorescence)")
+
+
+class TestSlowConvPreview(unittest.TestCase):
+    """update_preview emits SlowConv / VerySlowConv."""
+
+    def _r(self, slowconv=False, veryslowconv=False):
+        dlg = _make_preview_dialog(method="B3LYP")
+        dlg.scf_slowconv = _check(slowconv)
+        dlg.scf_veryslowconv = _check(veryslowconv)
+        return _route(dlg)
+
+    def test_slowconv_emitted(self):
+        self.assertIn("SlowConv", self._r(slowconv=True).split())
+
+    def test_veryslowconv_emitted(self):
+        self.assertIn("VerySlowConv", self._r(veryslowconv=True).split())
+
+    def test_neither_emitted_by_default(self):
+        r = self._r()
+        self.assertNotIn("SlowConv", r.split())
+        self.assertNotIn("VerySlowConv", r.split())
+
+
+class TestSlowConvParseRoute(unittest.TestCase):
+    def test_parse_slowconv(self):
+        dlg = _parse("! B3LYP def2-SVP SlowConv")
+        dlg.scf_slowconv.setChecked.assert_any_call(True)
+
+    def test_parse_veryslowconv(self):
+        dlg = _parse("! B3LYP def2-SVP VerySlowConv")
+        dlg.scf_veryslowconv.setChecked.assert_any_call(True)
+
+
+class TestPropertiesPreview(unittest.TestCase):
+    """update_preview emits Polarizability, Hyperpol, EPR, ZFS, UCO, NoRI."""
+
+    def _r(self, **kw):
+        dlg = _make_preview_dialog(method="B3LYP")
+        for attr, val in kw.items():
+            setattr(dlg, attr, _check(val))
+        return _route(dlg)
+
+    def test_polarizability_emitted(self):
+        self.assertIn("Polarizability", self._r(pol_chk=True).split())
+
+    def test_hyperpol_emitted(self):
+        self.assertIn("Hyperpol", self._r(hyperpol_chk=True).split())
+
+    def test_epr_emitted(self):
+        self.assertIn("EPR", self._r(epr_chk=True).split())
+
+    def test_zfs_emitted(self):
+        self.assertIn("ZFS", self._r(zfs_chk=True).split())
+
+    def test_uco_emitted(self):
+        self.assertIn("UCO", self._r(uco_chk=True).split())
+
+    def test_nori_emitted(self):
+        self.assertIn("NoRI", self._r(nori_chk=True).split())
+
+    def test_none_by_default(self):
+        r = self._r()
+        for kw in ("Polarizability", "Hyperpol", "EPR", "ZFS", "UCO", "NoRI"):
+            self.assertNotIn(kw, r.split())
+
+
+class TestPropertiesParseRoute(unittest.TestCase):
+    def test_parse_polarizability(self):
+        dlg = _parse("! B3LYP def2-SVP Polarizability")
+        dlg.pol_chk.setChecked.assert_any_call(True)
+
+    def test_parse_hyperpol(self):
+        dlg = _parse("! B3LYP def2-SVP Hyperpol")
+        dlg.hyperpol_chk.setChecked.assert_any_call(True)
+
+    def test_parse_epr(self):
+        dlg = _parse("! UKS B3LYP def2-SVP EPR")
+        dlg.epr_chk.setChecked.assert_any_call(True)
+
+    def test_parse_zfs(self):
+        dlg = _parse("! UKS B3LYP def2-SVP ZFS")
+        dlg.zfs_chk.setChecked.assert_any_call(True)
+
+    def test_parse_uco(self):
+        dlg = _parse("! B3LYP def2-SVP UCO")
+        dlg.uco_chk.setChecked.assert_any_call(True)
+
+    def test_parse_nori(self):
+        dlg = _parse("! B3LYP def2-SVP NoRI")
+        dlg.nori_chk.setChecked.assert_any_call(True)
+
+
+class TestFrozenCorePreview(unittest.TestCase):
+    """update_preview emits FrozenCore / NoFrozenCore."""
+
+    def _r(self, fc):
+        dlg = _make_preview_dialog(method="DLPNO-CCSD(T)")
+        dlg.frozen_core_combo = _combo(fc)
+        return _route(dlg)
+
+    def test_frozencore_emitted(self):
+        self.assertIn("FrozenCore", self._r("FrozenCore").split())
+
+    def test_nofrozencore_emitted(self):
+        self.assertIn("NoFrozenCore", self._r("NoFrozenCore").split())
+
+    def test_default_not_emitted(self):
+        r = self._r("Default")
+        self.assertNotIn("FrozenCore", r.split())
+        self.assertNotIn("NoFrozenCore", r.split())
+
+
+class TestFrozenCoreParseRoute(unittest.TestCase):
+    def test_parse_frozencore(self):
+        dlg = _parse("! DLPNO-CCSD(T) def2-TZVP FrozenCore")
+        dlg.frozen_core_combo.setCurrentText.assert_any_call("FrozenCore")
+
+    def test_parse_nofrozencore(self):
+        dlg = _parse("! DLPNO-CCSD(T) def2-TZVP NoFrozenCore")
+        dlg.frozen_core_combo.setCurrentText.assert_any_call("NoFrozenCore")
 
 
 class TestIrcPreview(unittest.TestCase):

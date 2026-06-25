@@ -673,44 +673,99 @@ class OrcaSetupDialogPro(QDialog):
 
         template = ""
         if "%scf" in txt:
-            template = "%scf\n MaxIter 125\nend\n"
+            template = (
+                "%scf\n"
+                "  MaxIter      125          # max SCF cycles\n"
+                "  # Convergence Tight       # threshold preset (Sloppy/Loose/Normal/Strong/Tight/VeryTight/Extreme)\n"
+                "  # Guess       PModel      # initial guess (PModel/Hueckel/HCore/MORead)\n"
+                "  # DIIS        true\n"
+                "  # SOSCF       true        # second-order SCF (helps open-shell)\n"
+                "end\n"
+            )
         elif "%output" in txt:
-            template = "%output\n  Print[P_Basis] 2  # Required for Basis Set parsing\n  Print[P_Mos] 1    # Ensure MO coefficients are printed\nend\n"
+            template = (
+                "%output\n"
+                "  Print[P_Basis] 2   # print basis set info\n"
+                "  Print[P_Mos]   1   # print MO coefficients\n"
+                "  # Print[P_Overlap] 1\n"
+                "end\n"
+            )
         elif "%geom" in txt:
             template = (
-                "%geom\n  Calc_Hess   true\n  Recalc_Hess 1\n  MaxIter     256\nend\n"
+                "%geom\n"
+                "  MaxIter      256          # max geometry steps (default 50)\n"
+                "  Calc_Hess    true         # compute exact Hessian at start\n"
+                "  Recalc_Hess  5            # recalculate every N steps\n"
+                "  # Trust       0.3         # initial trust radius (Å)\n"
+                "  # Coordsys    Internal    # Internal / Cartesian / Delocalized\n"
+                "end\n"
             )
         elif "%elprop" in txt:
-            template = "%elprop\n Dipole True\n Quadrupole True\nend\n"
+            template = (
+                "%elprop\n"
+                "  Dipole      true   # electric dipole moment\n"
+                "  Quadrupole  true   # electric quadrupole\n"
+                "  # Polarizability true\n"
+                "end\n"
+            )
         elif "%plots" in txt:
-            template = "%plots\n Format Gaussian_Cube\nend\n"
+            template = (
+                "%plots\n"
+                "  Format      Gaussian_Cube   # Gaussian_Cube / MOPlot\n"
+                "  # MO(\"homo.cube\", 0, 0, 1, homo, 80, 80, 80)     # plot HOMO\n"
+                "  # MO(\"lumo.cube\", 0, 0, 1, lumo, 80, 80, 80)     # plot LUMO\n"
+                "  # ElDens(\"density.cube\", 0, 0, 1, 80, 80, 80)    # electron density\n"
+                "end\n"
+            )
         elif "%tddft" in txt:
             template = (
                 "%tddft\n"
-                "  NRoots 10       # Number of excited states\n"
-                "  MaxDim 50       # Max dimension of Davidson expansion space (≥5×NRoots)\n"
-                "  TDA true        # Tamm-Dancoff Approximation (true/false)\n"
-                "  IRoot 1         # State of interest for gradient properties\n"
-                "  Triplets false  # Calculate triplet states (singlets are always on by default)\n"
-                "  DoQuad true     # Compute quadrupole intensities\n"
+                "  NRoots    10       # number of excited states to compute\n"
+                "  MaxDim    50       # Davidson subspace size (≥5×NRoots)\n"
+                "  TDA       true     # Tamm-Dancoff Approximation\n"
+                "  IRoot     1        # state of interest for gradient/relaxation\n"
+                "  Triplets  false    # include triplet states\n"
+                "  DoQuad    true     # quadrupole transition intensities\n"
                 "end\n"
             )
         elif "%cis" in txt:
-            template = "%cis\n NRoots 10\nend\n"
+            template = (
+                "%cis\n"
+                "  NRoots    10       # number of CIS excited states\n"
+                "  MaxDim    50       # Davidson subspace size\n"
+                "  # MaxCore  2000\n"
+                "end\n"
+            )
         elif "%rocis" in txt:
-            template = "%rocis\n  NRoots    10\n  MaxDim    50\n  DoQuad    true\nend\n"
+            template = (
+                "%rocis\n"
+                "  NRoots    10       # number of excited states\n"
+                "  MaxDim    50       # Davidson subspace size\n"
+                "  DoQuad    true     # quadrupole intensities (for XAS/XES)\n"
+                "  # DoCD    true     # circular dichroism\n"
+                "  # DoCIS   true     # include CIS correction\n"
+                "end\n"
+            )
         elif "%mrci" in txt:
             template = (
                 "%mrci\n"
-                "  CIType    MRCI\n"
-                "  newblock  1  *\n"
-                "    refs cas(2,2) end\n"
+                "  CIType    MRCI          # MRCI / ACPF / AQCC / CEPA\n"
+                "  newblock  1  *          # spin multiplicity block\n"
+                "    refs cas(2,2) end     # reference space: (N_el, N_orb)\n"
                 "    nroots  5\n"
                 "  end\n"
                 "end\n"
             )
         elif "%casscf" in txt:
-            template = "%casscf\n Nel 2\n Norb 2\n Mult 1\n nroots 5\nend\n"
+            template = (
+                "%casscf\n"
+                "  Nel    2       # number of active electrons\n"
+                "  Norb   2       # number of active orbitals\n"
+                "  Mult   1       # spin multiplicity (1=singlet, 2=doublet, 3=triplet)\n"
+                "  nroots 5       # number of roots per multiplicity\n"
+                "  # Weights = 1,1,1,1,1   # state-average weights\n"
+                "end\n"
+            )
         elif "%mdci" in txt:
             template = (
                 "%mdci\n"
@@ -722,31 +777,34 @@ class OrcaSetupDialogPro(QDialog):
         elif "%neb" in txt:
             template = (
                 "%neb\n"
-                "  Product   \"product.xyz\"\n"
-                "  NImages    8\n"
+                '  Product    "product.xyz"   # xyz file of product geometry\n'
+                "  NImages    8               # number of images (6–12 typical)\n"
+                "  # Spring   0.01            # spring constant (a.u.)\n"
+                "  # Free_End true            # relax product endpoint\n"
                 "end\n"
             )
         elif "%md" in txt:
             template = (
                 "%md\n"
-                "  TimeStep    0.5      # fs\n"
-                "  TotalTime   1000     # fs\n"
-                "  Temp        300      # K\n"
-                "  InitVel     Random\n"
-                "  Thermostat  NHCQ  Tau 10\n"
+                "  TimeStep    0.5      # fs — integration step\n"
+                "  TotalTime   1000     # fs — total simulation time\n"
+                "  Temp        300      # K  — target temperature\n"
+                "  InitVel     Random   # Random / Restart\n"
+                "  Thermostat  NHCQ  Tau 10   # NHC Nosé-Hoover, relaxation time (fs)\n"
                 "end\n"
             )
         elif "%compound" in txt:
             template = (
+                "# Multi-step job (ORCA 6 %Compound replaces deprecated $new_job)\n"
                 "%Compound\n"
-                "New_Step\n"
+                "New_Step                              # --- Step 1: Geometry opt ---\n"
                 "  ! B3LYP def2-SVP Opt TightSCF\n"
                 "  * xyzfile 0 1 start.xyz\n"
                 "Step_End\n"
                 "\n"
-                "New_Step\n"
+                "New_Step                              # --- Step 2: Single-point ---\n"
                 "  ! DLPNO-CCSD(T) def2-TZVP TightSCF\n"
-                "  Read_Geom 1\n"
+                "  Read_Geom 1                         # geometry from step 1\n"
                 "  * xyzfile 0 1\n"
                 "Step_End\n"
                 "EndRun\n"
@@ -754,58 +812,70 @@ class OrcaSetupDialogPro(QDialog):
         elif "%basis" in txt:
             template = (
                 "%basis\n"
-                "  Basis    \"def2-TZVP\"\n"
-                "  # AuxBasis \"def2/J\"\n"
-                "  # NewGTO 26 \"def2-TZVP\" end  # element-specific override\n"
+                '  Basis      "def2-TZVP"               # global basis override\n'
+                '  # AuxBasis "def2/J"                  # global auxiliary basis\n'
+                '  # NewGTO  26 "def2-TZVP" end         # element-specific (Fe here)\n'
+                '  # NewAuxGTO 26 "def2/J" end\n'
                 "end\n"
             )
         elif "%cpcm" in txt:
             template = (
                 "%cpcm\n"
-                "  Epsilon    80.4\n"
-                "  Refrac     1.33\n"
+                "  Epsilon    80.4    # dielectric constant (80.4 = water, 37.5 = DMSO, 8.93 = DCM)\n"
+                "  Refrac     1.33    # refractive index  (1.33 = water)\n"
+                "  # SurfType Gaussian\n"
                 "end\n"
             )
         elif "%rel" in txt:
             template = (
                 "%rel\n"
-                "  method DKH\n"
-                "  order  2\n"
-                "  # UseSOCS true   # for ZORA/DKH geometry optimizations\n"
+                "  method DKH          # DKH / ZORA / ZORA-4\n"
+                "  order  2            # 2 = DKH2 (standard)\n"
+                "  # UseSOCS true      # spin-orbit for ZORA/DKH geometry opt\n"
                 "end\n"
             )
         elif "%freq" in txt:
             template = (
                 "%freq\n"
-                "  Temp        298.15   # K\n"
-                "  Pressure    1.0      # atm\n"
-                "  # AnFreq    true     # Analytical frequencies\n"
-                "  # doVCD     true     # VCD (requires AnFreq)\n"
-                "  # doROA     true     # ROA (requires AnFreq)\n"
-                "  # dx        0.005    # Displacement for NumFreq\n"
-                "  # Central   true     # Central differences\n"
+                "  Temp        298.15   # K   — temperature for thermochemistry\n"
+                "  Pressure    1.0      # atm — pressure for thermochemistry\n"
+                "  # AnFreq    true     # analytical frequencies (if available)\n"
+                "  # doVCD     true     # vibrational circular dichroism (needs AnFreq)\n"
+                "  # doROA     true     # Raman optical activity (needs AnFreq)\n"
+                "  # dx        0.005    # displacement step for NumFreq (Bohr)\n"
+                "  # Central   true     # central differences (more accurate NumFreq)\n"
                 "end\n"
             )
         elif "%loc" in txt:
             template = (
                 "%loc\n"
-                "  LocMet  PipekMezey   # or FB (Foster-Boys)\n"
-                "  OCC     true\n"
-                "  # VIRT  true\n"
+                "  LocMet  PipekMezey   # PipekMezey / FB (Foster-Boys) / IAOIBO / NEWBOYS\n"
+                "  OCC     true         # localise occupied orbitals\n"
+                "  # VIRT   true        # localise virtual orbitals\n"
                 "end\n"
             )
         elif "%esd" in txt:
             template = (
                 "%esd\n"
-                '  ESDFLAG    ABS            # ABS or FLUOR\n'
-                '  GSHESSIAN  "gs.hess"\n'
-                '  ESHESSIAN  "es.hess"\n'
-                "  HESSFLAG   VG             # Vertical Gradient approx\n"
-                "  DOHT       true\n"
+                "  ESDFLAG    ABS              # ABS (absorption) or FLUOR (fluorescence)\n"
+                '  GSHESSIAN  "gs.hess"        # ground-state Hessian file\n'
+                '  ESHESSIAN  "es.hess"        # excited-state Hessian file\n'
+                "  HESSFLAG   VG               # VG (Vertical Gradient) or AHAS / AH\n"
+                "  DOHT       true             # Herzberg-Teller correction\n"
+                "  # STATES   0,1             # ground→excited transition to plot\n"
                 "end\n"
             )
         elif "%eprnmr" in txt:
-            template = "%eprnmr\n  NUCLEI = ALL H {SHIFT, SSALL}\nend\n"
+            template = (
+                "%eprnmr\n"
+                "  NUCLEI = ALL H  {SHIFT, SSALL}   # NMR shifts + all SS couplings for H\n"
+                "  # NUCLEI = ALL C {SHIFT}          # 13C shifts\n"
+                "  # NUCLEI = ALL   {SHIFT}          # all nuclei\n"
+                "  # Ori    = CenterOfMass\n"
+                "  # gtensor true                    # EPR g-tensor\n"
+                "  # HFC    true                     # hyperfine couplings\n"
+                "end\n"
+            )
             # Switch to Post-Coordinate tab automatically
             self.adv_tabs.setCurrentWidget(self.post_adv_edit)
 

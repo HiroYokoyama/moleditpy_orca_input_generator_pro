@@ -915,9 +915,8 @@ class TestInsertBlockTemplateCompound(unittest.TestCase):
     def _t(self):
         return _insert_template("%compound ... EndRun")
 
-    def test_compound_starts_with_percent_compound(self):
-        t = self._t().strip()
-        self.assertTrue(t.lower().startswith("%compound"))
+    def test_compound_contains_percent_compound(self):
+        self.assertIn("%Compound", self._t())
 
     def test_compound_has_new_step(self):
         self.assertIn("New_Step", self._t())

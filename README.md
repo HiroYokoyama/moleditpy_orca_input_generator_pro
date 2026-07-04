@@ -1,7 +1,8 @@
-# MoleditPy ORCA Input Generator Pro
+﻿# MoleditPy ORCA Input Generator Pro
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
 [![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
+[![Downloads](https://img.shields.io/github/downloads/HiroYokoyama/moleditpy_orca_input_generator_pro/total)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases)
 
 An advanced **ORCA Input Generator** plugin for **MoleditPy**, designed to streamline the creation of high-quality ORCA 5/6 calculation input files with a focus on usability, automation, and interactive 3D tools.
 
@@ -15,13 +16,13 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 
 ## Key Features
 
-- **Comprehensive Keyword Builder** — tabbed GUI covering methods, job types, solvation, dispersion, TD-DFT, constraints, and all advanced options
-- **Real-time Preview** — generated keyword line and full `.inp` file update instantly as you make changes
-- **Round-trip Parsing** — open an existing `.inp` file and all settings are restored into the UI
-- **Interactive Constraints & Scans** — click atoms in the MoleditPy 3D viewer to define distance/angle/dihedral constraints or coordinate scans
-- **22 Block Templates** — one-click insertion of annotated `%block ... end` stubs for every major ORCA block
-- **Syntax Highlighting** — `.inp` files get colour-coded keywords, blocks, and resource headers
-- **Session Persistence** — last-used settings are saved and restored between sessions
+- **Comprehensive Keyword Builder** 窶・tabbed GUI covering methods, job types, solvation, dispersion, TD-DFT, constraints, and all advanced options
+- **Real-time Preview** 窶・generated keyword line and full `.inp` file update instantly as you make changes
+- **Round-trip Parsing** 窶・open an existing `.inp` file and all settings are restored into the UI
+- **Interactive Constraints & Scans** 窶・click atoms in the MoleditPy 3D viewer to define distance/angle/dihedral constraints or coordinate scans
+- **22 Block Templates** 窶・one-click insertion of annotated `%block ... end` stubs for every major ORCA block
+- **Syntax Highlighting** 窶・`.inp` files get colour-coded keywords, blocks, and resource headers
+- **Session Persistence** 窶・last-used settings are saved and restored between sessions
 - **599 automated tests** across all features
 
 ---
@@ -50,10 +51,10 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 ## Supported Methods
 
 ### DFT
-- **GGA**: BLYP, BP86, PBE, revPBE, OLYP, …
-- **Hybrid**: B3LYP, PBE0, TPSSh, B3PW91, CAM-B3LYP, ωB97X-D3, M06-2X, …
-- **Meta-GGA / meta-Hybrid**: TPSS, M06-L, r2SCAN, …
-- **Double Hybrid**: B2PLYP, RI-B2PLYP, PWPB95, …
+- **GGA**: BLYP, BP86, PBE, revPBE, OLYP, 窶ｦ
+- **Hybrid**: B3LYP, PBE0, TPSSh, B3PW91, CAM-B3LYP, ﾏ隠97X-D3, M06-2X, 窶ｦ
+- **Meta-GGA / meta-Hybrid**: TPSS, M06-L, r2SCAN, 窶ｦ
+- **Double Hybrid**: B2PLYP, RI-B2PLYP, PWPB95, 窶ｦ
 - **3c composites**: B97-3c, r2SCAN-3c, HF-3c
 
 ### Wavefunction
@@ -75,7 +76,7 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 
 - def2-SV(P), def2-SVP, def2-TZVP, def2-TZVPP, def2-QZVPP
 - cc-pVDZ/TZ/QZ, aug-cc-pVDZ/TZ, cc-pVDZ-F12, cc-pVTZ-F12
-- Pople 6-31G(d), 6-311+G(d,p), …
+- Pople 6-31G(d), 6-311+G(d,p), 窶ｦ
 - Aux: Def2/J, Def2/JK, cc-pVDZ-F12-CABS, cc-pVTZ-F12-CABS
 - Custom MOREAD (MO file path parsed from/to route)
 
@@ -85,7 +86,7 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 
 | Feature | Details |
 |---------|---------|
-| Convergence threshold | SloppySCF → ExtremeSCF |
+| Convergence threshold | SloppySCF 竊・ExtremeSCF |
 | Damping | SlowConv, VerySlowConv |
 | Initial guess | Default / PModel / Hueckel / HCore / PAtom / MOREAD |
 | RI approximation | RIJCOSX, RI |
@@ -139,7 +140,7 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 
 One-click insertion of annotated templates for all 22 major ORCA blocks:
 
-`%output` · `%eprnmr` · `%scf` · `%geom` · `%elprop` · `%plots` · `%tddft` · `%cis` · `%rocis` · `%mrci` · `%casscf` · `%mdci` · `%neb` · `%md` · `%compound` · `%basis` · `%cpcm` · `%rel` · `%mp2` · `%dft` · `%frag` · `%freq` · `%loc` · `%esd`
+`%output` ﾂｷ `%eprnmr` ﾂｷ `%scf` ﾂｷ `%geom` ﾂｷ `%elprop` ﾂｷ `%plots` ﾂｷ `%tddft` ﾂｷ `%cis` ﾂｷ `%rocis` ﾂｷ `%mrci` ﾂｷ `%casscf` ﾂｷ `%mdci` ﾂｷ `%neb` ﾂｷ `%md` ﾂｷ `%compound` ﾂｷ `%basis` ﾂｷ `%cpcm` ﾂｷ `%rel` ﾂｷ `%mp2` ﾂｷ `%dft` ﾂｷ `%frag` ﾂｷ `%freq` ﾂｷ `%loc` ﾂｷ `%esd`
 
 Each template includes inline comments explaining every sub-keyword and common options.
 
@@ -149,10 +150,10 @@ Each template includes inline comments explaining every sub-keyword and common o
 
 1. Open the **Constraints/Scan** tab in the Keyword Builder.
 2. Click atoms in the MoleditPy 3D viewer:
-   - **1 atom** → position constraint
-   - **2 atoms** → distance constraint/scan
-   - **3 atoms** → angle constraint/scan
-   - **4 atoms** → dihedral constraint/scan
+   - **1 atom** 竊・position constraint
+   - **2 atoms** 竊・distance constraint/scan
+   - **3 atoms** 竊・angle constraint/scan
+   - **4 atoms** 竊・dihedral constraint/scan
 3. Selected atoms are highlighted with labels in the 3D scene.
 4. Click **Add Constraint** to insert into the table.
 5. Check the **Scan?** column and set Start/End/Steps to run a coordinate scan.
@@ -165,7 +166,7 @@ The plugin generates the correct `%geom Constraints ... end` and `%geom Scan ...
 
 1. Ensure MoleditPy is installed.
 2. Download the plugin from the [MoleditPy Plugin Explorer](https://hiroyokoyama.github.io/moleditpy-plugins/explorer/?q=ORCA+Input+Generator+Pro) into your MoleditPy plugins directory.
-3. Restart MoleditPy — **ORCA Input Generator Pro** will appear in the Plugins menu.
+3. Restart MoleditPy 窶・**ORCA Input Generator Pro** will appear in the Plugins menu.
 
 ---
 
@@ -174,22 +175,22 @@ The plugin generates the correct `%geom Constraints ... end` and `%geom Scan ...
 1. Open a molecule in MoleditPy.
 2. Launch **ORCA Input Generator Pro** from the Plugins menu.
 3. Configure your calculation in the tabbed settings panel.
-4. Review the **Input Preview** on the left — it updates in real time.
-5. Click **Save ORCA Input File…** to write the `.inp` file.
+4. Review the **Input Preview** on the left 窶・it updates in real time.
+5. Click **Save ORCA Input File窶ｦ** to write the `.inp` file.
 
-To load an existing input file: use **Open…** and all settings will be restored from the file.
+To load an existing input file: use **Open窶ｦ** and all settings will be restored from the file.
 
 ---
 
 ## Dependencies
 
-- **PyQt6** — graphical interface
-- **RDKit** — molecular geometry and property handling
-- **NumPy** — coordinate calculations
+- **PyQt6** 窶・graphical interface
+- **RDKit** 窶・molecular geometry and property handling
+- **NumPy** 窶・coordinate calculations
 
 ---
 
 ## License & Disclaimer
 
-Licensed under the GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+Licensed under the GNU General Public License v3.0 窶・see [LICENSE](LICENSE) for details.
 Provided *as is* without warranty. Users are responsible for validating outputs before use in publications or production workflows. Please [open an issue](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/issues) if you find a bug.

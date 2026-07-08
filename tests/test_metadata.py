@@ -219,6 +219,7 @@ class TestInitialize(unittest.TestCase):
 
     def test_reset_handler_restores_defaults(self):
         ctx = self._make_context()
+        ctx.get_window.return_value = None  # no dialog open
         _init._dialog_opened = True
         _init.initialize(ctx)
         load_fn = ctx.register_load_handler.call_args[0][0]
@@ -234,6 +235,72 @@ class TestInitialize(unittest.TestCase):
         _init.initialize(ctx)
         _init.initialize(ctx)
         self.assertEqual(ctx.add_export_action.call_count, 2)  # once per call is fine
+
+    def test_reset_deferred_when_dialog_close_is_cancelled(self):
+        """
+        Regression test: OrcaSetupDialogPro.closeEvent() can prompt an
+        "Unsaved Changes" Save/Discard/Cancel dialog and call event.ignore()
+        (leaving the dialog open) if the user picks Cancel or Save fails.
+        on_reset() used to unconditionally wipe current_settings and flip
+        _dialog_opened=False regardless of whether close() actually
+        succeeded, silently disconnecting the still-open dialog's future
+        saves from the project file (on_save() gates on _dialog_opened).
+        """
+        ctx = self._make_context()
+        _init._dialog_opened = True
+        _init.initialize(ctx)
+
+        load_fn = ctx.register_load_handler.call_args[0][0]
+        load_fn({"nproc": 99})
+
+        dlg = MagicMock()
+        dlg.isVisible.return_value = True  # close() was cancelled by the user
+        ctx.get_window.return_value = dlg
+
+        reset_fn = ctx.register_document_reset_handler.call_args[0][0]
+        reset_fn()
+
+        dlg.close.assert_called_once()
+        # Settings must NOT have been wiped — the dialog is still open.
+        save_fn = ctx.register_save_handler.call_args[0][0]
+        saved = save_fn()
+        self.assertIsNotNone(saved)
+        self.assertEqual(saved["nproc"], 99)
+
+    def test_reset_proceeds_when_dialog_closes_successfully(self):
+        ctx = self._make_context()
+        _init._dialog_opened = True
+        _init.initialize(ctx)
+
+        load_fn = ctx.register_load_handler.call_args[0][0]
+        load_fn({"nproc": 99})
+
+        dlg = MagicMock()
+        dlg.isVisible.return_value = False  # close() succeeded
+        ctx.get_window.return_value = dlg
+
+        reset_fn = ctx.register_document_reset_handler.call_args[0][0]
+        reset_fn()
+
+        dlg.close.assert_called_once()
+        save_fn = ctx.register_save_handler.call_args[0][0]
+        self.assertIsNone(save_fn())
+
+    def test_reset_proceeds_when_no_dialog_open(self):
+        ctx = self._make_context()
+        _init._dialog_opened = True
+        _init.initialize(ctx)
+
+        load_fn = ctx.register_load_handler.call_args[0][0]
+        load_fn({"nproc": 99})
+
+        ctx.get_window.return_value = None
+
+        reset_fn = ctx.register_document_reset_handler.call_args[0][0]
+        reset_fn()
+
+        save_fn = ctx.register_save_handler.call_args[0][0]
+        self.assertIsNone(save_fn())
 
 
 if __name__ == "__main__":

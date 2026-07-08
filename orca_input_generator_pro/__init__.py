@@ -127,15 +127,30 @@ def initialize(context):
 
     def on_reset():
         global _dialog_opened
-        _dialog_opened = False
-        current_settings.clear()
-        current_settings.update(get_default_settings())
         dlg = context.get_window("dialog")
         if dlg is not None:
             try:
                 dlg.close()
             except Exception as e:
                 logging.warning("ORCA plugin: could not close dialog on reset: %s", e)
+            else:
+                if dlg.isVisible():
+                    # dlg.close() triggered closeEvent()'s "Unsaved Changes"
+                    # prompt and the user chose Cancel (or Save failed), so
+                    # the dialog is still open and still editing this
+                    # document's data. Clearing current_settings / flipping
+                    # _dialog_opened off here would silently disconnect the
+                    # still-open dialog's future saves from the project file
+                    # (on_save() gates on _dialog_opened). Defer the reset.
+                    logging.info(
+                        "ORCA plugin: document reset deferred — dialog "
+                        "close was cancelled by the user"
+                    )
+                    return
+
+        _dialog_opened = False
+        current_settings.clear()
+        current_settings.update(get_default_settings())
 
     context.register_save_handler(on_save)
     context.register_load_handler(on_load)

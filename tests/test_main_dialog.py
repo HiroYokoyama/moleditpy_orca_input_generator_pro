@@ -1036,5 +1036,65 @@ class TestInsertBlockTemplateFrag(unittest.TestCase):
         self.assertIn("end", self._t())
 
 
+class TestConsolidateMoinpDirective(unittest.TestCase):
+    """
+    Regression test: %moinp "file.gbw" is a single-line directive with no
+    "end" terminator. consolidate_orca_blocks()'s parse_zone() used to only
+    special-case %pal and %maxcore this way; %moinp fell through to the
+    generic multi-line %block parser, which scans forward for a bare "end"
+    line to close the block. Since %moinp itself never has one, the parser
+    swallowed every following block up to the *next* block's "end" as if it
+    were %moinp's own content — corrupting the input and losing the MO
+    filename (the text after "%moinp" on its own line was discarded too).
+    """
+
+    def test_moinp_filename_preserved(self):
+        text = (
+            '! B3LYP def2-SVP MOREAD\n\n'
+            '%moinp "prev.gbw"\n\n'
+            '* xyz 0 1\n  H 0 0 0\n*'
+        )
+        out = consolidate(text)
+        self.assertIn('%moinp "prev.gbw"', out)
+
+    def test_moinp_does_not_swallow_following_block(self):
+        text = (
+            '! B3LYP def2-SVP MOREAD Opt\n\n'
+            '%moinp "prev.gbw"\n\n'
+            "%geom\n"
+            "  Constraints\n"
+            "    {B 0 1 C}\n"
+            "  end\n"
+            "end\n\n"
+            "* xyz 0 1\n  H 0 0 0\n  H 0 0 1\n*"
+        )
+        out = consolidate(text)
+        # %geom must remain its own top-level block, not nested text
+        # inside a runaway %moinp ... end wrapper.
+        self.assertIn("\n%geom\n", "\n" + out)
+        self.assertIn("Constraints", out)
+        self.assertIn('%moinp "prev.gbw"', out)
+
+    def test_moinp_survives_alongside_tddft_block(self):
+        text = (
+            "! B3LYP def2-SVP MOREAD TDDFT\n\n"
+            '%moinp "prev.gbw"\n\n'
+            "%tddft\n"
+            "  NRoots 5\n"
+            "end\n\n"
+            "* xyz 0 1\n  H 0 0 0\n*"
+        )
+        out = consolidate(text)
+        self.assertIn("\n%tddft\n", "\n" + out)
+        self.assertIn("NRoots 5", out)
+        self.assertIn('%moinp "prev.gbw"', out)
+
+    def test_moinp_alone_round_trips(self):
+        text = '%moinp "run1.gbw"\n! B3LYP def2-SVP\n\n* xyz 0 1\n  H 0 0 0\n*'
+        out = consolidate(text)
+        self.assertIn('%moinp "run1.gbw"', out)
+        self.assertIn("! B3LYP def2-SVP", out)
+
+
 if __name__ == "__main__":
     unittest.main()

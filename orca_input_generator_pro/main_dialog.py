@@ -1343,6 +1343,18 @@ class OrcaSetupDialogPro(QDialog):
                     maxcore = s
                     i += 1
                     continue
+                if s.lower().startswith("%moinp"):
+                    # Single-line directive (e.g. %moinp "prev.gbw") — never
+                    # terminated by "end". Without this special case it fell
+                    # through to the generic multi-line %block parser below,
+                    # which scanned forward for a bare "end" line to close
+                    # it and swallowed every subsequent block (%geom,
+                    # %tddft, ...) up to their own "end" as if it were
+                    # %moinp's content — corrupting the input and silently
+                    # dropping the MO filename itself.
+                    others.append(line)
+                    i += 1
+                    continue
                 if s.startswith("%"):
                     # One-liner
                     m_single = re.match(r"^%(\w+)\s+(.*)\s+end", s, re.I)

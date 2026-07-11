@@ -1515,6 +1515,7 @@ class OrcaSetupDialogPro(QDialog):
                 "route": "! B3LYP def2-SVP RIJCOSX Def2/J Opt Freq",
                 "adv": "",
                 "adv_post": "",
+                "coord_format": "Cartesian (XYZ)",
             }
 
         if "Global" in self.presets_data:
@@ -1551,6 +1552,9 @@ class OrcaSetupDialogPro(QDialog):
         )
         self.adv_edit.setPlainText(data.get("adv", ""))
         self.post_adv_edit.setPlainText(data.get("adv_post", ""))
+        self.coord_format_combo.setCurrentText(
+            data.get("coord_format", "Cartesian (XYZ)")
+        )
         self.second_job_enable.setChecked(data.get("second_job_enabled", False))
         self.second_job_mem_spin.setValue(data.get("second_job_maxcore", 2000))
         self.second_job_keywords.setPlainText(
@@ -1574,6 +1578,7 @@ class OrcaSetupDialogPro(QDialog):
                 "route": self.keywords_edit.toPlainText(),
                 "adv": self.adv_edit.toPlainText(),
                 "adv_post": self.post_adv_edit.toPlainText(),
+                "coord_format": self.coord_format_combo.currentText(),
                 "second_job_enabled": self.second_job_enable.isChecked(),
                 "second_job_maxcore": self.second_job_mem_spin.value(),
                 "second_job_keywords": self.second_job_keywords.toPlainText(),

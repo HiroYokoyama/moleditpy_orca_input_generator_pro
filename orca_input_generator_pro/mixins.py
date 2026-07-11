@@ -1,7 +1,11 @@
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt
-import numpy as np
 import logging
+
+try:
+    import numpy as np
+except ImportError:  # numpy always ships with the host app; absent only in
+    np = None  # minimal headless test environments
 
 
 # --- 3D Picking Mixin (Simplified for Plugin) ---
@@ -14,7 +18,7 @@ class Dialog3DPickingMixin:
 
     def eventFilter(self, obj, event):
         v3d = getattr(self.main_window, "view_3d_manager", None)
-        if not v3d or not getattr(v3d, "plotter", None):
+        if np is None or not v3d or not getattr(v3d, "plotter", None):
             return super().eventFilter(obj, event)
 
         if (

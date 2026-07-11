@@ -59,15 +59,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         self.tabs = QTabWidget()
 
-        # --- Tab 1: Method & Basis ---
-        self.tab_method = QWidget()
-        self.setup_method_tab()
-        self.tabs.addTab(self.tab_method, "Method/Basis")
-
-        # --- Tab 2: Job Type ---
+        # --- Tab 1: Job Type ---
         self.tab_job = QWidget()
         self.setup_job_tab()
         self.tabs.addTab(self.tab_job, "Job Type")
+
+        # --- Tab 2: Method & Basis ---
+        self.tab_method = QWidget()
+        self.setup_method_tab()
+        self.tabs.addTab(self.tab_method, "Method/Basis")
 
         # --- Tab 3: Solvation & Disp ---
         self.tab_solvation = QWidget()

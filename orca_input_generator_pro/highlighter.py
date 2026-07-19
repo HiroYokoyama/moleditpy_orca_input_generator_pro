@@ -17,7 +17,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
             (
                 QRegularExpression(
                     r"\b(B3LYP|PBE0|CAM-B3LYP|wB97X-D3|NMR|Opt|OptH|Freq|OptTS|Scan|RelaxedScan|NormalOpt|LooseOpt|TightOpt|VeryTightOpt|COpt|SloppySCF|LooseSCF|NormalSCF|StrongSCF|TightSCF|VeryTightSCF|ExtremeSCF|RIJCOSX|RI|RI-MP2|DLPNO-CCSD|DLPNO-CCSD\(T\))\b",
-                    QRegularExpression.CaseInsensitiveOption,
+                    QRegularExpression.PatternOption.CaseInsensitiveOption,
                 ),
                 keyword_format,
             )
@@ -31,7 +31,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
         self.rules.append(
             (
                 QRegularExpression(
-                    r"^\bend\b", QRegularExpression.CaseInsensitiveOption
+                    r"^\bend\b", QRegularExpression.PatternOption.CaseInsensitiveOption
                 ),
                 block_format,
             )
@@ -51,7 +51,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
         self.rules.append(
             (
                 QRegularExpression(
-                    r"^%(pal|maxcore)\b.*", QRegularExpression.CaseInsensitiveOption
+                    r"^%(pal|maxcore)\b.*", QRegularExpression.PatternOption.CaseInsensitiveOption
                 ),
                 res_format,
             )
@@ -64,7 +64,7 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
         self.rules.append(
             (
                 QRegularExpression(
-                    r"^\$new_job\b.*", QRegularExpression.CaseInsensitiveOption
+                    r"^\$new_job\b.*", QRegularExpression.PatternOption.CaseInsensitiveOption
                 ),
                 new_job_format,
             )

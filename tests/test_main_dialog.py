@@ -153,9 +153,14 @@ sys.modules["orca_input_generator_pro.mixins"] = _mixins
 
 _load_mod("keyword_builder", "keyword_builder.py")
 
-_hl_mod = types.ModuleType("orca_input_generator_pro.highlighter")
-_hl_mod.OrcaSyntaxHighlighter = MagicMock
-sys.modules["orca_input_generator_pro.highlighter"] = _hl_mod
+# main_dialog.py imports the highlighter; provide a lightweight fake only if a
+# real module (loaded by a sibling test file in the same pytest session) isn't
+# already cached in sys.modules -- never clobber a real one, since that would
+# break later test modules that expect the real class objects.
+if "orca_input_generator_pro.highlighter" not in sys.modules:
+    _hl_mod = types.ModuleType("orca_input_generator_pro.highlighter")
+    _hl_mod.OrcaSyntaxHighlighter = MagicMock
+    sys.modules["orca_input_generator_pro.highlighter"] = _hl_mod
 
 _main_mod = _load_mod("main_dialog", "main_dialog.py")
 OrcaSetupDialogPro = _main_mod.OrcaSetupDialogPro

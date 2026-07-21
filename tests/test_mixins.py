@@ -17,7 +17,9 @@ import importlib.util
 import unittest
 from unittest.mock import MagicMock, patch
 
-import numpy as np
+import pytest
+
+np = pytest.importorskip("numpy")  # host dep; absent in bare-pytest CI
 
 # ---------------------------------------------------------------------------
 # Several sibling test modules (test_keyword_builder.py, test_main_dialog.py,
@@ -49,8 +51,11 @@ def _real_module(name):
     return importlib.import_module(name)
 
 
-for _dep in ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtCore", "PyQt6.QtGui"):
-    _real_module(_dep)
+try:
+    for _dep in ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtCore", "PyQt6.QtGui"):
+        _real_module(_dep)
+except ImportError:  # bare-pytest CI has no PyQt6 installed
+    pytest.skip("requires real PyQt6 (host app dep)", allow_module_level=True)
 
 _real_pyqt6_pkg = sys.modules["PyQt6"]
 _real_pyqt6_pkg.QtWidgets = sys.modules["PyQt6.QtWidgets"]

@@ -45,17 +45,24 @@ def _real_module(name):
     return importlib.import_module(name)
 
 
-for _dep in (
-    "PyQt6",
-    "PyQt6.QtWidgets",
-    "PyQt6.QtCore",
-    "PyQt6.QtGui",
-    "rdkit",
-    "rdkit.Chem",
-    "rdkit.Chem.AllChem",
-    "rdkit.Chem.rdMolTransforms",
-):
-    _real_module(_dep)
+import pytest
+
+try:
+    for _dep in (
+        "PyQt6",
+        "PyQt6.QtWidgets",
+        "PyQt6.QtCore",
+        "PyQt6.QtGui",
+        "rdkit",
+        "rdkit.Chem",
+        "rdkit.Chem.AllChem",
+        "rdkit.Chem.rdMolTransforms",
+    ):
+        _real_module(_dep)
+except ImportError:  # bare-pytest CI has neither PyQt6 nor RDKit installed
+    pytest.skip(
+        "requires real PyQt6/RDKit (host app deps)", allow_module_level=True
+    )
 
 _real_pyqt6_pkg = sys.modules["PyQt6"]
 _real_pyqt6_pkg.QtWidgets = sys.modules["PyQt6.QtWidgets"]

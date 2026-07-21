@@ -69,17 +69,24 @@ def _real_module(name):
     return importlib.import_module(name)  # last resort: PyQt6 never loaded yet
 
 
-for _dep in (
-    "PyQt6",
-    "PyQt6.QtWidgets",
-    "PyQt6.QtCore",
-    "PyQt6.QtGui",
-    "rdkit",
-    "rdkit.Chem",
-    "rdkit.Chem.AllChem",
-    "rdkit.Chem.rdMolTransforms",
-):
-    _real_module(_dep)
+import pytest
+
+try:
+    for _dep in (
+        "PyQt6",
+        "PyQt6.QtWidgets",
+        "PyQt6.QtCore",
+        "PyQt6.QtGui",
+        "rdkit",
+        "rdkit.Chem",
+        "rdkit.Chem.AllChem",
+        "rdkit.Chem.rdMolTransforms",
+    ):
+        _real_module(_dep)
+except ImportError:  # bare-pytest CI has neither PyQt6 nor RDKit installed
+    pytest.skip(
+        "requires real PyQt6/RDKit (host app deps)", allow_module_level=True
+    )
 
 # "from PyQt6 import QtCore" (used by keyword_builder.py/mixins.py) resolves
 # via attribute lookup on the *parent* PyQt6 package module, not just the

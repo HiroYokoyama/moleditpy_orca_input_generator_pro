@@ -613,19 +613,22 @@ def _insert_template(block_label):
     dlg.block_combo = MagicMock()
     dlg.block_combo.currentText.return_value = block_label
 
+    # Force isinstance(text_edit, QTextEdit) to pass against whichever
+    # QTextEdit main_dialog was actually loaded with (real or stubbed) --
+    # reassigning __class__ on an already-built, spec-less MagicMock keeps
+    # arbitrary attribute mocking (unlike MagicMock(spec=...), which would
+    # restrict attributes to the spec class's own members). Never mutate the
+    # global PyQt6.QtWidgets.QTextEdit class itself, which would corrupt
+    # every other test module collected afterwards in the same session.
     text_edit = MagicMock()
+    if not isinstance(text_edit, _main_mod.QTextEdit):
+        text_edit.__class__ = _main_mod.QTextEdit
     cursor = MagicMock()
     cursor.insertText.side_effect = lambda t: inserted.append(t)
     text_edit.textCursor.return_value = cursor
 
     dlg.adv_tabs = MagicMock()
     dlg.adv_tabs.currentWidget.return_value = text_edit
-
-    from PyQt6.QtWidgets import QTextEdit as _QTE  # noqa: F401 — used by isinstance check
-    import PyQt6.QtWidgets as _qtw
-
-    _qtw.QTextEdit = type("QTextEdit", (), {})
-    text_edit.__class__ = _qtw.QTextEdit
 
     OrcaSetupDialogPro.insert_block_template(dlg)
     return "".join(inserted)

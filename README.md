@@ -2,8 +2,8 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
 [![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
-[![Downloads](https://img.shields.io/github/downloads/HiroYokoyama/moleditpy_orca_input_generator_pro/total)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases)
 ![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)
+[![Downloads](https://img.shields.io/github/downloads/HiroYokoyama/moleditpy_orca_input_generator_pro/total)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases)
 
 An advanced **ORCA Input Generator** plugin for **MoleditPy**, designed to streamline the creation of high-quality ORCA 5/6 calculation input files with a focus on usability, automation, and interactive 3D tools.
 

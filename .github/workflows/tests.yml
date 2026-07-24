@@ -31,11 +31,8 @@ jobs:
       - name: Install dependencies
         run: pip install pytest pytest-cov
 
-      - name: Run tests
-        run: python -m pytest tests/ -v --tb=short
-
       - name: Run tests with coverage
-        run: python -m pytest tests/ --cov=orca_input_generator_pro --cov-report=term-missing
+        run: python -m pytest tests/ -v --tb=short --cov=orca_input_generator_pro --cov-report=term-missing
 
   # -------------------------------------------------------------------------
   # Integration tests — clones the main MoleditPy app to enable real

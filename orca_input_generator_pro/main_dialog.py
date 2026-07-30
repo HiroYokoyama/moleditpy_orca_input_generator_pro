@@ -33,6 +33,16 @@ from .keyword_builder import OrcaKeywordBuilderDialog
 from . import PLUGIN_NAME, PLUGIN_VERSION, SETTINGS_FILE
 import logging
 
+# Degrees from 0/180 within which a Z-matrix reference angle is treated as
+# collinear. Below that the three atoms defining the dihedral's plane are on a
+# line, so the dihedral carries no information.
+_ZM_LINEAR_TOL_DEG = 8.0
+
+
+def _zm_well_conditioned(angle_deg: float) -> bool:
+    """True when *angle_deg* defines a usable Z-matrix reference plane."""
+    return _ZM_LINEAR_TOL_DEG < angle_deg < 180.0 - _ZM_LINEAR_TOL_DEG
+
 
 class OrcaSetupDialogPro(QDialog):
     """
@@ -180,14 +190,18 @@ class OrcaSetupDialogPro(QDialog):
         coord_group = QGroupBox("Coordinate Format")
         coord_vbox = QVBoxLayout()
         self.coord_format_combo = QComboBox()
-        self.coord_format_combo.addItems([
-            "Cartesian (XYZ)",
-            "XYZ File (xyzfile)",
-            "None (no coordinates)",
-            "Internal (* int)",
-            "Internal (* gzmt)",
-        ])
-        self.coord_format_combo.currentIndexChanged.connect(self._on_coord_format_changed)
+        self.coord_format_combo.addItems(
+            [
+                "Cartesian (XYZ)",
+                "XYZ File (xyzfile)",
+                "None (no coordinates)",
+                "Internal (* int)",
+                "Internal (* gzmt)",
+            ]
+        )
+        self.coord_format_combo.currentIndexChanged.connect(
+            self._on_coord_format_changed
+        )
         coord_vbox.addWidget(self.coord_format_combo)
 
         # XYZ file name field (visible only for "XYZ File" mode)
@@ -740,9 +754,9 @@ class OrcaSetupDialogPro(QDialog):
             template = (
                 "%plots\n"
                 "  Format      Gaussian_Cube   # Gaussian_Cube / MOPlot\n"
-                "  # MO(\"homo.cube\", 0, 0, 1, homo, 80, 80, 80)     # plot HOMO\n"
-                "  # MO(\"lumo.cube\", 0, 0, 1, lumo, 80, 80, 80)     # plot LUMO\n"
-                "  # ElDens(\"density.cube\", 0, 0, 1, 80, 80, 80)    # electron density\n"
+                '  # MO("homo.cube", 0, 0, 1, homo, 80, 80, 80)     # plot HOMO\n'
+                '  # MO("lumo.cube", 0, 0, 1, lumo, 80, 80, 80)     # plot LUMO\n'
+                '  # ElDens("density.cube", 0, 0, 1, 80, 80, 80)    # electron density\n'
                 "end\n"
             )
         elif "%tddft" in txt:
@@ -995,13 +1009,19 @@ class OrcaSetupDialogPro(QDialog):
 
         inserts = []
         _NEB_VARIANTS = {
-            "NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
-            "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP",
+            "NEB",
+            "NEB-CI",
+            "NEB-TS",
+            "FAST-NEB-TS",
+            "LOOSE-NEB-TS",
+            "TIGHT-NEB-TS",
+            "ZOOM-NEB",
+            "ZOOM-NEB-CI",
+            "ZOOM-NEB-TS",
+            "NEB-IDPP",
         }
         if any(v in upper_tokens for v in _NEB_VARIANTS) and "%neb" not in combined:
-            inserts.append(
-                '%neb\n  Product   "product.xyz"\n  NImages    8\nend\n'
-            )
+            inserts.append('%neb\n  Product   "product.xyz"\n  NImages    8\nend\n')
         if "MD" in upper_tokens and "%md" not in combined:
             inserts.append(
                 "%md\n"
@@ -1016,7 +1036,11 @@ class OrcaSetupDialogPro(QDialog):
         if inserts:
             current = self.adv_edit.toPlainText()
             addition = "\n".join(inserts)
-            new_text = (current.rstrip() + "\n" + addition).lstrip() if current.strip() else addition
+            new_text = (
+                (current.rstrip() + "\n" + addition).lstrip()
+                if current.strip()
+                else addition
+            )
             self.adv_edit.setPlainText(new_text)
 
     def get_coords_lines(self):
@@ -1087,15 +1111,29 @@ class OrcaSetupDialogPro(QDialog):
             else:
                 refs.append(0)
 
-            # Ref 2 (Angle)
+            # Ref 2 (Angle): a reference collinear with i-ref1 leaves the
+            # dihedral below undefined, so prefer a bent one when one exists.
             candidates_2 = [x for x in defined if x != refs[0]]
             if candidates_2:
-                refs.append(candidates_2[-1])
+                pick = candidates_2[-1]
+                if not _zm_well_conditioned(get_angle(i, refs[0], pick)):
+                    for cand in reversed(candidates_2):
+                        if _zm_well_conditioned(get_angle(i, refs[0], cand)):
+                            pick = cand
+                            break
+                refs.append(pick)
 
-            # Ref 3 (Dihedral)
+            # Ref 3 (Dihedral): the reference plane also degenerates when
+            # ref3 is collinear with ref1-ref2.
             candidates_3 = [x for x in defined if x not in refs]
             if candidates_3:
-                refs.append(candidates_3[-1])
+                pick = candidates_3[-1]
+                if not _zm_well_conditioned(get_angle(refs[0], refs[1], pick)):
+                    for cand in reversed(candidates_3):
+                        if _zm_well_conditioned(get_angle(refs[0], refs[1], cand)):
+                            pick = cand
+                            break
+                refs.append(pick)
 
             # Calculate Values
             row = {"symbol": symbol, "refs": [], "values": []}

@@ -84,9 +84,7 @@ try:
     ):
         _real_module(_dep)
 except ImportError:  # bare-pytest CI has neither PyQt6 nor RDKit installed
-    pytest.skip(
-        "requires real PyQt6/RDKit (host app deps)", allow_module_level=True
-    )
+    pytest.skip("requires real PyQt6/RDKit (host app deps)", allow_module_level=True)
 
 # "from PyQt6 import QtCore" (used by keyword_builder.py/mixins.py) resolves
 # via attribute lookup on the *parent* PyQt6 package module, not just the
@@ -138,6 +136,18 @@ from rdkit.Chem import AllChem
 def _make_water():
     m = Chem.AddHs(Chem.MolFromSmiles("O"))
     AllChem.EmbedMolecule(m, randomSeed=42)
+    return m
+
+
+def _make_methyl_isocyanate():
+    """CN=C=O: has a near-linear N=C=O fragment.
+
+    The Z-matrix reference selection must not anchor a dihedral to that
+    collinear triple, or the written value is numerical noise.
+    """
+    m = Chem.AddHs(Chem.MolFromSmiles("CN=C=O"))
+    AllChem.EmbedMolecule(m, randomSeed=17)
+    AllChem.MMFFOptimizeMolecule(m)
     return m
 
 
@@ -261,6 +271,36 @@ class TestZMatrix(_RealDialogTestCase):
         dlg = self._make_dialog(mol=_make_single_atom())
         lines = dlg.get_zmatrix_standard_lines()
         self.assertEqual(len(lines), 1)
+
+    def test_linear_fragment_gets_a_bent_dihedral_reference(self):
+        # Angles are computed from raw coordinates: other test modules stub
+        # rdMolTransforms in sys.modules, so importing it here would get a mock.
+        import math
+
+        def angle(conf, i, j, k):
+            a, b, c = (conf.GetAtomPosition(x) for x in (i, j, k))
+            u = (a.x - b.x, a.y - b.y, a.z - b.z)
+            v = (c.x - b.x, c.y - b.y, c.z - b.z)
+            nu = math.sqrt(sum(t * t for t in u))
+            nv = math.sqrt(sum(t * t for t in v))
+            dot = sum(p * q for p, q in zip(u, v)) / (nu * nv)
+            return math.degrees(math.acos(max(-1.0, min(1.0, dot))))
+
+        mol = _make_methyl_isocyanate()
+        dlg = self._make_dialog(mol=mol)
+        conf = mol.GetConformer()
+        checked = 0
+        for row in dlg._build_zmatrix_data():
+            if len(row.get("values", [])) < 3:
+                continue
+            r = row["refs"]
+            for ang in (row["values"][1], angle(conf, r[0], r[1], r[2])):
+                self.assertTrue(
+                    8.0 < ang < 172.0,
+                    f"dihedral anchored to a collinear reference ({ang:.2f} deg)",
+                )
+                checked += 1
+        self.assertGreater(checked, 0, "no dihedral rows were examined")
 
     def test_custom_symbol_in_zmatrix(self):
         mol = _make_ethane()
@@ -444,10 +484,11 @@ class TestSaveFile(_RealDialogTestCase):
 
     def test_save_error_shows_critical_dialog(self):
         dlg = self._make_dialog(mol=_make_mol_without_conformer())
-        with patch.object(
-            main_dialog_mod.QMessageBox, "critical"
-        ) as mock_critical, patch.object(
-            main_dialog_mod.QFileDialog, "getSaveFileName", return_value=("", "")
+        with (
+            patch.object(main_dialog_mod.QMessageBox, "critical") as mock_critical,
+            patch.object(
+                main_dialog_mod.QFileDialog, "getSaveFileName", return_value=("", "")
+            ),
         ):
             dlg.save_file()
         mock_critical.assert_called_once()

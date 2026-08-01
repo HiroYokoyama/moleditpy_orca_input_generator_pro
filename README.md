@@ -12,6 +12,7 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 ![main](img/main.png)
 ![builder](img/builder.png)
 ![constraints](img/constraints.png)
+[![GitHub tag](https://img.shields.io/github/v/tag/HiroYokoyama/moleditpy_orca_input_generator_pro?label=version)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/tags)
 
 ---
 

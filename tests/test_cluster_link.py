@@ -2,8 +2,14 @@
 
 The whole point of this module is that the plugin behaves identically when Job
 Manager is absent, so most of these tests are about *not* doing things.
+
+cluster_link is loaded straight from its file rather than imported through the
+package: orca_input_generator_pro/__init__.py imports PyQt6, and CI installs pytest only. The module
+itself needs nothing beyond the standard library, which is precisely why the
+handoff can be probed before any GUI exists.
 """
 
+import importlib.util
 import os
 import sys
 import tempfile
@@ -11,9 +17,15 @@ import types
 import unittest
 from unittest.mock import MagicMock
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_MODULE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "orca_input_generator_pro",
+    "cluster_link.py",
+)
+_spec = importlib.util.spec_from_file_location("_cluster_link_under_test", _MODULE_PATH)
+cluster_link = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(cluster_link)
 
-from orca_input_generator_pro import cluster_link  # noqa: E402
 
 
 class FakeJobManagerModule:

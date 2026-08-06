@@ -51,7 +51,8 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
         self.rules.append(
             (
                 QRegularExpression(
-                    r"^%(pal|maxcore)\b.*", QRegularExpression.PatternOption.CaseInsensitiveOption
+                    r"^%(pal|maxcore)\b.*",
+                    QRegularExpression.PatternOption.CaseInsensitiveOption,
                 ),
                 res_format,
             )
@@ -64,7 +65,8 @@ class OrcaSyntaxHighlighter(QSyntaxHighlighter):
         self.rules.append(
             (
                 QRegularExpression(
-                    r"^\$new_job\b.*", QRegularExpression.PatternOption.CaseInsensitiveOption
+                    r"^\$new_job\b.*",
+                    QRegularExpression.PatternOption.CaseInsensitiveOption,
                 ),
                 new_job_format,
             )

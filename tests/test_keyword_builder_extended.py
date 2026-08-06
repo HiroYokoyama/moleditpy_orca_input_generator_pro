@@ -333,8 +333,8 @@ def _ui_dialog(method="B3LYP", job="Single Point Energy (SP)", solv_model="None"
     dlg.tab_tddft = object()
     dlg.tddft_enable = _FakeCheck(False)
 
-    dlg.get_inferred_category = lambda text: OrcaKeywordBuilderDialog.get_inferred_category(
-        dlg, text
+    dlg.get_inferred_category = (
+        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
     return dlg
 
@@ -772,8 +772,14 @@ class TestMutualExclusion(unittest.TestCase):
         dlg.sender = lambda: dlg.scf_tight
         OrcaKeywordBuilderDialog.enforce_scf_mutual_exclusion(dlg)
         self.assertTrue(dlg.scf_tight.isChecked())
-        for name in ["scf_sloppy", "scf_loose", "scf_normal", "scf_strong",
-                     "scf_verytight", "scf_extreme"]:
+        for name in [
+            "scf_sloppy",
+            "scf_loose",
+            "scf_normal",
+            "scf_strong",
+            "scf_verytight",
+            "scf_extreme",
+        ]:
             self.assertFalse(getattr(dlg, name).isChecked())
 
     def test_unchecking_sender_is_noop(self):
@@ -1250,9 +1256,15 @@ def _preview_dialog(**overrides):
     dlg.dispersion = _combo("None")
 
     for name in [
-        "scf_sloppy", "scf_loose", "scf_normal", "scf_strong",
-        "scf_tight", "scf_verytight", "scf_extreme",
-        "scf_slowconv", "scf_veryslowconv",
+        "scf_sloppy",
+        "scf_loose",
+        "scf_normal",
+        "scf_strong",
+        "scf_tight",
+        "scf_verytight",
+        "scf_extreme",
+        "scf_slowconv",
+        "scf_veryslowconv",
     ]:
         setattr(dlg, name, _check(False))
 
@@ -1262,11 +1274,26 @@ def _preview_dialog(**overrides):
     dlg.pno_preset.isEnabled.return_value = False
 
     for name in [
-        "pop_nbo", "pop_npa", "pop_chelpg", "pop_hirshfeld",
-        "uco_chk", "uno_chk", "somo_chk", "fod_chk", "optrot_chk",
-        "pol_chk", "hyperpol_chk", "epr_chk", "zfs_chk",
-        "nori_chk", "bs_chk", "moread_chk", "somf_chk",
-        "keepdens_chk", "keepints_chk", "cosx_chk",
+        "pop_nbo",
+        "pop_npa",
+        "pop_chelpg",
+        "pop_hirshfeld",
+        "uco_chk",
+        "uno_chk",
+        "somo_chk",
+        "fod_chk",
+        "optrot_chk",
+        "pol_chk",
+        "hyperpol_chk",
+        "epr_chk",
+        "zfs_chk",
+        "nori_chk",
+        "bs_chk",
+        "moread_chk",
+        "somf_chk",
+        "keepdens_chk",
+        "keepints_chk",
+        "cosx_chk",
     ]:
         setattr(dlg, name, _check(False))
 
@@ -1286,11 +1313,11 @@ def _preview_dialog(**overrides):
     dlg.get_inferred_category = (
         lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
-    dlg.get_extra_blocks_text = (
-        lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+    dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(
+        dlg
     )
-    dlg.get_constraints_text = (
-        lambda: OrcaKeywordBuilderDialog.get_constraints_text(dlg)
+    dlg.get_constraints_text = lambda: OrcaKeywordBuilderDialog.get_constraints_text(
+        dlg
     )
 
     for k, v in overrides.items():
@@ -1428,15 +1455,35 @@ class TestUpdatePreviewMethodOptions(unittest.TestCase):
     def test_population_and_property_flags(self):
         dlg = _preview_dialog()
         for name, kw in [
-            ("pop_npa", "NPA"), ("pop_chelpg", "CHELPG"), ("pop_hirshfeld", "Hirshfeld"),
-            ("uco_chk", "UCO"), ("uno_chk", "UNO"), ("somo_chk", "SOMO"),
-            ("fod_chk", "FOD"), ("optrot_chk", "OptRot"), ("pol_chk", "Polarizability"),
-            ("hyperpol_chk", "Hyperpol"), ("epr_chk", "EPR"), ("zfs_chk", "ZFS"),
+            ("pop_npa", "NPA"),
+            ("pop_chelpg", "CHELPG"),
+            ("pop_hirshfeld", "Hirshfeld"),
+            ("uco_chk", "UCO"),
+            ("uno_chk", "UNO"),
+            ("somo_chk", "SOMO"),
+            ("fod_chk", "FOD"),
+            ("optrot_chk", "OptRot"),
+            ("pol_chk", "Polarizability"),
+            ("hyperpol_chk", "Hyperpol"),
+            ("epr_chk", "EPR"),
+            ("zfs_chk", "ZFS"),
         ]:
             setattr(dlg, name, _check(True))
         r = _preview_route(dlg)
-        for kw in ["NPA", "CHELPG", "Hirshfeld", "UCO", "UNO", "SOMO", "FOD",
-                   "OptRot", "Polarizability", "Hyperpol", "EPR", "ZFS"]:
+        for kw in [
+            "NPA",
+            "CHELPG",
+            "Hirshfeld",
+            "UCO",
+            "UNO",
+            "SOMO",
+            "FOD",
+            "OptRot",
+            "Polarizability",
+            "Hyperpol",
+            "EPR",
+            "ZFS",
+        ]:
             self.assertIn(kw, r)
 
     def test_slowconv_flags(self):

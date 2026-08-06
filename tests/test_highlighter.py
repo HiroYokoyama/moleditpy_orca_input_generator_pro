@@ -118,9 +118,7 @@ class TestHighlighterConstruction(HighlighterTestBase):
         hl = self.Highlighter(QTextDocument())
         self.assertTrue(hl.rules, "expected a non-empty rule table")
         for pattern, fmt in hl.rules:
-            self.assertTrue(
-                pattern.isValid(), f"invalid regex: {pattern.pattern()!r}"
-            )
+            self.assertTrue(pattern.isValid(), f"invalid regex: {pattern.pattern()!r}")
             self.assertIsNotNone(fmt)
 
 

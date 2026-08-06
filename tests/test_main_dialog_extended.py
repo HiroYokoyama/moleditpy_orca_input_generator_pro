@@ -818,5 +818,108 @@ class TestKeywordBuilderIntegration(_RealDialogTestCase):
         self.assertEqual(dlg.keywords_edit.toPlainText(), original)
 
 
+# ---------------------------------------------------------------------------
+# Submit to Cluster (optional Job Manager handoff)
+# ---------------------------------------------------------------------------
+
+
+class _FakeJobManager:
+    def __init__(self, result=True):
+        self.result = result
+        self.calls = []
+
+    def submit_file(self, path, name=""):
+        self.calls.append((path, name))
+        return self.result
+
+
+class TestSubmitToClusterButton(_RealDialogTestCase):
+    """The button must not exist visually unless Job Manager is installed."""
+
+    def _host(self, plugins):
+        # The real QWidget the private module copy bound, so the dialog gets a
+        # genuine parent widget that also carries a plugin_manager.
+        host = main_dialog_mod.QWidget()
+        host.plugin_manager = types.SimpleNamespace(plugins=plugins)
+        self._hosts = getattr(self, "_hosts", [])
+        self._hosts.append(host)
+        return host
+
+    def test_hidden_without_job_manager(self):
+        dlg = self._make_dialog(parent=self._host([]), mol=_make_water())
+        self.assertTrue(dlg.submit_btn.isHidden())
+
+    def test_shown_when_job_manager_is_installed(self):
+        host = self._host([{"name": "Job Manager", "module": _FakeJobManager()}])
+        dlg = self._make_dialog(parent=host, mol=_make_water())
+        self.assertFalse(dlg.submit_btn.isHidden())
+
+    def test_hidden_for_a_job_manager_without_the_api(self):
+        host = self._host([{"name": "Job Manager", "module": types.SimpleNamespace()}])
+        dlg = self._make_dialog(parent=host, mol=_make_water())
+        self.assertTrue(dlg.submit_btn.isHidden())
+
+    def test_hidden_when_there_is_no_parent_window_at_all(self):
+        dlg = self._make_dialog(mol=_make_water())
+        self.assertTrue(dlg.submit_btn.isHidden())
+
+    def test_save_is_still_present_either_way(self):
+        # The handoff is additive; nothing about the normal flow changes.
+        dlg = self._make_dialog(parent=self._host([]), mol=_make_water())
+        self.assertFalse(dlg.save_btn.isHidden())
+
+    def test_clicking_saves_first_then_hands_off(self):
+        module = _FakeJobManager()
+        host = self._host([{"name": "Job Manager", "module": module}])
+        dlg = self._make_dialog(parent=host, mol=_make_water())
+        target = os.path.join(self._tmpdir, "run.inp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("! HF")
+
+        def fake_save():
+            dlg.current_inp_file = target
+            dlg._saved_inp_content = dlg.preview_text.toPlainText()
+
+        with patch.object(dlg, "save_file", side_effect=fake_save) as saver:
+            dlg.submit_to_cluster()
+        saver.assert_called_once()
+        self.assertEqual(module.calls, [(target, "run")])
+
+    def test_an_already_saved_clean_file_is_not_saved_again(self):
+        module = _FakeJobManager()
+        host = self._host([{"name": "Job Manager", "module": module}])
+        dlg = self._make_dialog(parent=host, mol=_make_water())
+        target = os.path.join(self._tmpdir, "clean.inp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("! HF")
+        dlg.current_inp_file = target
+        dlg._saved_inp_content = dlg.preview_text.toPlainText()
+        with patch.object(dlg, "save_file") as saver:
+            dlg.submit_to_cluster()
+        saver.assert_not_called()
+        self.assertEqual(module.calls, [(target, "clean")])
+
+    def test_cancelling_the_save_dialog_hands_off_nothing(self):
+        module = _FakeJobManager()
+        host = self._host([{"name": "Job Manager", "module": module}])
+        dlg = self._make_dialog(parent=host, mol=_make_water())
+        with patch.object(dlg, "save_file"):  # user cancelled: no file recorded
+            dlg.submit_to_cluster()
+        self.assertEqual(module.calls, [])
+
+    def test_a_refusal_is_reported_to_the_user(self):
+        module = _FakeJobManager(result=False)
+        host = self._host([{"name": "Job Manager", "module": module}])
+        dlg = self._make_dialog(parent=host, mol=_make_water())
+        target = os.path.join(self._tmpdir, "refused.inp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("! HF")
+        dlg.current_inp_file = target
+        dlg._saved_inp_content = dlg.preview_text.toPlainText()
+        with patch.object(main_dialog_mod.QMessageBox, "warning") as warn:
+            dlg.submit_to_cluster()
+        warn.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

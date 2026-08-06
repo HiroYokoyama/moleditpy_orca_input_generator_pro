@@ -735,18 +735,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.neb_group = QGroupBox("NEB Variant")
         neb_vbox = QVBoxLayout()
         self.neb_variant = QComboBox()
-        self.neb_variant.addItems([
-            "NEB",
-            "NEB-CI",
-            "NEB-TS",
-            "FAST-NEB-TS",
-            "LOOSE-NEB-TS",
-            "TIGHT-NEB-TS",
-            "ZOOM-NEB",
-            "ZOOM-NEB-CI",
-            "ZOOM-NEB-TS",
-            "NEB-IDPP",
-        ])
+        self.neb_variant.addItems(
+            [
+                "NEB",
+                "NEB-CI",
+                "NEB-TS",
+                "FAST-NEB-TS",
+                "LOOSE-NEB-TS",
+                "TIGHT-NEB-TS",
+                "ZOOM-NEB",
+                "ZOOM-NEB-CI",
+                "ZOOM-NEB-TS",
+                "NEB-IDPP",
+            ]
+        )
         self.neb_variant.currentIndexChanged.connect(self.update_preview)
         neb_vbox.addWidget(self.neb_variant)
         self.neb_group.setLayout(neb_vbox)
@@ -963,7 +965,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addRow(self.keepints_chk)
 
         layout.addRow(QLabel("— Exchange Approximation —"))
-        self.cosx_chk = QCheckBox("COSX (chain-of-spheres exchange, without RI Coulomb)")
+        self.cosx_chk = QCheckBox(
+            "COSX (chain-of-spheres exchange, without RI Coulomb)"
+        )
         layout.addRow(self.cosx_chk)
 
         inner.setLayout(layout)
@@ -1733,7 +1737,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 blocks.append(f"%scf\n  Guess {guess}\nend")
 
         # 2c. MOREAD filename via %moinp directive
-        if getattr(self, "moread_chk", None) is not None and self.moread_chk.isChecked():
+        if (
+            getattr(self, "moread_chk", None) is not None
+            and self.moread_chk.isChecked()
+        ):
             mf = self.moread_file.text().strip()
             if mf:
                 blocks.append(f'%moinp "{mf}"')
@@ -1871,8 +1878,18 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         break
             elif tu == "GOAT":
                 self.job_type.setCurrentText("GOAT (Global Search)")
-            elif tu in ("NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
-                        "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP"):
+            elif tu in (
+                "NEB",
+                "NEB-CI",
+                "NEB-TS",
+                "FAST-NEB-TS",
+                "LOOSE-NEB-TS",
+                "TIGHT-NEB-TS",
+                "ZOOM-NEB",
+                "ZOOM-NEB-CI",
+                "ZOOM-NEB-TS",
+                "NEB-IDPP",
+            ):
                 self.job_type.setCurrentText("NEB (Nudged Elastic Band)")
                 self.neb_variant.setCurrentText(tu)
             elif tu == "MD":

@@ -193,16 +193,8 @@ _JOB_ITEMS = [
 ]
 
 _NEB_VARIANTS = [
-    "NEB",
-    "NEB-CI",
-    "NEB-TS",
-    "FAST-NEB-TS",
-    "LOOSE-NEB-TS",
-    "TIGHT-NEB-TS",
-    "ZOOM-NEB",
-    "ZOOM-NEB-CI",
-    "ZOOM-NEB-TS",
-    "NEB-IDPP",
+    "NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
+    "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP",
 ]
 
 
@@ -1243,26 +1235,16 @@ class TestNewJobTypesPreview(unittest.TestCase):
         self.assertIn("GOAT", self._route("GOAT (Global Search)").split())
 
     def test_neb_ts_emits_neb_ts(self):
-        self.assertIn(
-            "NEB-TS", self._route("NEB (Nudged Elastic Band)", "NEB-TS").split()
-        )
+        self.assertIn("NEB-TS", self._route("NEB (Nudged Elastic Band)", "NEB-TS").split())
 
     def test_neb_ci_emits_neb_ci(self):
-        self.assertIn(
-            "NEB-CI", self._route("NEB (Nudged Elastic Band)", "NEB-CI").split()
-        )
+        self.assertIn("NEB-CI", self._route("NEB (Nudged Elastic Band)", "NEB-CI").split())
 
     def test_zoom_neb_ts_emits_zoom_neb_ts(self):
-        self.assertIn(
-            "ZOOM-NEB-TS",
-            self._route("NEB (Nudged Elastic Band)", "ZOOM-NEB-TS").split(),
-        )
+        self.assertIn("ZOOM-NEB-TS", self._route("NEB (Nudged Elastic Band)", "ZOOM-NEB-TS").split())
 
     def test_fast_neb_ts_emits_fast_neb_ts(self):
-        self.assertIn(
-            "FAST-NEB-TS",
-            self._route("NEB (Nudged Elastic Band)", "FAST-NEB-TS").split(),
-        )
+        self.assertIn("FAST-NEB-TS", self._route("NEB (Nudged Elastic Band)", "FAST-NEB-TS").split())
 
     def test_md_emits_md(self):
         self.assertIn("MD", self._route("MD (Molecular Dynamics)").split())
@@ -1324,15 +1306,11 @@ class TestNewJobTypesParseRoute(unittest.TestCase):
 
 class TestNumHessPreview(unittest.TestCase):
     def test_numhess_emits_numhess(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", job="NumHess (Numerical Hessian only)"
-        )
+        dlg = _make_preview_dialog(method="B3LYP", job="NumHess (Numerical Hessian only)")
         self.assertIn("NumHess", _route(dlg).split())
 
     def test_numhess_does_not_emit_freq(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", job="NumHess (Numerical Hessian only)"
-        )
+        dlg = _make_preview_dialog(method="B3LYP", job="NumHess (Numerical Hessian only)")
         self.assertNotIn("Freq", _route(dlg).split())
 
 
@@ -1444,7 +1422,6 @@ class TestBrokenSymmetryPreview(unittest.TestCase):
 
     def test_bs_extra_block_has_brokensym(self):
         from orca_input_generator_pro.keyword_builder import OrcaKeywordBuilderDialog
-
         dlg = self._bs_dlg(spins="1,1")
         dlg.tddft_enable = _check(False)
         dlg.constraint_table = MagicMock()
@@ -1505,9 +1482,7 @@ class TestEnGradNumGradEsdParseRoute(unittest.TestCase):
 
     def test_parse_esd_fluor(self):
         dlg = _parse("! B3LYP def2-SVP ESD(FLUOR)")
-        dlg.job_type.setCurrentText.assert_any_call(
-            "ESD(FLUOR) (Vibronic Fluorescence)"
-        )
+        dlg.job_type.setCurrentText.assert_any_call("ESD(FLUOR) (Vibronic Fluorescence)")
 
 
 class TestSlowConvPreview(unittest.TestCase):
@@ -1634,16 +1609,12 @@ class TestIrcPreview(unittest.TestCase):
     """update_preview emits IRC keyword for the IRC job type."""
 
     def test_irc_emits_irc(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", job="IRC (Intrinsic Reaction Coordinate)"
-        )
+        dlg = _make_preview_dialog(method="B3LYP", job="IRC (Intrinsic Reaction Coordinate)")
         route = _route(dlg)
         self.assertIn("IRC", route.split())
 
     def test_irc_does_not_emit_opt(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", job="IRC (Intrinsic Reaction Coordinate)"
-        )
+        dlg = _make_preview_dialog(method="B3LYP", job="IRC (Intrinsic Reaction Coordinate)")
         route = _route(dlg)
         self.assertNotIn("Opt", route.split())
 
@@ -1653,9 +1624,7 @@ class TestIrcParseRoute(unittest.TestCase):
 
     def test_parse_irc(self):
         dlg = _parse("! B3LYP def2-SVP IRC")
-        dlg.job_type.setCurrentText.assert_any_call(
-            "IRC (Intrinsic Reaction Coordinate)"
-        )
+        dlg.job_type.setCurrentText.assert_any_call("IRC (Intrinsic Reaction Coordinate)")
 
 
 # ---------------------------------------------------------------------------
@@ -1710,9 +1679,7 @@ class TestPnoPresetPreview(unittest.TestCase):
     """update_preview emits PNO preset keywords for DLPNO methods."""
 
     def _route_with_pno(self, pno):
-        dlg = _make_preview_dialog(
-            method="DLPNO-CCSD(T)", pno_preset=pno, pno_preset_enabled=True
-        )
+        dlg = _make_preview_dialog(method="DLPNO-CCSD(T)", pno_preset=pno, pno_preset_enabled=True)
         return _route(dlg)
 
     def test_tightpno_emits_tightpno(self):
@@ -1798,9 +1765,7 @@ class TestMoreadPreview(unittest.TestCase):
     """update_preview emits MOREAD on route; %moinp "file" goes in extra blocks."""
 
     def _extra(self, moread_chk=False, moread_file=""):
-        dlg = _make_preview_dialog(
-            method="B3LYP", moread_chk=moread_chk, moread_file=moread_file
-        )
+        dlg = _make_preview_dialog(method="B3LYP", moread_chk=moread_chk, moread_file=moread_file)
         dlg.tddft_enable = _check(False)
         dlg.constraint_table = MagicMock()
         dlg.constraint_table.rowCount.return_value = 0
@@ -1809,9 +1774,7 @@ class TestMoreadPreview(unittest.TestCase):
         return OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
 
     def test_moread_emits_moread_on_route(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", moread_chk=True, moread_file="prev.gbw"
-        )
+        dlg = _make_preview_dialog(method="B3LYP", moread_chk=True, moread_file="prev.gbw")
         self.assertIn("MOREAD", _route(dlg).upper())
 
     def test_moread_filename_in_moinp_directive(self):

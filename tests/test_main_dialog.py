@@ -1057,13 +1057,17 @@ class TestConsolidateMoinpDirective(unittest.TestCase):
     """
 
     def test_moinp_filename_preserved(self):
-        text = '! B3LYP def2-SVP MOREAD\n\n%moinp "prev.gbw"\n\n* xyz 0 1\n  H 0 0 0\n*'
+        text = (
+            '! B3LYP def2-SVP MOREAD\n\n'
+            '%moinp "prev.gbw"\n\n'
+            '* xyz 0 1\n  H 0 0 0\n*'
+        )
         out = consolidate(text)
         self.assertIn('%moinp "prev.gbw"', out)
 
     def test_moinp_does_not_swallow_following_block(self):
         text = (
-            "! B3LYP def2-SVP MOREAD Opt\n\n"
+            '! B3LYP def2-SVP MOREAD Opt\n\n'
             '%moinp "prev.gbw"\n\n'
             "%geom\n"
             "  Constraints\n"

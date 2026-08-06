@@ -41,9 +41,13 @@ DRAFT_FILES = f"{DRAFT_SELF}/files"
 class FakeZenodo:
     """Minimal InvenioRDM stand-in that records every request it serves."""
 
-    def __init__(self, parent_license="gpl-3.0", draft_entries=None):
+    def __init__(
+        self, parent_license="gpl-3.0", draft_entries=None, files_shape="list"
+    ):
         self.parent_license = parent_license
         self.draft_entries = draft_entries or {}
+        # "list" is what production returns; "dict" is the documented RDM shape.
+        self.files_shape = files_shape
         self.calls = []  # (method, url)
         self.put_metadata = None
         self.registered = None
@@ -65,7 +69,11 @@ class FakeZenodo:
                 },
             }
         if method == "GET" and url == DRAFT_SELF:
+            if self.files_shape == "list":
+                return {"files": [{"key": key} for key in self.draft_entries]}
             return {"files": {"entries": self.draft_entries}}
+        if method == "GET" and url == DRAFT_FILES:
+            return {"entries": [{"key": key} for key in self.draft_entries]}
         if method == "DELETE" and url.startswith(DRAFT_FILES + "/"):
             self.draft_entries.pop(url.rsplit("/", 1)[-1], None)
             return b""
@@ -189,6 +197,16 @@ class TestRetryAgainstAPopulatedDraft(ZenodoScriptTestCase):
         self.run_script(fake)
         self.assertEqual([m for m, _ in fake.calls if m == "DELETE"], [])
 
+    def test_the_documented_dict_shape_works_too(self):
+        fake = FakeZenodo(
+            draft_entries={"app.zip": {"key": "app.zip"}}, files_shape="dict"
+        )
+        self.run_script(fake)
+        self.assertEqual(
+            [url for m, url in fake.calls if m == "DELETE"],
+            [f"{DRAFT_FILES}/app.zip"],
+        )
+
 
 class TestExistingDraftFiles(unittest.TestCase):
     def test_dict_entries(self):
@@ -212,9 +230,38 @@ class TestExistingDraftFiles(unittest.TestCase):
             )
         fetch.assert_called_once()
 
+    def test_files_as_a_bare_list(self):
+        # What production actually returned; the dict-only version raised
+        # AttributeError: 'list' object has no attribute 'get'.
+        draft = {"files": [{"key": "a.zip"}, {"key": "source.tar.gz"}]}
+        self.assertEqual(
+            update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}),
+            ["a.zip", "source.tar.gz"],
+        )
+
+    def test_empty_draft_body_falls_back_to_the_files_endpoint(self):
+        draft = {"files": []}
+        with patch.object(
+            update_zenodo, "make_request", return_value=[{"key": "b.zip"}]
+        ):
+            self.assertEqual(
+                update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), ["b.zip"]
+            )
+
     def test_unexpected_shape_is_not_fatal(self):
         draft = {"files": {"entries": "nonsense"}}
-        self.assertEqual(update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), [])
+        with patch.object(update_zenodo, "make_request", return_value="nonsense"):
+            self.assertEqual(
+                update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), []
+            )
+
+    def test_a_failed_listing_does_not_abort_the_upload(self):
+        with patch.object(
+            update_zenodo, "make_request", side_effect=RuntimeError("HTTP Error 404")
+        ):
+            self.assertEqual(
+                update_zenodo.existing_draft_files({}, DRAFT_FILES, {}), []
+            )
 
 
 class TestVersionGuard(ZenodoScriptTestCase):

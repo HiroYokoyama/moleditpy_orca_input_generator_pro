@@ -68,16 +68,32 @@ def make_request(url, data=None, headers=None, method="GET", json_response=True)
         ) from e
 
 
-def existing_draft_files(draft, files_url, headers):
-    """File keys already attached to the draft, from any earlier attempt."""
-    entries = (draft.get("files") or {}).get("entries")
-    if entries is None:
-        entries = (make_request(files_url, headers=headers) or {}).get("entries")
+def _entry_keys(payload):
+    """File keys out of whichever shape Zenodo used.
+
+    The draft body has been seen carrying ``files`` as a bare list *and* as a
+    dict wrapping ``entries``, and ``entries`` itself as either a list of file
+    objects or a dict keyed by filename, so none of the four is assumed.
+    """
+    entries = payload.get("entries") if isinstance(payload, dict) else payload
     if isinstance(entries, dict):
         return list(entries)
     if isinstance(entries, list):
         return [e.get("key") for e in entries if isinstance(e, dict) and e.get("key")]
     return []
+
+
+def existing_draft_files(draft, files_url, headers):
+    """File keys already attached to the draft, from any earlier attempt."""
+    keys = _entry_keys(draft.get("files"))
+    if not keys:
+        # The draft body does not always inline the file list; ask directly.
+        try:
+            keys = _entry_keys(make_request(files_url, headers=headers))
+        except RuntimeError as exc:
+            print(f"[WARNING] Could not list existing draft files: {exc}")
+            return []
+    return keys
 
 
 def main():
@@ -197,7 +213,9 @@ def main():
         # A run that failed *after* uploading (e.g. on the metadata PUT) leaves
         # the draft holding these keys already committed, and re-registering an
         # existing key is a 400. Drop ours first so a re-run is idempotent.
-        for key in existing_draft_files(draft, draft_files_url, headers):
+        already_present = existing_draft_files(draft, draft_files_url, headers)
+        print(f"Files already on the draft: {already_present}")
+        for key in already_present:
             if key in wanted:
                 print(f"Removing stale file from previous run: {key}")
                 make_request(

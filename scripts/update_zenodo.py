@@ -68,6 +68,18 @@ def make_request(url, data=None, headers=None, method="GET", json_response=True)
         ) from e
 
 
+def existing_draft_files(draft, files_url, headers):
+    """File keys already attached to the draft, from any earlier attempt."""
+    entries = (draft.get("files") or {}).get("entries")
+    if entries is None:
+        entries = (make_request(files_url, headers=headers) or {}).get("entries")
+    if isinstance(entries, dict):
+        return list(entries)
+    if isinstance(entries, list):
+        return [e.get("key") for e in entries if isinstance(e, dict) and e.get("key")]
+    return []
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Update Zenodo Deposition (InvenioRDM API)"
@@ -180,7 +192,22 @@ def main():
     # 3. Register files to the draft
     if args.files:
         print(f"\n[3/6] Registering {len(args.files)} files to upload...")
-        register_payload = [{"key": os.path.basename(fpath)} for fpath in args.files]
+        wanted = [os.path.basename(fpath) for fpath in args.files]
+
+        # A run that failed *after* uploading (e.g. on the metadata PUT) leaves
+        # the draft holding these keys already committed, and re-registering an
+        # existing key is a 400. Drop ours first so a re-run is idempotent.
+        for key in existing_draft_files(draft, draft_files_url, headers):
+            if key in wanted:
+                print(f"Removing stale file from previous run: {key}")
+                make_request(
+                    f"{draft_files_url}/{key}",
+                    headers=headers,
+                    method="DELETE",
+                    json_response=False,
+                )
+
+        register_payload = [{"key": key} for key in wanted]
         make_request(
             draft_files_url, data=register_payload, headers=headers, method="POST"
         )

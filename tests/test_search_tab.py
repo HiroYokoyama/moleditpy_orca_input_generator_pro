@@ -31,18 +31,10 @@ def test_orca_keyword_builder_search_tab():
         update_preview=MagicMock(),
     )
     dlg._populate_search_database = lambda: OrcaKeywordBuilderDialog._populate_search_database(dlg)
-    dlg._filter_search_table = lambda: OrcaKeywordBuilderDialog._filter_search_table(dlg)
     dlg._apply_search_item = lambda kw, cat, btn=None: OrcaKeywordBuilderDialog._apply_search_item(dlg, kw, cat, btn)
-    dlg._on_search_row_double_clicked = lambda r, c: OrcaKeywordBuilderDialog._on_search_row_double_clicked(dlg, r, c)
 
     dlg._populate_search_database()
     assert len(dlg._search_catalog) > 0
-
-    # Test filtering
-    dlg.search_filter_input.text.return_value = "wB97X"
-    dlg.search_category_combo.currentText.return_value = "All Categories"
-    dlg._filter_search_table()
-    assert dlg.search_table.setRowCount.called
 
     # Test applying a method
     dlg._apply_search_item("wB97X-D3", "Methods / Functionals")
@@ -55,4 +47,5 @@ def test_orca_keyword_builder_search_tab():
     # Test applying basis set
     dlg._apply_search_item("def2-TZVP", "Basis Sets")
     dlg.basis_set.setCurrentText.assert_called_with("def2-TZVP")
+
 

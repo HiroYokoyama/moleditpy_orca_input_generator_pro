@@ -32,6 +32,13 @@ import logging
 import re
 
 
+def _restore_apply_button(button):
+    try:
+        button.setText("Apply")
+    except RuntimeError:
+        pass
+
+
 class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
     """
     Dialog to construct the ORCA Job keywords line.
@@ -48,6 +55,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.mol = mol
         self.main_window = main_window
         self.selected_atoms = []
+        # Preserve searchable keywords that have no dedicated UI control.
+        self._search_extra_keywords = []
         self.constraints = []  # List of (type, indices, value, start, end, steps, is_scan)
         self.setup_ui()
         self.parse_route(current_route)
@@ -1697,6 +1706,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if self.moread_chk.isChecked():
             route_parts.append("MOREAD")
 
+        for keyword in self._search_extra_keywords:
+            if keyword and not any(keyword.casefold() == part.casefold() for part in route_parts):
+                route_parts.append(keyword)
         self.route_line = " ".join(route_parts)
         self.preview_str = self.route_line
 
@@ -2372,121 +2384,115 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if item_kw and item_cat:
             self._apply_search_item(item_kw.text(), item_cat.text(), btn)
 
-    def _apply_search_item(self, keyword, category, btn=None):
-        """Apply the selected keyword directly into the route and UI controls."""
-        if category == "Job Types":
-            kw_clean = keyword.lower()
-            if kw_clean == "opth":
-                self.job_type.setCurrentText("Optimize H Only (OptH)")
-                self.update_preview()
-            elif kw_clean == "opt":
-                self.job_type.setCurrentText("Optimization Only (Opt)")
-                self.update_preview()
-            elif kw_clean in ("opt freq", "optfreq"):
-                self.job_type.setCurrentText("Optimization + Freq (Opt Freq)")
-                self.update_preview()
-            elif kw_clean == "freq":
-                self.job_type.setCurrentText("Frequency Only (Freq)")
-                self.update_preview()
-            elif kw_clean in ("sp", "single point"):
-                self.job_type.setCurrentText("Single Point Energy (SP)")
-                self.update_preview()
-            elif kw_clean in ("optts", "ts"):
-                self.job_type.setCurrentText("Transition State Opt (OptTS)")
-                self.update_preview()
-            elif kw_clean == "tightopt" and hasattr(self, "opt_tight"):
-                self.opt_tight.setChecked(True)
-                self.update_preview()
-            elif kw_clean == "verytightopt" and hasattr(self, "opt_verytight"):
-                self.opt_verytight.setChecked(True)
-                self.update_preview()
-            elif kw_clean == "looseopt" and hasattr(self, "opt_loose"):
-                self.opt_loose.setChecked(True)
-                self.update_preview()
-            elif kw_clean == "calcfc" and hasattr(self, "opt_calcfc"):
-                self.opt_calcfc.setChecked(True)
-                self.update_preview()
-            elif kw_clean == "numfreq" and hasattr(self, "freq_num"):
-                self.freq_num.setChecked(True)
-                self.update_preview()
-            else:
-                for i in range(self.job_type.count()):
-                    if keyword.lower() in self.job_type.itemText(i).lower():
-                        self.job_type.setCurrentIndex(i)
-                        self.update_preview()
-                        break
-        elif category == "Methods / Functionals":
-            if hasattr(self, "method_name"):
-                self.method_name.setCurrentText(keyword)
-                if hasattr(self.method_name, "isEditable") and self.method_name.isEditable():
-                    self.method_name.setEditText(keyword)
-            self.update_preview()
-        elif category == "Basis Sets":
-            if hasattr(self, "basis_set"):
-                self.basis_set.setCurrentText(keyword)
-                if hasattr(self.basis_set, "isEditable") and self.basis_set.isEditable():
-                    self.basis_set.setEditText(keyword)
-            self.update_preview()
-        elif category == "Dispersion":
-            for i in range(self.dispersion.count()):
-                if keyword.lower() in self.dispersion.itemText(i).lower():
-                    self.dispersion.setCurrentIndex(i)
-                    break
-            self.update_preview()
-        elif category == "Solvation":
-            if "SMD" in keyword.upper():
-                self.solv_model.setCurrentText("SMD")
-            elif "CPCM" in keyword.upper():
-                self.solv_model.setCurrentText("CPCM")
-            m = re.search(r"\((.*?)\)", keyword)
-            if m and hasattr(self, "solvent"):
-                solv_target = m.group(1)
-                for i in range(self.solvent.count()):
-                    if solv_target.lower() in self.solvent.itemText(i).lower():
-                        self.solvent.setCurrentIndex(i)
-                        break
-            self.update_preview()
-        elif category == "Convergence & Grids":
-            kw_upper = keyword.upper()
-            if kw_upper == "TIGHTSCF" and hasattr(self, "scf_tight"):
-                self.scf_tight.setChecked(True)
-            elif kw_upper == "VERYTIGHTSCF" and hasattr(self, "scf_verytight"):
-                self.scf_verytight.setChecked(True)
-            elif kw_upper == "SLOWCONV" and hasattr(self, "scf_slowconv"):
-                self.scf_slowconv.setChecked(True)
-            elif "GRID" in kw_upper and hasattr(self, "grid_combo"):
-                for i in range(self.grid_combo.count()):
-                    if keyword.lower() == self.grid_combo.itemText(i).lower():
-                        self.grid_combo.setCurrentIndex(i)
-            self.update_preview()
-        elif category == "RI / Approximations":
-            if "RIJCOSX" in keyword.upper() and hasattr(self, "rijcosx"):
-                self.rijcosx.setChecked(True)
-            elif "DEF2/J" in keyword.upper() and hasattr(self, "aux_basis"):
-                self.aux_basis.setCurrentText("Def2/J")
-            elif "AUTOAUX" in keyword.upper() and hasattr(self, "aux_basis"):
-                self.aux_basis.setCurrentText("AutoAux")
-            self.update_preview()
-        else:
-            if hasattr(self, "custom_keywords"):
-                current = self.custom_keywords.text().strip()
-                if keyword not in current.split():
-                    new_text = f"{current} {keyword}".strip()
-                    self.custom_keywords.setText(new_text)
-            self.update_preview()
+    def _add_search_keyword(self, keyword):
+        """Keep a catalog keyword that has no lossless widget mapping."""
+        if not keyword:
+            return
+        if not hasattr(self, "_search_extra_keywords"):
+            self._search_extra_keywords = []
+        if keyword.casefold() not in {item.casefold() for item in self._search_extra_keywords}:
+            self._search_extra_keywords.append(keyword)
 
+    def _apply_search_item(self, keyword, category, btn=None):
+        """Apply a search result without silently dropping unsupported terms."""
+        applied_to_control = False
+        job_types = {
+            "opth": "Optimize H Only (OptH)",
+            "opt": "Optimization Only (Opt)",
+            "opt freq": "Optimization + Freq (Opt Freq)",
+            "freq": "Frequency Only (Freq)",
+            "sp": "Single Point Energy (SP)",
+            "optts": "Transition State Opt (OptTS)",
+            "scan": "Scan (Relaxed Surface)",
+            "irc": "IRC (Intrinsic Reaction Coordinate)",
+            "neb": "NEB (Nudged Elastic Band)",
+        }
+        normalized = keyword.casefold()
+        if category == "Job Types" and normalized in job_types:
+            self.job_type.setCurrentText(job_types[normalized])
+            applied_to_control = True
+        elif category == "Job Types" and keyword == "NumFreq":
+            self.job_type.setCurrentText("Frequency Only (Freq)")
+            self.freq_num.setChecked(True)
+            applied_to_control = True
+        elif category == "Job Types" and keyword in {"TightOpt", "VeryTightOpt", "LooseOpt", "CalcFC", "CalcHess"}:
+            self.job_type.setCurrentText("Transition State Opt (OptTS)" if keyword == "CalcHess" else "Optimization Only (Opt)")
+            getattr(self, {"TightOpt": "opt_tight", "VeryTightOpt": "opt_verytight", "LooseOpt": "opt_loose", "CalcFC": "opt_calcfc", "CalcHess": "opt_ts_mode"}[keyword]).setChecked(True)
+            applied_to_control = True
+        elif category == "Job Types" and keyword == "MaxIter 256":
+            self.job_type.setCurrentText("Optimization Only (Opt)")
+            self.iter256_chk.setChecked(True)
+            applied_to_control = True
+        elif category == "Job Types" and keyword == "Raman":
+            self.job_type.setCurrentText("Frequency Only (Freq)")
+            self.freq_raman.setChecked(True)
+            applied_to_control = True
+        elif category == "Methods / Functionals":
+            self.method_name.setCurrentText(keyword)
+            if self.method_name.isEditable():
+                self.method_name.setEditText(keyword)
+            applied_to_control = True
+        elif category == "Basis Sets":
+            self.basis_set.setCurrentText(keyword)
+            if self.basis_set.isEditable():
+                self.basis_set.setEditText(keyword)
+            applied_to_control = True
+        elif category == "Solvation":
+            model, _, rest = keyword.partition("(")
+            solvent = rest.removesuffix(")")
+            model_text = "CPC(Water) (Short)" if keyword == "CPC(Water)" else model
+            if self.solv_model.findText(model_text) >= 0:
+                self.solv_model.setCurrentText(model_text)
+                if solvent and self.solvent.findText(solvent) >= 0:
+                    self.solvent.setCurrentText(solvent)
+                applied_to_control = True
+        elif category == "Dispersion" and self.dispersion.findText(keyword) >= 0:
+            self.dispersion.setCurrentText(keyword)
+            applied_to_control = True
+        elif category == "Convergence & Grids":
+            controls = {"TightSCF": "scf_tight", "VeryTightSCF": "scf_verytight", "SlowConv": "scf_slowconv", "VerySlowConv": "scf_veryslowconv"}
+            if keyword in controls:
+                getattr(self, controls[keyword]).setChecked(True)
+                applied_to_control = True
+            elif self.grid_combo.findText(keyword) >= 0:
+                self.grid_combo.setCurrentText(keyword)
+                applied_to_control = True
+        elif category == "RI / Approximations":
+            if keyword == "RIJCOSX":
+                self.rijcosx.setChecked(True)
+                applied_to_control = True
+            elif keyword == "NoRI":
+                self.rijcosx.setChecked(False)
+                self.nori_chk.setChecked(True)
+                applied_to_control = True
+            elif keyword == "COSX":
+                self.cosx_chk.setChecked(True)
+                applied_to_control = True
+            elif keyword == "RI-SOMF(1X)":
+                self.somf_chk.setChecked(True)
+                applied_to_control = True
+        elif category == "Properties / Advanced":
+            controls = {"EPR": "epr_chk", "ZFS": "zfs_chk", "Polarizability": "pol_chk", "Hyperpol": "hyperpol_chk", "UKS": "bs_chk"}
+            if keyword == "NMR":
+                self.job_type.setCurrentText("NMR")
+                applied_to_control = True
+            elif keyword in controls:
+                getattr(self, controls[keyword]).setChecked(True)
+                applied_to_control = True
+            elif keyword in {"TD-DFT", "TDA", "Singlets", "Triplets"}:
+                self.tddft_enable.setChecked(True)
+                if keyword == "TDA":
+                    self.tddft_tda.setChecked(True)
+                elif keyword == "Triplets":
+                    self.tddft_triplets.setChecked(True)
+                applied_to_control = True
+
+        if not applied_to_control:
+            self._add_search_keyword(keyword)
+        self.update_preview()
         if btn is not None and hasattr(btn, "setText"):
             btn.setText("Applied!")
-
-            def _reset_btn():
-                try:
-                    if btn:
-                        btn.setText("Apply")
-                except RuntimeError:
-                    pass
-
-            QtCore.QTimer.singleShot(1000, _reset_btn)
-
+            QtCore.QTimer.singleShot(1000, lambda: _restore_apply_button(btn))
 
 
     def closeEvent(self, event):

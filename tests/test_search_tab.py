@@ -50,3 +50,24 @@ def test_orca_keyword_builder_search_tab():
     dlg.basis_set.setCurrentText.assert_called_with("def2-TZVP")
 
 
+
+
+def test_orca_search_keeps_unmapped_advanced_keyword():
+    dlg = types.SimpleNamespace(_search_extra_keywords=[], update_preview=MagicMock())
+    dlg._add_search_keyword = lambda keyword: OrcaKeywordBuilderDialog._add_search_keyword(dlg, keyword)
+    dlg._apply_search_item = lambda keyword, category, btn=None: OrcaKeywordBuilderDialog._apply_search_item(dlg, keyword, category, btn)
+
+    dlg._apply_search_item("EPRNMR", "Properties / Advanced")
+
+    assert dlg._search_extra_keywords == ["EPRNMR"]
+
+
+def test_orca_search_numfreq_selects_a_frequency_job():
+    dlg = types.SimpleNamespace(job_type=MagicMock(), freq_num=MagicMock(), _search_extra_keywords=[], update_preview=MagicMock())
+    dlg._add_search_keyword = lambda keyword: OrcaKeywordBuilderDialog._add_search_keyword(dlg, keyword)
+    dlg._apply_search_item = lambda keyword, category, btn=None: OrcaKeywordBuilderDialog._apply_search_item(dlg, keyword, category, btn)
+
+    dlg._apply_search_item("NumFreq", "Job Types")
+
+    dlg.job_type.setCurrentText.assert_called_once_with("Frequency Only (Freq)")
+    dlg.freq_num.setChecked.assert_called_once_with(True)

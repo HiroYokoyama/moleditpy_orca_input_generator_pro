@@ -2331,7 +2331,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self._filter_search_table()
 
 
-    def _filter_search_table(self):
+    def _filter_search_table(self, *_signal_args):
         query = (self.search_filter_input.text() or "").strip().lower()
         selected_cat = self.search_category_combo.currentText()
 

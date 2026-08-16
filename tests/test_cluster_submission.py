@@ -6,6 +6,10 @@ import os
 import types
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+pytest.importorskip("PyQt6")
+
 from orca_input_generator_pro.main_dialog import OrcaSetupDialogPro
 
 

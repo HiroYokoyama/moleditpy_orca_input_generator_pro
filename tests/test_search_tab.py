@@ -5,6 +5,10 @@ from __future__ import annotations
 import types
 from unittest.mock import MagicMock
 
+import pytest
+
+pytest.importorskip("PyQt6")
+
 from orca_input_generator_pro.keyword_builder import OrcaKeywordBuilderDialog
 
 

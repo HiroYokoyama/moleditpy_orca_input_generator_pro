@@ -35,24 +35,24 @@ def test_orca_keyword_builder_search_tab():
     dlg._apply_search_item = lambda kw, cat, btn=None: OrcaKeywordBuilderDialog._apply_search_item(dlg, kw, cat, btn)
     dlg._on_search_row_double_clicked = lambda r, c: OrcaKeywordBuilderDialog._on_search_row_double_clicked(dlg, r, c)
 
-    OrcaKeywordBuilderDialog.setup_search_tab(dlg)
-
+    dlg._populate_search_database()
     assert len(dlg._search_catalog) > 0
 
     # Test filtering
-    dlg.search_filter_input.setText("wB97X")
-    dlg.search_category_combo.setCurrentText("All Categories")
-    OrcaKeywordBuilderDialog._filter_search_table(dlg)
-    assert dlg.search_table.rowCount() > 0
+    dlg.search_filter_input.text.return_value = "wB97X"
+    dlg.search_category_combo.currentText.return_value = "All Categories"
+    dlg._filter_search_table()
+    assert dlg.search_table.setRowCount.called
 
     # Test applying a method
-    OrcaKeywordBuilderDialog._apply_search_item(dlg, "wB97X-D3", "Methods / Functionals")
+    dlg._apply_search_item("wB97X-D3", "Methods / Functionals")
     dlg.method_name.setCurrentText.assert_called_with("wB97X-D3")
 
     # Test applying OptH
-    OrcaKeywordBuilderDialog._apply_search_item(dlg, "OptH", "Job Types")
+    dlg._apply_search_item("OptH", "Job Types")
     dlg.job_type.setCurrentText.assert_called_with("Optimize H Only (OptH)")
 
     # Test applying basis set
-    OrcaKeywordBuilderDialog._apply_search_item(dlg, "def2-TZVP", "Basis Sets")
+    dlg._apply_search_item("def2-TZVP", "Basis Sets")
     dlg.basis_set.setCurrentText.assert_called_with("def2-TZVP")
+

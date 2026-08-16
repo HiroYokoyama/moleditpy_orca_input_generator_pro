@@ -2477,7 +2477,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         if btn is not None and hasattr(btn, "setText"):
             btn.setText("Applied!")
-            QtCore.QTimer.singleShot(1000, lambda: btn.setText("Apply") if btn else None)
+
+            def _reset_btn():
+                try:
+                    if btn:
+                        btn.setText("Apply")
+                except RuntimeError:
+                    pass
+
+            QtCore.QTimer.singleShot(1000, _reset_btn)
 
 
 

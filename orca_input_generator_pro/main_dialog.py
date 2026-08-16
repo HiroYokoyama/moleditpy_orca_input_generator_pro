@@ -739,6 +739,11 @@ class OrcaSetupDialogPro(QDialog):
                 "Job Manager could not accept the file. Check that the plugin is "
                 "installed and enabled.",
             )
+        else:
+            if hasattr(self, "accept"):
+                self.accept()
+
+
 
     def insert_block_template(self):
         txt = self.block_combo.currentText()

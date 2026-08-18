@@ -786,6 +786,51 @@ class TestCloseAndDocumentState(_RealDialogTestCase):
         dlg.reject()
         dlg.builder_dialog.close.assert_called_once()
 
+    def test_reject_asks_before_discarding_unsaved_changes(self):
+        # Esc and the window's own Close reach reject() without a closeEvent,
+        # so reject() used to throw an edited input file away with no prompt
+        # while the X button asked about the very same edit.
+        dlg = self._make_dialog(mol=_make_water())
+        dlg.current_inp_file = os.path.join(self._tmpdir, "esc.inp")
+        dlg._saved_inp_content = "OLD CONTENT"
+        with patch.object(
+            main_dialog_mod.QMessageBox,
+            "question",
+            return_value=main_dialog_mod.QMessageBox.StandardButton.Cancel,
+        ) as ask:
+            dlg.reject()
+        ask.assert_called_once()
+        self.assertTrue(dlg.isVisible() or not dlg.result())
+
+    def test_reject_discards_when_the_user_says_so(self):
+        dlg = self._make_dialog(mol=_make_water())
+        dlg.current_inp_file = os.path.join(self._tmpdir, "esc2.inp")
+        dlg._saved_inp_content = "OLD CONTENT"
+        with patch.object(
+            main_dialog_mod.QMessageBox,
+            "question",
+            return_value=main_dialog_mod.QMessageBox.StandardButton.Discard,
+        ):
+            dlg.reject()
+        self.assertFalse(os.path.exists(dlg.current_inp_file))
+
+    def test_close_event_cancel_leaves_the_builder_open(self):
+        # The builder was closed before the question was asked, so cancelling
+        # the close left it shut behind a dialog that stayed open.
+        dlg = self._make_dialog(mol=_make_water())
+        dlg.current_inp_file = os.path.join(self._tmpdir, "keep.inp")
+        dlg._saved_inp_content = "OLD CONTENT"
+        dlg.builder_dialog = MagicMock()
+        event = QCloseEvent()
+        with patch.object(
+            main_dialog_mod.QMessageBox,
+            "question",
+            return_value=main_dialog_mod.QMessageBox.StandardButton.Cancel,
+        ):
+            dlg.closeEvent(event)
+        self.assertFalse(event.isAccepted())
+        dlg.builder_dialog.close.assert_not_called()
+
     def test_save_current_file_error_shows_dialog(self):
         dlg = self._make_dialog(mol=_make_water())
         dlg.current_inp_file = os.path.join(self._tmpdir, "no_such_dir", "x.inp")

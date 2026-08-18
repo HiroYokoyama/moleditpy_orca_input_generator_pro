@@ -1815,34 +1815,44 @@ class OrcaSetupDialogPro(QDialog):
         except Exception as _e:
             logging.warning("validate_charge_mult failed: %s", _e)
 
-    def closeEvent(self, event):
+    def _confirm_discard(self):
+        """True when it is safe to close: saved, unchanged, or the user said so."""
+        if not (self.current_inp_file and self._is_modified()):
+            return True
+        name = os.path.basename(self.current_inp_file)
+        reply = QMessageBox.question(
+            self,
+            "Unsaved Changes",
+            f'Save changes to "{name}"?',
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+        )
+        if reply == QMessageBox.StandardButton.Save:
+            self._save_current_file()
+            return not self._is_modified()  # False when the save failed
+        return reply != QMessageBox.StandardButton.Cancel
+
+    def _close_builder(self):
         if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
             self.builder_dialog.close()
-        if self.current_inp_file and self._is_modified():
-            name = os.path.basename(self.current_inp_file)
-            reply = QMessageBox.question(
-                self,
-                "Unsaved Changes",
-                f'Save changes to "{name}"?',
-                QMessageBox.StandardButton.Save
-                | QMessageBox.StandardButton.Discard
-                | QMessageBox.StandardButton.Cancel,
-            )
-            if reply == QMessageBox.StandardButton.Save:
-                self._save_current_file()
-                if self._is_modified():  # save failed
-                    event.ignore()
-                    return
-            elif reply == QMessageBox.StandardButton.Cancel:
-                event.ignore()
-                return
-        super().closeEvent(event)
+
+    def closeEvent(self, event):
+        if not self._confirm_discard():
+            event.ignore()
+            return
+        # After the question, not before: cancelling the close used to leave the
+        # builder window already shut behind a dialog that stayed open.
+        self._close_builder()
+        # Accepted rather than delegated: QDialog's own closeEvent calls
+        # reject(), which now asks the same question again.
+        event.accept()
 
     def _is_modified(self):
         """True when the current preview differs from the last-saved snapshot.
 
-        Uses the in-memory snapshot for speed (called on every UI change).
-        The close dialog additionally reads from disk to catch external edits.
+        Uses the in-memory snapshot for speed: it is called on every UI change,
+        and on every repaint of the title bar.
         """
         if self.current_inp_file is None or self._saved_inp_content is None:
             return False
@@ -1878,13 +1888,17 @@ class OrcaSetupDialogPro(QDialog):
             self.save_file()  # show SaveAs dialog
 
     def accept(self):
-        if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
-            self.builder_dialog.close()
+        self._close_builder()
         super().accept()
 
     def reject(self):
-        if getattr(self, "builder_dialog", None) is not None and self.builder_dialog:
-            self.builder_dialog.close()
+        # Esc and the window's own Close both arrive here without a closeEvent,
+        # so the unsaved-changes question has to be asked here too. It was not:
+        # one press of Esc threw away an edited input file with no prompt at
+        # all, while closing the same window with the X button asked.
+        if not self._confirm_discard():
+            return
+        self._close_builder()
         super().reject()
 
     def keyPressEvent(self, event):

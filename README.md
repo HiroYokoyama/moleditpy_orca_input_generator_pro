@@ -23,6 +23,7 @@ Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https
 - **Round-trip Parsing** — open an existing `.inp` file and all settings are restored into the UI
 - **Interactive Constraints & Scans** — click atoms in the MoleditPy 3D viewer to define distance/angle/dihedral constraints or coordinate scans
 - **22 Block Templates** — one-click insertion of annotated `%block ... end` stubs for every major ORCA block
+- **Job Manager Relay Tag** — tick a box to fill the `* xyzfile` filename with a configurable tag (`[prevfile:.xyz]` by default) instead of a literal filename; the Job Manager plugin resolves it to the real geometry from whichever job you pick when this input is submitted. The tag text is editable and can be saved as the default for new documents
 - **Syntax Highlighting** — `.inp` files get colour-coded keywords, blocks, and resource headers
 - **Session Persistence** — last-used settings are saved and restored between sessions
 - **599 automated tests** across all features

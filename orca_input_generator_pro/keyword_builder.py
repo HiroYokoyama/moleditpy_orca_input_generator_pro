@@ -2450,7 +2450,16 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.dispersion.setCurrentText(keyword)
             applied_to_control = True
         elif category == "Convergence & Grids":
-            controls = {"TightSCF": "scf_tight", "VeryTightSCF": "scf_verytight", "SlowConv": "scf_slowconv", "VerySlowConv": "scf_veryslowconv"}
+            controls = {
+                "SloppySCF": "scf_sloppy",
+                "LooseSCF": "scf_loose",
+                "NormalSCF": "scf_normal",
+                "TightSCF": "scf_tight",
+                "VeryTightSCF": "scf_verytight",
+                "ExtremeSCF": "scf_extreme",
+                "SlowConv": "scf_slowconv",
+                "VerySlowConv": "scf_veryslowconv",
+            }
             if keyword in controls:
                 getattr(self, controls[keyword]).setChecked(True)
                 applied_to_control = True
@@ -2475,6 +2484,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             controls = {"EPR": "epr_chk", "ZFS": "zfs_chk", "Polarizability": "pol_chk", "Hyperpol": "hyperpol_chk", "UKS": "bs_chk"}
             if keyword == "NMR":
                 self.job_type.setCurrentText("NMR")
+                applied_to_control = True
+            elif keyword == "MOREAD":
+                # Route the checkbox, not a raw keyword: moread_chk is what
+                # actually emits "MOREAD" (see generate_input_content), and
+                # ticking it surfaces the MO File field the %moinp directive
+                # needs -- a bare raw "MOREAD" left no clue a filename was
+                # ever required.
+                self.moread_chk.setChecked(True)
                 applied_to_control = True
             elif keyword in controls:
                 getattr(self, controls[keyword]).setChecked(True)

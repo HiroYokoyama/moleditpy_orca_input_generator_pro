@@ -71,3 +71,34 @@ def test_orca_search_numfreq_selects_a_frequency_job():
 
     dlg.job_type.setCurrentText.assert_called_once_with("Frequency Only (Freq)")
     dlg.freq_num.setChecked.assert_called_once_with(True)
+
+
+def test_orca_search_moread_ticks_the_checkbox_not_raw_text():
+    # moread_chk is what actually emits "MOREAD" and surfaces the MO File
+    # field the %moinp directive needs. Regression for a bug where this fell
+    # through to the raw-keyword fallback: MOREAD ended up in the route with
+    # no %moinp block and no visible control showing anything was set.
+    dlg = types.SimpleNamespace(moread_chk=MagicMock(), _search_extra_keywords=[], update_preview=MagicMock())
+    dlg._add_search_keyword = lambda keyword: OrcaKeywordBuilderDialog._add_search_keyword(dlg, keyword)
+    dlg._apply_search_item = lambda keyword, category, btn=None: OrcaKeywordBuilderDialog._apply_search_item(dlg, keyword, category, btn)
+
+    dlg._apply_search_item("MOREAD", "Properties / Advanced")
+
+    dlg.moread_chk.setChecked.assert_called_once_with(True)
+    assert dlg._search_extra_keywords == []
+
+
+def test_orca_search_loose_scf_wires_the_checkbox_not_raw_text():
+    # scf_loose (and the other SCF tiers besides Tight/VeryTight) have their
+    # own mutually-exclusive checkboxes. Regression for a bug where applying
+    # e.g. LooseSCF via search fell through to the raw-keyword fallback,
+    # leaving scf_loose unchecked -- so a later manual pick of a different
+    # SCF tier produced two contradictory SCF convergence directives.
+    dlg = types.SimpleNamespace(scf_loose=MagicMock(), _search_extra_keywords=[], update_preview=MagicMock())
+    dlg._add_search_keyword = lambda keyword: OrcaKeywordBuilderDialog._add_search_keyword(dlg, keyword)
+    dlg._apply_search_item = lambda keyword, category, btn=None: OrcaKeywordBuilderDialog._apply_search_item(dlg, keyword, category, btn)
+
+    dlg._apply_search_item("LooseSCF", "Convergence & Grids")
+
+    dlg.scf_loose.setChecked.assert_called_once_with(True)
+    assert dlg._search_extra_keywords == []

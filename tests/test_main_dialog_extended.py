@@ -456,6 +456,74 @@ class TestGenerateInputContent(_RealDialogTestCase):
 
 
 # ---------------------------------------------------------------------------
+# Job Manager relay tag
+# ---------------------------------------------------------------------------
+
+
+class TestRelayTag(_RealDialogTestCase):
+    def _set_coord_format(self, dlg, text):
+        idx = dlg.coord_format_combo.findText(text)
+        self.assertGreaterEqual(idx, 0)
+        dlg.coord_format_combo.setCurrentIndex(idx)
+
+    def test_settings_hidden_until_the_checkbox_is_ticked(self):
+        dlg = self._make_dialog(mol=_make_water())
+        self._set_coord_format(dlg, "XYZ File (xyzfile)")
+        self.assertFalse(dlg.relay_tag_settings_widget.isVisibleTo(dlg))
+        dlg.relay_tag_cb.setChecked(True)
+        self.assertTrue(dlg.relay_tag_settings_widget.isVisibleTo(dlg))
+        dlg.relay_tag_cb.setChecked(False)
+        self.assertFalse(dlg.relay_tag_settings_widget.isVisibleTo(dlg))
+
+    def test_checking_it_fills_the_xyzfile_field_with_the_tag(self):
+        dlg = self._make_dialog(mol=_make_water())
+        self._set_coord_format(dlg, "XYZ File (xyzfile)")
+        dlg.xyzfile_name_edit.setText("custom.xyz")
+        dlg.relay_tag_cb.setChecked(True)
+        self.assertEqual(dlg.xyzfile_name_edit.text(), "[prevfile:.xyz]")
+        self.assertTrue(dlg.xyzfile_name_edit.isReadOnly())
+
+    def test_unchecking_it_restores_the_previous_name(self):
+        dlg = self._make_dialog(mol=_make_water())
+        self._set_coord_format(dlg, "XYZ File (xyzfile)")
+        dlg.xyzfile_name_edit.setText("custom.xyz")
+        dlg.relay_tag_cb.setChecked(True)
+        dlg.relay_tag_cb.setChecked(False)
+        self.assertEqual(dlg.xyzfile_name_edit.text(), "custom.xyz")
+        self.assertFalse(dlg.xyzfile_name_edit.isReadOnly())
+
+    def test_editing_the_tag_while_checked_updates_the_xyzfile_field(self):
+        dlg = self._make_dialog(mol=_make_water())
+        self._set_coord_format(dlg, "XYZ File (xyzfile)")
+        dlg.relay_tag_cb.setChecked(True)
+        dlg.relay_tag_edit.setText("[prevfile:.res/.xyz]")
+        self.assertEqual(dlg.xyzfile_name_edit.text(), "[prevfile:.res/.xyz]")
+
+    def test_the_tag_reaches_the_generated_input(self):
+        dlg = self._make_dialog(mol=_make_water())
+        self._set_coord_format(dlg, "XYZ File (xyzfile)")
+        dlg.relay_tag_cb.setChecked(True)
+        content = dlg.generate_input_content()
+        self.assertIn("* xyzfile 0 1 [prevfile:.xyz]", content)
+
+    def test_save_as_default_persists_across_a_new_dialog(self):
+        dlg = self._make_dialog(mol=_make_water())
+        dlg.relay_tag_edit.setText("[prevfile:.gbw]")
+        dlg.relay_tag_save_btn.click()
+
+        dlg2 = self._make_dialog(mol=_make_water())
+        self.assertEqual(dlg2.relay_tag_edit.text(), "[prevfile:.gbw]")
+
+    def test_a_blank_save_falls_back_to_the_default_tag(self):
+        dlg = self._make_dialog(mol=_make_water())
+        dlg.relay_tag_edit.setText("   ")
+        dlg.relay_tag_save_btn.click()
+
+        dlg2 = self._make_dialog(mol=_make_water())
+        self.assertEqual(dlg2.relay_tag_edit.text(), "[prevfile:.xyz]")
+
+
+# ---------------------------------------------------------------------------
 # save_file
 # ---------------------------------------------------------------------------
 

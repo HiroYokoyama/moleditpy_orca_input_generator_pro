@@ -39,6 +39,12 @@ import logging
 # line, so the dihedral carries no information.
 _ZM_LINEAR_TOL_DEG = 8.0
 
+# What the Job Manager plugin's relay feature looks for and replaces with a
+# resolved filename at submit time -- see that plugin's structure_relay.py.
+# Editable and saveable per-user because the extension has to match whatever
+# the source job actually wrote, which this plugin has no way to know.
+DEFAULT_RELAY_TAG = "[prevfile:.xyz]"
+
 
 def _zm_well_conditioned(angle_deg: float) -> bool:
     """True when *angle_deg* defines a usable Z-matrix reference plane."""
@@ -216,6 +222,47 @@ class OrcaSetupDialogPro(QDialog):
         self.xyzfile_row_widget.setLayout(xyzfile_row)
         self.xyzfile_row_widget.setVisible(False)
         coord_vbox.addWidget(self.xyzfile_row_widget)
+
+        # Job Manager relay tag: fills the XYZ file field above with a tag
+        # the Job Manager plugin resolves to a filename at submit time, once
+        # the source job you pick there has produced it, instead of a
+        # literal name typed here that has to be guessed correct in advance.
+        relay_outer = QVBoxLayout()
+        self.relay_tag_cb = QCheckBox("Use Job Manager relay tag")
+        self.relay_tag_cb.setToolTip(
+            "This is a Job Manager plugin tag. Fill the XYZ file field "
+            "above with it instead of a literal filename -- Job Manager "
+            "replaces it with the resolved filename when this input is "
+            "submitted through that plugin; pick the source job there, not "
+            "here."
+        )
+        self.relay_tag_cb.toggled.connect(self._on_relay_tag_toggled)
+        relay_outer.addWidget(self.relay_tag_cb)
+
+        relay_settings_row = QHBoxLayout()
+        self.relay_tag_edit = QLineEdit(DEFAULT_RELAY_TAG)
+        self.relay_tag_edit.setToolTip(
+            "This is a Job Manager plugin tag. The extension has to match "
+            "whatever the source job actually writes -- this plugin has no "
+            "way to know that."
+        )
+        self.relay_tag_edit.textChanged.connect(self._on_relay_tag_text_changed)
+        relay_settings_row.addWidget(self.relay_tag_edit, 1)
+        self.relay_tag_save_btn = QPushButton("Save as Default")
+        self.relay_tag_save_btn.setToolTip(
+            "Remember this Job Manager plugin tag for new documents."
+        )
+        self.relay_tag_save_btn.clicked.connect(self._save_relay_tag_default)
+        relay_settings_row.addWidget(self.relay_tag_save_btn)
+        self.relay_tag_settings_widget = QWidget()
+        self.relay_tag_settings_widget.setLayout(relay_settings_row)
+        self.relay_tag_settings_widget.setVisible(False)
+        relay_outer.addWidget(self.relay_tag_settings_widget)
+
+        self.relay_tag_row_widget = QWidget()
+        self.relay_tag_row_widget.setLayout(relay_outer)
+        self.relay_tag_row_widget.setVisible(False)
+        coord_vbox.addWidget(self.relay_tag_row_widget)
 
         coord_group.setLayout(coord_vbox)
         settings_layout.addWidget(coord_group)
@@ -519,7 +566,33 @@ class OrcaSetupDialogPro(QDialog):
     def _on_coord_format_changed(self):
         is_xyzfile = "xyzfile" in self.coord_format_combo.currentText()
         self.xyzfile_row_widget.setVisible(is_xyzfile)
+        self.relay_tag_row_widget.setVisible(is_xyzfile)
         self.update_preview()
+
+    def _on_relay_tag_toggled(self, checked: bool) -> None:
+        self.relay_tag_settings_widget.setVisible(checked)
+        if checked:
+            self._xyzfile_name_before_relay = self.xyzfile_name_edit.text()
+            self.xyzfile_name_edit.setText(self.relay_tag_edit.text())
+            self.xyzfile_name_edit.setReadOnly(True)
+        else:
+            self.xyzfile_name_edit.setReadOnly(False)
+            self.xyzfile_name_edit.setText(
+                getattr(self, "_xyzfile_name_before_relay", "")
+            )
+        self.update_preview()
+
+    def _on_relay_tag_text_changed(self, text: str) -> None:
+        if self.relay_tag_cb.isChecked():
+            self.xyzfile_name_edit.setText(text)
+
+    def _save_relay_tag_default(self) -> None:
+        if not hasattr(self, "presets_data"):
+            self.presets_data = {}
+        self.presets_data.setdefault("Global", {})["relay_tag"] = (
+            self.relay_tag_edit.text().strip() or DEFAULT_RELAY_TAG
+        )
+        self.save_presets_to_file()
 
     def update_preview(self):
         if not getattr(self, "ui_ready", False):
@@ -1598,6 +1671,8 @@ class OrcaSetupDialogPro(QDialog):
             global_cfg = self.presets_data["Global"]
             if hasattr(self, "auto_suffix_cb") and "auto_suffix" in global_cfg:
                 self.auto_suffix_cb.setChecked(global_cfg["auto_suffix"])
+            if hasattr(self, "relay_tag_edit") and "relay_tag" in global_cfg:
+                self.relay_tag_edit.setText(global_cfg["relay_tag"])
 
         self.update_preset_combo()
 

@@ -105,9 +105,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.setup_search_tab()
         self.tabs.addTab(self.tab_search, "Search")
 
-
         layout.addWidget(self.tabs)
-
 
         # --- Preview ---
         preview_group = QGroupBox("Keyword Preview")
@@ -753,18 +751,20 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.neb_group = QGroupBox("NEB Variant")
         neb_vbox = QVBoxLayout()
         self.neb_variant = QComboBox()
-        self.neb_variant.addItems([
-            "NEB",
-            "NEB-CI",
-            "NEB-TS",
-            "FAST-NEB-TS",
-            "LOOSE-NEB-TS",
-            "TIGHT-NEB-TS",
-            "ZOOM-NEB",
-            "ZOOM-NEB-CI",
-            "ZOOM-NEB-TS",
-            "NEB-IDPP",
-        ])
+        self.neb_variant.addItems(
+            [
+                "NEB",
+                "NEB-CI",
+                "NEB-TS",
+                "FAST-NEB-TS",
+                "LOOSE-NEB-TS",
+                "TIGHT-NEB-TS",
+                "ZOOM-NEB",
+                "ZOOM-NEB-CI",
+                "ZOOM-NEB-TS",
+                "NEB-IDPP",
+            ]
+        )
         self.neb_variant.currentIndexChanged.connect(self.update_preview)
         neb_vbox.addWidget(self.neb_variant)
         self.neb_group.setLayout(neb_vbox)
@@ -981,7 +981,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addRow(self.keepints_chk)
 
         layout.addRow(QLabel("— Exchange Approximation —"))
-        self.cosx_chk = QCheckBox("COSX (chain-of-spheres exchange, without RI Coulomb)")
+        self.cosx_chk = QCheckBox(
+            "COSX (chain-of-spheres exchange, without RI Coulomb)"
+        )
         layout.addRow(self.cosx_chk)
 
         inner.setLayout(layout)
@@ -1707,7 +1709,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("MOREAD")
 
         for keyword in getattr(self, "_search_extra_keywords", []):
-            if keyword and not any(keyword.casefold() == part.casefold() for part in route_parts):
+            if keyword and not any(
+                keyword.casefold() == part.casefold() for part in route_parts
+            ):
                 route_parts.append(keyword)
         self.route_line = " ".join(route_parts)
         self.preview_str = self.route_line
@@ -1754,7 +1758,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 blocks.append(f"%scf\n  Guess {guess}\nend")
 
         # 2c. MOREAD filename via %moinp directive
-        if getattr(self, "moread_chk", None) is not None and self.moread_chk.isChecked():
+        if (
+            getattr(self, "moread_chk", None) is not None
+            and self.moread_chk.isChecked()
+        ):
             mf = self.moread_file.text().strip()
             if mf:
                 blocks.append(f'%moinp "{mf}"')
@@ -1892,8 +1899,18 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         break
             elif tu == "GOAT":
                 self.job_type.setCurrentText("GOAT (Global Search)")
-            elif tu in ("NEB", "NEB-CI", "NEB-TS", "FAST-NEB-TS", "LOOSE-NEB-TS",
-                        "TIGHT-NEB-TS", "ZOOM-NEB", "ZOOM-NEB-CI", "ZOOM-NEB-TS", "NEB-IDPP"):
+            elif tu in (
+                "NEB",
+                "NEB-CI",
+                "NEB-TS",
+                "FAST-NEB-TS",
+                "LOOSE-NEB-TS",
+                "TIGHT-NEB-TS",
+                "ZOOM-NEB",
+                "ZOOM-NEB-CI",
+                "ZOOM-NEB-TS",
+                "NEB-IDPP",
+            ):
                 self.job_type.setCurrentText("NEB (Nudged Elastic Band)")
                 self.neb_variant.setCurrentText(tu)
             elif tu == "MD":
@@ -2305,7 +2322,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "Properties / Advanced",
             ]
         )
-        self.search_category_combo.currentIndexChanged.connect(self._filter_search_table)
+        self.search_category_combo.currentIndexChanged.connect(
+            self._filter_search_table
+        )
 
         filter_row.addWidget(QLabel("Search:"))
         filter_row.addWidget(self.search_filter_input, 1)
@@ -2317,7 +2336,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.search_table.setHorizontalHeaderLabels(
             ["Category", "Keyword", "Description", "Action"]
         )
-        self.search_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.search_table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
         self.search_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.search_table.horizontalHeader().setStretchLastSection(False)
         self.search_table.cellDoubleClicked.connect(self._on_search_row_double_clicked)
@@ -2325,7 +2346,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addWidget(self.search_table)
         self.tab_search.setLayout(layout)
         self._populate_search_database()
-
 
     def _populate_search_database(self):
         catalog = list(ORCA_SEARCH_CATALOG)
@@ -2342,7 +2362,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self._search_catalog = catalog
         self._filter_search_table()
 
-
     def _filter_search_table(self, *_signal_args):
         query = (self.search_filter_input.text() or "").strip().lower()
         selected_cat = self.search_category_combo.currentText()
@@ -2351,7 +2370,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         for cat, kw, desc in self._search_catalog:
             if selected_cat != "All Categories" and selected_cat != cat:
                 continue
-            if query and query not in kw.lower() and query not in desc.lower() and query not in cat.lower():
+            if (
+                query
+                and query not in kw.lower()
+                and query not in desc.lower()
+                and query not in cat.lower()
+            ):
                 continue
             filtered.append((cat, kw, desc))
 
@@ -2361,10 +2385,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             item_kw = QTableWidgetItem(kw)
             item_desc = QTableWidgetItem(desc)
 
-
             btn_apply = QPushButton("Apply")
             btn_apply.setMaximumWidth(70)
-            btn_apply.clicked.connect(lambda _, k=kw, c=cat, b=btn_apply: self._apply_search_item(k, c, b))
+            btn_apply.clicked.connect(
+                lambda _, k=kw, c=cat, b=btn_apply: self._apply_search_item(k, c, b)
+            )
 
             self.search_table.setItem(row, 0, item_cat)
             self.search_table.setItem(row, 1, item_kw)
@@ -2390,7 +2415,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             return
         if not hasattr(self, "_search_extra_keywords"):
             self._search_extra_keywords = []
-        if keyword.casefold() not in {item.casefold() for item in self._search_extra_keywords}:
+        if keyword.casefold() not in {
+            item.casefold() for item in self._search_extra_keywords
+        }:
             self._search_extra_keywords.append(keyword)
 
     def _apply_search_item(self, keyword, category, btn=None):
@@ -2415,9 +2442,28 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.job_type.setCurrentText("Frequency Only (Freq)")
             self.freq_num.setChecked(True)
             applied_to_control = True
-        elif category == "Job Types" and keyword in {"TightOpt", "VeryTightOpt", "LooseOpt", "CalcFC", "CalcHess"}:
-            self.job_type.setCurrentText("Transition State Opt (OptTS)" if keyword == "CalcHess" else "Optimization Only (Opt)")
-            getattr(self, {"TightOpt": "opt_tight", "VeryTightOpt": "opt_verytight", "LooseOpt": "opt_loose", "CalcFC": "opt_calcfc", "CalcHess": "opt_ts_mode"}[keyword]).setChecked(True)
+        elif category == "Job Types" and keyword in {
+            "TightOpt",
+            "VeryTightOpt",
+            "LooseOpt",
+            "CalcFC",
+            "CalcHess",
+        }:
+            self.job_type.setCurrentText(
+                "Transition State Opt (OptTS)"
+                if keyword == "CalcHess"
+                else "Optimization Only (Opt)"
+            )
+            getattr(
+                self,
+                {
+                    "TightOpt": "opt_tight",
+                    "VeryTightOpt": "opt_verytight",
+                    "LooseOpt": "opt_loose",
+                    "CalcFC": "opt_calcfc",
+                    "CalcHess": "opt_ts_mode",
+                }[keyword],
+            ).setChecked(True)
             applied_to_control = True
         elif category == "Job Types" and keyword == "MaxIter 256":
             self.job_type.setCurrentText("Optimization Only (Opt)")
@@ -2481,7 +2527,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.somf_chk.setChecked(True)
                 applied_to_control = True
         elif category == "Properties / Advanced":
-            controls = {"EPR": "epr_chk", "ZFS": "zfs_chk", "Polarizability": "pol_chk", "Hyperpol": "hyperpol_chk", "UKS": "bs_chk"}
+            controls = {
+                "EPR": "epr_chk",
+                "ZFS": "zfs_chk",
+                "Polarizability": "pol_chk",
+                "Hyperpol": "hyperpol_chk",
+                "UKS": "bs_chk",
+            }
             if keyword == "NMR":
                 self.job_type.setCurrentText("NMR")
                 applied_to_control = True
@@ -2511,9 +2563,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             btn.setText("Applied!")
             QtCore.QTimer.singleShot(1000, lambda: _restore_apply_button(btn))
 
-
     def closeEvent(self, event):
-
         self.disable_picking()
         super().closeEvent(event)
 

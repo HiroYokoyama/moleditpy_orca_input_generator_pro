@@ -27,7 +27,6 @@ cluster_link = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cluster_link)
 
 
-
 class FakeJobManagerModule:
     def __init__(self, result=True):
         self.result = result

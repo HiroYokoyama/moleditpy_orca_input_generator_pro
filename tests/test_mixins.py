@@ -212,9 +212,7 @@ class TestClearSelectionLabels(unittest.TestCase):
         dlg = _PickingDialog(main_window=mw)
         dlg.selection_labels = ["a1", "a2", "a3"]
         dlg.clear_selection_labels()
-        self.assertEqual(
-            mw.view_3d_manager.plotter.remove_actor.call_count, 3
-        )
+        self.assertEqual(mw.view_3d_manager.plotter.remove_actor.call_count, 3)
         self.assertEqual(dlg.selection_labels, [])
 
     def test_no_view_3d_manager_no_crash(self):
@@ -261,9 +259,7 @@ class TestShowAtomLabelsFor(unittest.TestCase):
         mw = _make_mw(atom_positions=positions)
         dlg = _PickingDialog(main_window=mw)
         dlg.show_atom_labels_for([(0, "H1"), (1, "H2")])
-        self.assertEqual(
-            mw.view_3d_manager.plotter.add_point_labels.call_count, 2
-        )
+        self.assertEqual(mw.view_3d_manager.plotter.add_point_labels.call_count, 2)
         self.assertEqual(len(dlg.selection_labels), 2)
 
     def test_skips_out_of_range_index(self):
@@ -346,9 +342,7 @@ class TestEventFilter(unittest.TestCase):
         mw.view_3d_manager.plotter.interactor.GetEventPosition.return_value = (1, 2)
 
         dlg = _PickingDialog(main_window=mw, mol=_FakeMol(2))
-        event = _mouse_event(
-            QEvent.Type.MouseButtonPress, pos=(10, 20)
-        )
+        event = _mouse_event(QEvent.Type.MouseButtonPress, pos=(10, 20))
         result = dlg.eventFilter(mw.view_3d_manager.plotter.interactor, event)
         self.assertTrue(result)
         self.assertEqual(dlg.picked, [0])
@@ -460,7 +454,9 @@ class TestEventFilter(unittest.TestCase):
         dlg = _PickingDialog(main_window=mw)
         dlg._mouse_press_pos = None
         release_event = _mouse_event(QEvent.Type.MouseButtonRelease)
-        dlg.eventFilter(mw.view_3d_manager.plotter.interactor, release_event)  # no crash
+        dlg.eventFilter(
+            mw.view_3d_manager.plotter.interactor, release_event
+        )  # no crash
         self.assertFalse(dlg.cleared)
 
 

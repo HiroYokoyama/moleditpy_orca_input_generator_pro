@@ -25,7 +25,10 @@ def test_orca_main_dialog_submit_to_cluster_accepts(tmp_path):
         accept=MagicMock(),
     )
 
-    with patch("orca_input_generator_pro.main_dialog.cluster_link.submit_to_cluster", return_value=True):
+    with patch(
+        "orca_input_generator_pro.main_dialog.cluster_link.submit_to_cluster",
+        return_value=True,
+    ):
         OrcaSetupDialogPro.submit_to_cluster(dlg)
         assert dlg.accept.called
 
@@ -42,9 +45,13 @@ def test_orca_main_dialog_submit_to_cluster_handles_failure(tmp_path):
         accept=MagicMock(),
     )
 
-    with patch("orca_input_generator_pro.main_dialog.cluster_link.submit_to_cluster", return_value=False):
-        with patch("orca_input_generator_pro.main_dialog.QMessageBox.warning") as mock_warn:
+    with patch(
+        "orca_input_generator_pro.main_dialog.cluster_link.submit_to_cluster",
+        return_value=False,
+    ):
+        with patch(
+            "orca_input_generator_pro.main_dialog.QMessageBox.warning"
+        ) as mock_warn:
             OrcaSetupDialogPro.submit_to_cluster(dlg)
             assert not dlg.accept.called
             assert mock_warn.called
-

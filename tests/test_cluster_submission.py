@@ -8,7 +8,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-pytest.importorskip("PyQt6")
+_qtw = pytest.importorskip("PyQt6.QtWidgets")
+
+# Other test modules install a stub PyQt6 into sys.modules, which
+# importorskip happily accepts; these tests patch real Qt attributes
+# (QMessageBox.warning) and need the genuine package.
+if not hasattr(_qtw, "__file__"):
+    pytest.skip("PyQt6 is stubbed here", allow_module_level=True)
 
 from orca_input_generator_pro.main_dialog import OrcaSetupDialogPro
 

@@ -34,10 +34,13 @@ from rdkit.Chem import rdMolTransforms
 from . import cluster_link
 from .constants import (
     GHOST_BARE_BASIS,
-    GHOST_MODE_BARE,
-    GHOST_MODE_CUSTOM,
-    GHOST_MODE_FULL,
-    GHOST_MODES,
+    BASIS_MODE_BARE,
+    BASIS_MODE_CUSTOM,
+    BASIS_MODE_DEFAULT,
+    BASIS_MODES,
+    BASIS_MODES_ATOM,
+    BASIS_MODES_GHOST,
+    LEGACY_BASIS_MODES,
 )
 from .highlighter import OrcaSyntaxHighlighter
 from .keyword_builder import OrcaKeywordBuilderDialog
@@ -59,6 +62,19 @@ DEFAULT_RELAY_TAG = "[prevfile:.xyz]"
 def _zm_well_conditioned(angle_deg: float) -> bool:
     """True when *angle_deg* defines a usable Z-matrix reference plane."""
     return _ZM_LINEAR_TOL_DEG < angle_deg < 180.0 - _ZM_LINEAR_TOL_DEG
+
+
+_GHOST_TOOLTIP = (
+    "Default: the basis the route line gives this element.\n"
+    "Bare: " + GHOST_BARE_BASIS + "\n"
+    "Custom: appended to the coordinate line as typed."
+)
+
+_ATOM_TOOLTIP = (
+    "Default: the basis the route line gives this element.\n"
+    "Custom: appended to the coordinate line as typed, e.g.\n"
+    '  NewGTO "def2-TZVP" end'
+)
 
 
 class OrcaSetupDialogPro(QDialog):
@@ -328,8 +344,8 @@ class OrcaSetupDialogPro(QDialog):
         adv_group.setLayout(adv_layout)
         settings_layout.addWidget(adv_group)
 
-        self._build_ghost_group()
-        settings_layout.addWidget(self.ghost_group)
+        self._build_basis_group()
+        settings_layout.addWidget(self.basis_group)
 
         # --- 5. Second Job ($new_job) ---
         sj_group = QGroupBox("Second Job  ($new_job)")
@@ -611,7 +627,7 @@ class OrcaSetupDialogPro(QDialog):
         if not getattr(self, "ui_ready", False):
             return
 
-        self._sync_ghost_group()
+        self._sync_basis_group()
 
         # Update persistent settings
         if self.persistent_settings is not None:
@@ -629,7 +645,7 @@ class OrcaSetupDialogPro(QDialog):
             p["second_job_coord_src"] = self.second_job_coord_src.currentText()
             p["second_job_xyz_name"] = self.second_job_xyz_name.text()
             p["second_job_adv"] = self.second_job_adv.toPlainText()
-            p["ghost_basis"] = {sym: list(val) for sym, val in self.ghost_basis.items()}
+            p["atom_basis"] = {sym: list(val) for sym, val in self.atom_basis.items()}
 
         self._current_content = self.generate_input_content()
         self.preview_text.setText(self._current_content)
@@ -674,8 +690,8 @@ class OrcaSetupDialogPro(QDialog):
                 self.second_job_xyz_name.setText(p["second_job_xyz_name"])
             if "second_job_adv" in p:
                 self.second_job_adv.setPlainText(p["second_job_adv"])
-            if "ghost_basis" in p:
-                self._restore_ghost_basis(p["ghost_basis"])
+            if "atom_basis" in p or "ghost_basis" in p:
+                self._restore_atom_basis(p.get("atom_basis", p.get("ghost_basis", {})))
             self._update_second_job_ui()
         finally:
             self.blockSignals(False)
@@ -1176,141 +1192,149 @@ class OrcaSetupDialogPro(QDialog):
     # says which.  So the treatment is chosen here, per ghost symbol, rather
     # than guessed.
 
-    def _build_ghost_group(self):
-        self.ghost_basis = {}
-        self._ghost_symbols_shown = None
+    def _build_basis_group(self):
+        self.atom_basis = {}
+        self._basis_symbols_shown = None
 
-        self.ghost_group = QGroupBox("Ghost Atoms  (El:)")
-        ghost_layout = QVBoxLayout()
+        self.basis_group = QGroupBox("Per-atom Basis  (NewGTO)")
+        basis_layout = QVBoxLayout()
 
         hint = QLabel(
-            "ORCA keeps the element's full basis on a ghost, which is what "
-            "counterpoise needs and what makes a NICS probe perturb its own "
-            "reading."
+            "Override the basis on one element without touching the route "
+            "line. Ghosts (El:) are listed first: ORCA keeps the element's "
+            "full basis on them, which is what counterpoise needs and what "
+            "makes a NICS probe perturb its own reading."
         )
         hint.setWordWrap(True)
-        ghost_layout.addWidget(hint)
+        basis_layout.addWidget(hint)
 
-        self.ghost_table = QTableWidget(0, 3)
-        self.ghost_table.setHorizontalHeaderLabels(
-            ["Ghost", "Treatment", "Custom basis (appended verbatim)"]
+        self.basis_table = QTableWidget(0, 3)
+        self.basis_table.setHorizontalHeaderLabels(
+            ["Atom", "Treatment", "Custom basis (appended verbatim)"]
         )
-        self.ghost_table.verticalHeader().setVisible(False)
-        self.ghost_table.horizontalHeader().setSectionResizeMode(
+        self.basis_table.verticalHeader().setVisible(False)
+        self.basis_table.horizontalHeader().setSectionResizeMode(
             2, QHeaderView.ResizeMode.Stretch
         )
-        ghost_layout.addWidget(self.ghost_table)
+        self.basis_table.setMaximumHeight(150)
+        basis_layout.addWidget(self.basis_table)
 
-        self.ghost_group.setLayout(ghost_layout)
-        self.ghost_group.setVisible(False)
+        self.basis_group.setLayout(basis_layout)
+        self.basis_group.setVisible(False)
 
-    def _ghost_symbols(self):
-        """Ghost symbols present in the live molecule, with their atom counts."""
+    def _atom_symbols(self):
+        """Every symbol written to a coordinate line, with its atom count."""
         counts = {}
         if not self._resolve_live_mol():
             return counts
         try:
             for atom in self.mol.GetAtoms():
-                if not atom.HasProp("custom_symbol"):
-                    continue
-                symbol = atom.GetProp("custom_symbol").strip()
-                if symbol.endswith(":"):
-                    counts[symbol] = counts.get(symbol, 0) + 1
+                if atom.HasProp("custom_symbol"):
+                    symbol = atom.GetProp("custom_symbol").strip()
+                else:
+                    symbol = atom.GetSymbol()
+                counts[symbol] = counts.get(symbol, 0) + 1
         except Exception as exc:
-            logging.warning("ghost scan failed: %s", exc)
+            logging.warning("atom scan failed: %s", exc)
         return counts
 
-    def _sync_ghost_group(self):
-        """Show the Ghost Atoms box only while the molecule has ghosts."""
-        counts = self._ghost_symbols()
-        if counts == self._ghost_symbols_shown:
-            return
-        self._ghost_symbols_shown = counts
+    @staticmethod
+    def _is_ghost(symbol):
+        return symbol.endswith(":")
 
-        for symbol in list(self.ghost_basis):
+    def _sort_key(self, symbol):
+        """Ghosts first -- they are the ones with a non-obvious default."""
+        return (not self._is_ghost(symbol), symbol)
+
+    def _sync_basis_group(self):
+        """Rebuild the per-atom basis table when the molecule's species change."""
+        counts = self._atom_symbols()
+        if counts == self._basis_symbols_shown:
+            return
+        self._basis_symbols_shown = counts
+
+        for symbol in list(self.atom_basis):
             if symbol not in counts:
-                del self.ghost_basis[symbol]
+                del self.atom_basis[symbol]
 
         if counts:
-            self._populate_ghost_table(counts)
-        self.ghost_group.setVisible(bool(counts))
+            self._populate_basis_table(counts)
+        self.basis_group.setVisible(bool(counts))
 
-    def _populate_ghost_table(self, counts):
-        self.ghost_table.setRowCount(len(counts))
-        for row, (symbol, count) in enumerate(sorted(counts.items())):
-            mode, custom = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
+    def _populate_basis_table(self, counts):
+        self.basis_table.setRowCount(len(counts))
+        for row, symbol in enumerate(sorted(counts, key=self._sort_key)):
+            mode, custom = self.atom_basis.get(symbol, (BASIS_MODE_DEFAULT, ""))
+            is_ghost = self._is_ghost(symbol)
 
-            label = QTableWidgetItem("%s  x%d" % (symbol, count))
+            label = QTableWidgetItem("%s  x%d" % (symbol, counts[symbol]))
             label.setFlags(label.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.ghost_table.setItem(row, 0, label)
+            self.basis_table.setItem(row, 0, label)
 
             combo = QComboBox()
-            combo.addItems(GHOST_MODES)
+            combo.addItems(BASIS_MODES_GHOST if is_ghost else BASIS_MODES_ATOM)
             combo.setCurrentText(mode)
-            combo.setToolTip(
-                "Full basis: ORCA's default, what counterpoise/BSSE needs.\n"
-                "Bare: %s\n"
-                "Custom: appended to the coordinate line as typed." % GHOST_BARE_BASIS
-            )
+            combo.setToolTip(_GHOST_TOOLTIP if is_ghost else _ATOM_TOOLTIP)
             combo.currentTextChanged.connect(
-                lambda text, s=symbol: self._set_ghost_mode(s, text)
+                lambda text, s=symbol: self._set_basis_mode(s, text)
             )
-            self.ghost_table.setCellWidget(row, 1, combo)
+            self.basis_table.setCellWidget(row, 1, combo)
 
             edit = QLineEdit(custom)
-            edit.setPlaceholderText("NewGTO ... end")
-            edit.setEnabled(mode == GHOST_MODE_CUSTOM)
+            edit.setPlaceholderText('NewGTO "def2-TZVP" end')
+            edit.setEnabled(mode == BASIS_MODE_CUSTOM)
             edit.textChanged.connect(
-                lambda text, s=symbol: self._set_ghost_custom(s, text)
+                lambda text, s=symbol: self._set_basis_custom(s, text)
             )
-            self.ghost_table.setCellWidget(row, 2, edit)
+            self.basis_table.setCellWidget(row, 2, edit)
 
-    def _set_ghost_mode(self, symbol, mode):
-        _, custom = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
-        self.ghost_basis[symbol] = (mode, custom)
-        for row in range(self.ghost_table.rowCount()):
-            item = self.ghost_table.item(row, 0)
+    def _set_basis_mode(self, symbol, mode):
+        _, custom = self.atom_basis.get(symbol, (BASIS_MODE_DEFAULT, ""))
+        self.atom_basis[symbol] = (mode, custom)
+        for row in range(self.basis_table.rowCount()):
+            item = self.basis_table.item(row, 0)
             if item is not None and item.text().startswith(symbol + " "):
-                edit = self.ghost_table.cellWidget(row, 2)
+                edit = self.basis_table.cellWidget(row, 2)
                 if edit is not None:
-                    edit.setEnabled(mode == GHOST_MODE_CUSTOM)
+                    edit.setEnabled(mode == BASIS_MODE_CUSTOM)
         self.update_preview()
 
-    def _set_ghost_custom(self, symbol, text):
-        mode, _ = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
-        self.ghost_basis[symbol] = (mode, text)
-        if mode == GHOST_MODE_CUSTOM:
+    def _set_basis_custom(self, symbol, text):
+        mode, _ = self.atom_basis.get(symbol, (BASIS_MODE_DEFAULT, ""))
+        self.atom_basis[symbol] = (mode, text)
+        if mode == BASIS_MODE_CUSTOM:
             self.update_preview()
 
-    def _restore_ghost_basis(self, stored):
+    def _restore_atom_basis(self, stored):
         """Adopt a saved {symbol: [mode, custom]} map, ignoring anything odd."""
         restored = {}
         try:
             for symbol, value in (stored or {}).items():
                 mode, custom = (list(value) + ["", ""])[:2]
-                if mode in GHOST_MODES:
+                mode = LEGACY_BASIS_MODES.get(mode, mode)
+                if mode in BASIS_MODES:
                     restored[str(symbol)] = (mode, str(custom))
         except (AttributeError, TypeError, ValueError) as exc:
-            logging.warning("ignoring malformed ghost_basis setting: %s", exc)
+            logging.warning("ignoring malformed atom_basis setting: %s", exc)
             return
-        self.ghost_basis = restored
-        self._ghost_symbols_shown = None
+        self.atom_basis = restored
+        self._basis_symbols_shown = None
 
-    def _ghost_suffix(self, symbol):
-        """What to append to this ghost's coordinate line, '' for the default."""
-        mode, custom = getattr(self, "ghost_basis", {}).get(
-            symbol, (GHOST_MODE_FULL, "")
+    def _basis_suffix(self, symbol):
+        """What to append to this symbol's coordinate line, '' for default."""
+        mode, custom = getattr(self, "atom_basis", {}).get(
+            symbol, (BASIS_MODE_DEFAULT, "")
         )
-        if mode == GHOST_MODE_BARE:
+        if mode == BASIS_MODE_BARE and self._is_ghost(symbol):
             return "  " + GHOST_BARE_BASIS
-        if mode == GHOST_MODE_CUSTOM and custom.strip():
+        if mode == BASIS_MODE_CUSTOM and custom.strip():
             return "  " + custom.strip()
         return ""
 
-    def _ghosts_need_xyz(self):
-        """True when a ghost carries a basis override that only XYZ can emit."""
+    def _basis_needs_xyz(self):
+        """True when any symbol carries an override only XYZ can emit."""
         return any(
-            self._ghost_suffix(symbol) for symbol in getattr(self, "ghost_basis", {})
+            self._basis_suffix(symbol) for symbol in getattr(self, "atom_basis", {})
         )
 
     def get_coords_lines(self):
@@ -1330,7 +1354,7 @@ class OrcaSetupDialogPro(QDialog):
                 )
                 lines.append(
                     f"  {symbol: <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}"
-                    f"{self._ghost_suffix(symbol) if symbol.endswith(':') else ''}"
+                    f"{self._basis_suffix(symbol)}"
                 )
         except Exception as e:
             return [f"# Error: {e}"]
@@ -1438,7 +1462,7 @@ class OrcaSetupDialogPro(QDialog):
                 return []
 
             lines = []
-            if self._ghosts_need_xyz():
+            if self._basis_needs_xyz():
                 lines.append(
                     "  # NOTE: a per-atom ghost basis was configured, but ORCA"
                     " takes it only on Cartesian lines."
@@ -1481,7 +1505,7 @@ class OrcaSetupDialogPro(QDialog):
                 return []
 
             lines = []
-            if self._ghosts_need_xyz():
+            if self._basis_needs_xyz():
                 lines.append(
                     "  # NOTE: a per-atom ghost basis was configured, but ORCA"
                     " takes it only on Cartesian lines."
@@ -1893,7 +1917,7 @@ class OrcaSetupDialogPro(QDialog):
             self.second_job_coord_src.setCurrentText(src)
         self.second_job_xyz_name.setText(data.get("second_job_xyz_name", ""))
         self.second_job_adv.setPlainText(data.get("second_job_adv", ""))
-        self._restore_ghost_basis(data.get("ghost_basis", {}))
+        self._restore_atom_basis(data.get("atom_basis", data.get("ghost_basis", {})))
         self._update_second_job_ui()
 
         self.update_preview()
@@ -1914,9 +1938,7 @@ class OrcaSetupDialogPro(QDialog):
                 "second_job_coord_src": self.second_job_coord_src.currentText(),
                 "second_job_xyz_name": self.second_job_xyz_name.text(),
                 "second_job_adv": self.second_job_adv.toPlainText(),
-                "ghost_basis": {
-                    sym: list(val) for sym, val in self.ghost_basis.items()
-                },
+                "atom_basis": {sym: list(val) for sym, val in self.atom_basis.items()},
             }
             self.save_presets_to_file()
             self.update_preset_combo()

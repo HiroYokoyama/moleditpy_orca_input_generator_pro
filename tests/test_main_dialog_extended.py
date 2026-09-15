@@ -120,7 +120,7 @@ _load_private("keyword_builder", "keyword_builder.py")
 main_dialog_mod = _load_private("main_dialog", "main_dialog.py")
 OrcaSetupDialogPro = main_dialog_mod.OrcaSetupDialogPro
 
-from PyQt6.QtWidgets import QWidget, QLineEdit, QMessageBox, QFileDialog, QInputDialog
+from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtGui import QCloseEvent, QKeyEvent
 

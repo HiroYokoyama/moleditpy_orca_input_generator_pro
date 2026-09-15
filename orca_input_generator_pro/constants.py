@@ -1255,7 +1255,16 @@ ORCA_SEARCH_CATALOG = [
 # the RI-J auxiliary basis, without which RIJCOSX/RIJDX fails on that centre.
 GHOST_BARE_BASIS = "NewGTO S 1 1 1e6 1 end NewAuxJGTO S 1 1 2e6 1 end"
 
-GHOST_MODE_FULL = "Full basis (default)"
-GHOST_MODE_BARE = "Bare - NICS probe"
-GHOST_MODE_CUSTOM = "Custom"
-GHOST_MODES = (GHOST_MODE_FULL, GHOST_MODE_BARE, GHOST_MODE_CUSTOM)
+# ORCA takes NewGTO on any coordinate line, not only a ghost's, so the same
+# control covers "give Fe a bigger basis" and "make this probe bare".
+BASIS_MODE_DEFAULT = "Default"
+BASIS_MODE_BARE = "Bare - NICS probe"
+BASIS_MODE_CUSTOM = "Custom"
+
+# Bare is only meaningful on a ghost; a real atom with no basis is nonsense.
+BASIS_MODES_GHOST = (BASIS_MODE_DEFAULT, BASIS_MODE_BARE, BASIS_MODE_CUSTOM)
+BASIS_MODES_ATOM = (BASIS_MODE_DEFAULT, BASIS_MODE_CUSTOM)
+BASIS_MODES = BASIS_MODES_GHOST
+
+# v3.8.0 shipped the ghost-only box and persisted this label; keep reading it.
+LEGACY_BASIS_MODES = {"Full basis (default)": BASIS_MODE_DEFAULT}

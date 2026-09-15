@@ -17,7 +17,6 @@ collection order).
 
 import os
 import sys
-import json
 import types
 import shutil
 import tempfile

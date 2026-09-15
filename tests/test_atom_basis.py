@@ -1,12 +1,12 @@
 """
-tests/test_ghost_basis.py
+tests/test_atom_basis.py
 
-Per-atom ghost basis on ORCA coordinate lines.
+Per-atom basis overrides on ORCA coordinate lines.
 
 A ghost ("El:") means three different things -- counterpoise wants the
 element's full basis, a NICS probe wants none, midbond functions want a
 specific one -- and the molecule does not say which, so the treatment is
-chosen per ghost symbol in the Ghost Atoms box.
+chosen per symbol in the Per-atom Basis box, which lists every species.
 
 Requested in HiroYokoyama/moleditpy_nics_placer#1.
 """
@@ -115,9 +115,9 @@ _main = _load_mod("main_dialog", "main_dialog.py")
 Dialog = _main.OrcaSetupDialogPro
 
 BARE = _const.GHOST_BARE_BASIS
-FULL = _const.GHOST_MODE_FULL
-NICS = _const.GHOST_MODE_BARE
-CUSTOM = _const.GHOST_MODE_CUSTOM
+DEFAULT = _const.BASIS_MODE_DEFAULT
+NICS = _const.BASIS_MODE_BARE
+CUSTOM = _const.BASIS_MODE_CUSTOM
 
 
 class _Pos:
@@ -173,8 +173,8 @@ def _dialog(mol):
     d = Dialog.__new__(Dialog)
     d.mol = mol
     d.get_molecule = None
-    d.ghost_basis = {}
-    d._ghost_symbols_shown = None
+    d.atom_basis = {}
+    d._basis_symbols_shown = None
     return d
 
 
@@ -184,21 +184,34 @@ def _molecule_with_probe():
     return _Mol(atoms, positions)
 
 
-class TestGhostDetection(unittest.TestCase):
-    def test_only_colon_symbols_count_as_ghosts(self):
+class TestSymbolScan(unittest.TestCase):
+    def test_every_species_is_listed_not_only_ghosts(self):
         mol = _Mol(
             [_Atom("C"), _Atom("*", "H:"), _Atom("*", "Bq"), _Atom("C", "C:")],
             [_Pos(0, 0, 0)] * 4,
         )
-        self.assertEqual(_dialog(mol)._ghost_symbols(), {"H:": 1, "C:": 1})
+        self.assertEqual(
+            _dialog(mol)._atom_symbols(), {"C": 1, "H:": 1, "Bq": 1, "C:": 1}
+        )
 
-    def test_ghosts_are_counted_per_symbol(self):
+    def test_symbols_are_counted(self):
         mol = _Mol([_Atom("*", "H:") for _ in range(5)], [_Pos(0, 0, 0)] * 5)
-        self.assertEqual(_dialog(mol)._ghost_symbols(), {"H:": 5})
+        self.assertEqual(_dialog(mol)._atom_symbols(), {"H:": 5})
 
-    def test_molecule_without_ghosts_reports_none(self):
+    def test_plain_molecule_lists_its_elements(self):
         mol = _Mol([_Atom("C"), _Atom("H")], [_Pos(0, 0, 0)] * 2)
-        self.assertEqual(_dialog(mol)._ghost_symbols(), {})
+        self.assertEqual(_dialog(mol)._atom_symbols(), {"C": 1, "H": 1})
+
+    def test_only_a_trailing_colon_marks_a_ghost(self):
+        d = _dialog(_molecule_with_probe())
+        self.assertTrue(d._is_ghost("H:"))
+        self.assertFalse(d._is_ghost("Bq"))
+        self.assertFalse(d._is_ghost("C"))
+
+    def test_ghosts_sort_ahead_of_real_elements(self):
+        d = _dialog(_molecule_with_probe())
+        order = sorted(["O", "C", "H:", "C:"], key=d._sort_key)
+        self.assertEqual(order, ["C:", "H:", "C", "O"])
 
 
 class TestCoordinateLines(unittest.TestCase):
@@ -210,14 +223,14 @@ class TestCoordinateLines(unittest.TestCase):
 
     def test_bare_appends_the_manual_recipe(self):
         d = _dialog(_molecule_with_probe())
-        d.ghost_basis = {"H:": (NICS, "")}
+        d.atom_basis = {"H:": (NICS, "")}
         lines = d.get_coords_lines()
         self.assertTrue(lines[2].endswith(BARE))
         self.assertIn("NewAuxJGTO", lines[2])
 
     def test_bare_does_not_touch_real_atoms(self):
         d = _dialog(_molecule_with_probe())
-        d.ghost_basis = {"H:": (NICS, "")}
+        d.atom_basis = {"H:": (NICS, "")}
         lines = d.get_coords_lines()
         self.assertNotIn("NewGTO", lines[0])
         self.assertNotIn("NewGTO", lines[1])
@@ -226,66 +239,104 @@ class TestCoordinateLines(unittest.TestCase):
         """A C: ghost left on Full must stay exactly as it is today."""
         mol = _Mol([_Atom("C", "C:"), _Atom("O")], [_Pos(0, 0, 0), _Pos(1, 0, 0)])
         d = _dialog(mol)
-        d.ghost_basis = {"C:": (FULL, "")}
+        d.atom_basis = {"C:": (DEFAULT, "")}
         self.assertNotIn("NewGTO", d.get_coords_lines()[0])
 
     def test_symbols_are_treated_independently(self):
         """NICS probes bare, counterpoise ghosts untouched, in one molecule."""
         mol = _Mol([_Atom("*", "H:"), _Atom("C", "C:")], [_Pos(0, 0, 0), _Pos(1, 0, 0)])
         d = _dialog(mol)
-        d.ghost_basis = {"H:": (NICS, ""), "C:": (FULL, "")}
+        d.atom_basis = {"H:": (NICS, ""), "C:": (DEFAULT, "")}
         lines = d.get_coords_lines()
         self.assertIn("NewGTO", lines[0])
         self.assertNotIn("NewGTO", lines[1])
 
     def test_custom_text_is_passed_through_verbatim(self):
         d = _dialog(_molecule_with_probe())
-        d.ghost_basis = {"H:": (CUSTOM, "NewGTO S 1 1 0.05 1 end")}
+        d.atom_basis = {"H:": (CUSTOM, "NewGTO S 1 1 0.05 1 end")}
         self.assertTrue(d.get_coords_lines()[2].endswith("NewGTO S 1 1 0.05 1 end"))
 
     def test_blank_custom_falls_back_to_the_default(self):
         d = _dialog(_molecule_with_probe())
-        d.ghost_basis = {"H:": (CUSTOM, "   ")}
+        d.atom_basis = {"H:": (CUSTOM, "   ")}
         self.assertNotIn("NewGTO", d.get_coords_lines()[2])
 
 
 class TestSuffixHelper(unittest.TestCase):
     def test_unknown_symbol_is_full_basis(self):
-        self.assertEqual(_dialog(_molecule_with_probe())._ghost_suffix("Xx:"), "")
+        self.assertEqual(_dialog(_molecule_with_probe())._basis_suffix("Xx:"), "")
 
-    def test_ghosts_need_xyz_only_when_an_override_is_active(self):
+    def test_basis_needs_xyz_only_when_an_override_is_active(self):
         d = _dialog(_molecule_with_probe())
-        self.assertFalse(d._ghosts_need_xyz())
-        d.ghost_basis = {"H:": (FULL, "")}
-        self.assertFalse(d._ghosts_need_xyz())
-        d.ghost_basis = {"H:": (NICS, "")}
-        self.assertTrue(d._ghosts_need_xyz())
+        self.assertFalse(d._basis_needs_xyz())
+        d.atom_basis = {"H:": (DEFAULT, "")}
+        self.assertFalse(d._basis_needs_xyz())
+        d.atom_basis = {"H:": (NICS, "")}
+        self.assertTrue(d._basis_needs_xyz())
 
 
 class TestRestore(unittest.TestCase):
     def test_round_trip(self):
         d = _dialog(_molecule_with_probe())
-        d._restore_ghost_basis({"H:": [NICS, ""], "C:": [CUSTOM, "NewGTO ... end"]})
-        self.assertEqual(d.ghost_basis["H:"], (NICS, ""))
-        self.assertEqual(d.ghost_basis["C:"], (CUSTOM, "NewGTO ... end"))
+        d._restore_atom_basis({"H:": [NICS, ""], "C:": [CUSTOM, "NewGTO ... end"]})
+        self.assertEqual(d.atom_basis["H:"], (NICS, ""))
+        self.assertEqual(d.atom_basis["C:"], (CUSTOM, "NewGTO ... end"))
 
     def test_unknown_mode_is_dropped(self):
         d = _dialog(_molecule_with_probe())
-        d._restore_ghost_basis({"H:": ["Nonsense", ""], "C:": [NICS, ""]})
-        self.assertNotIn("H:", d.ghost_basis)
-        self.assertIn("C:", d.ghost_basis)
+        d._restore_atom_basis({"H:": ["Nonsense", ""], "C:": [NICS, ""]})
+        self.assertNotIn("H:", d.atom_basis)
+        self.assertIn("C:", d.atom_basis)
 
     def test_malformed_payload_is_ignored_not_raised(self):
         d = _dialog(_molecule_with_probe())
-        d.ghost_basis = {"H:": (NICS, "")}
-        d._restore_ghost_basis("not a mapping")
-        self.assertEqual(d.ghost_basis, {"H:": (NICS, "")})
+        d.atom_basis = {"H:": (NICS, "")}
+        d._restore_atom_basis("not a mapping")
+        self.assertEqual(d.atom_basis, {"H:": (NICS, "")})
 
     def test_empty_payload_clears(self):
         d = _dialog(_molecule_with_probe())
-        d.ghost_basis = {"H:": (NICS, "")}
-        d._restore_ghost_basis({})
-        self.assertEqual(d.ghost_basis, {})
+        d.atom_basis = {"H:": (NICS, "")}
+        d._restore_atom_basis({})
+        self.assertEqual(d.atom_basis, {})
+
+
+class TestRealElementOverrides(unittest.TestCase):
+    def test_custom_basis_on_a_real_element(self):
+        """The point of generalising: give one element a bigger basis."""
+        d = _dialog(_molecule_with_probe())
+        d.atom_basis = {"O": (CUSTOM, 'NewGTO "def2-TZVP" end')}
+        lines = d.get_coords_lines()
+        self.assertTrue(lines[1].endswith('NewGTO "def2-TZVP" end'))
+        self.assertNotIn("NewGTO", lines[0])
+        self.assertNotIn("NewGTO", lines[2])
+
+    def test_bare_is_ignored_on_a_real_element(self):
+        """A real atom with no basis is nonsense; Bare must not reach it."""
+        d = _dialog(_molecule_with_probe())
+        d.atom_basis = {"C": (NICS, "")}
+        self.assertEqual(d._basis_suffix("C"), "")
+        self.assertNotIn("NewGTO", d.get_coords_lines()[0])
+
+    def test_real_and_ghost_overrides_coexist(self):
+        d = _dialog(_molecule_with_probe())
+        d.atom_basis = {
+            "H:": (NICS, ""),
+            "O": (CUSTOM, 'NewGTO "def2-TZVP" end'),
+        }
+        lines = d.get_coords_lines()
+        self.assertNotIn("NewGTO", lines[0])
+        self.assertTrue(lines[1].endswith('NewGTO "def2-TZVP" end'))
+        self.assertTrue(lines[2].endswith(BARE))
+
+
+class TestLegacySettings(unittest.TestCase):
+    def test_v380_full_basis_label_still_loads(self):
+        """3.8.0 persisted 'Full basis (default)'; it must not be dropped."""
+        d = _dialog(_molecule_with_probe())
+        d._restore_atom_basis({"H:": ["Full basis (default)", ""]})
+        self.assertEqual(d.atom_basis["H:"], (DEFAULT, ""))
+        self.assertEqual(d._basis_suffix("H:"), "")
 
 
 if __name__ == "__main__":

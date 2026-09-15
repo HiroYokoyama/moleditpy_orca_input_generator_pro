@@ -1201,36 +1201,8 @@ class OrcaSetupDialogPro(QDialog):
         )
         ghost_layout.addWidget(self.ghost_table)
 
-        bulk_row = QHBoxLayout()
-        bulk_row.addWidget(QLabel("Set every ghost to:"))
-        self.btn_all_bare = QPushButton("Bare (NICS)")
-        self.btn_all_bare.setToolTip(
-            "Give every ghost the bare-probe basis:\n" + GHOST_BARE_BASIS
-        )
-        self.btn_all_bare.clicked.connect(
-            lambda: self._set_all_ghost_modes(GHOST_MODE_BARE)
-        )
-        bulk_row.addWidget(self.btn_all_bare)
-        self.btn_all_full = QPushButton("Full basis")
-        self.btn_all_full.setToolTip("Put every ghost back to ORCA's default.")
-        self.btn_all_full.clicked.connect(
-            lambda: self._set_all_ghost_modes(GHOST_MODE_FULL)
-        )
-        bulk_row.addWidget(self.btn_all_full)
-        bulk_row.addStretch()
-        ghost_layout.addLayout(bulk_row)
-
         self.ghost_group.setLayout(ghost_layout)
         self.ghost_group.setVisible(False)
-
-    def _set_all_ghost_modes(self, mode):
-        """Apply one treatment to every ghost -- a NICS grid is hundreds."""
-        counts = self._ghost_symbols_shown or {}
-        for symbol in counts:
-            _, custom = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
-            self.ghost_basis[symbol] = (mode, custom)
-        self._populate_ghost_table(counts)
-        self.update_preview()
 
     def _ghost_symbols(self):
         """Ghost symbols present in the live molecule, with their atom counts."""

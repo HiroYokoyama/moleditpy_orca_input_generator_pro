@@ -79,6 +79,7 @@ def _install_stubs():
             "QFormLayout",
             "QTableWidget",
             "QTableWidgetItem",
+            "QHeaderView",
             "QCompleter",
             "QPlainTextEdit",
             "QGridLayout",

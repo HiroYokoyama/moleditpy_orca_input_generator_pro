@@ -21,6 +21,9 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QCheckBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
 from PyQt6.QtGui import QFont, QPalette, QColor, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt
@@ -29,6 +32,13 @@ from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
 from . import cluster_link
+from .constants import (
+    GHOST_BARE_BASIS,
+    GHOST_MODE_BARE,
+    GHOST_MODE_CUSTOM,
+    GHOST_MODE_FULL,
+    GHOST_MODES,
+)
 from .highlighter import OrcaSyntaxHighlighter
 from .keyword_builder import OrcaKeywordBuilderDialog
 from . import PLUGIN_NAME, PLUGIN_VERSION, SETTINGS_FILE
@@ -318,6 +328,9 @@ class OrcaSetupDialogPro(QDialog):
         adv_group.setLayout(adv_layout)
         settings_layout.addWidget(adv_group)
 
+        self._build_ghost_group()
+        settings_layout.addWidget(self.ghost_group)
+
         # --- 5. Second Job ($new_job) ---
         sj_group = QGroupBox("Second Job  ($new_job)")
         sj_outer = QVBoxLayout()
@@ -598,6 +611,8 @@ class OrcaSetupDialogPro(QDialog):
         if not getattr(self, "ui_ready", False):
             return
 
+        self._sync_ghost_group()
+
         # Update persistent settings
         if self.persistent_settings is not None:
             p = self.persistent_settings
@@ -614,6 +629,7 @@ class OrcaSetupDialogPro(QDialog):
             p["second_job_coord_src"] = self.second_job_coord_src.currentText()
             p["second_job_xyz_name"] = self.second_job_xyz_name.text()
             p["second_job_adv"] = self.second_job_adv.toPlainText()
+            p["ghost_basis"] = {sym: list(val) for sym, val in self.ghost_basis.items()}
 
         self._current_content = self.generate_input_content()
         self.preview_text.setText(self._current_content)
@@ -658,6 +674,8 @@ class OrcaSetupDialogPro(QDialog):
                 self.second_job_xyz_name.setText(p["second_job_xyz_name"])
             if "second_job_adv" in p:
                 self.second_job_adv.setPlainText(p["second_job_adv"])
+            if "ghost_basis" in p:
+                self._restore_ghost_basis(p["ghost_basis"])
             self._update_second_job_ui()
         finally:
             self.blockSignals(False)
@@ -815,8 +833,6 @@ class OrcaSetupDialogPro(QDialog):
         else:
             if hasattr(self, "accept"):
                 self.accept()
-
-
 
     def insert_block_template(self):
         txt = self.block_combo.currentText()
@@ -1153,6 +1169,178 @@ class OrcaSetupDialogPro(QDialog):
             )
             self.adv_edit.setPlainText(new_text)
 
+    # --- Ghost atom basis -------------------------------------------------
+    # A ghost ("El:") means three different things depending on what the user
+    # is doing -- counterpoise wants the full basis, a NICS probe wants none,
+    # midbond functions want a specific one -- and nothing in the molecule
+    # says which.  So the treatment is chosen here, per ghost symbol, rather
+    # than guessed.
+
+    def _build_ghost_group(self):
+        self.ghost_basis = {}
+        self._ghost_symbols_shown = None
+
+        self.ghost_group = QGroupBox("Ghost Atoms  (El:)")
+        ghost_layout = QVBoxLayout()
+
+        hint = QLabel(
+            "ORCA keeps the element's full basis on a ghost, which is what "
+            "counterpoise needs and what makes a NICS probe perturb its own "
+            "reading."
+        )
+        hint.setWordWrap(True)
+        ghost_layout.addWidget(hint)
+
+        self.ghost_table = QTableWidget(0, 3)
+        self.ghost_table.setHorizontalHeaderLabels(
+            ["Ghost", "Treatment", "Custom basis (appended verbatim)"]
+        )
+        self.ghost_table.verticalHeader().setVisible(False)
+        self.ghost_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Stretch
+        )
+        ghost_layout.addWidget(self.ghost_table)
+
+        bulk_row = QHBoxLayout()
+        bulk_row.addWidget(QLabel("Set every ghost to:"))
+        self.btn_all_bare = QPushButton("Bare (NICS)")
+        self.btn_all_bare.setToolTip(
+            "Give every ghost the bare-probe basis:\n" + GHOST_BARE_BASIS
+        )
+        self.btn_all_bare.clicked.connect(
+            lambda: self._set_all_ghost_modes(GHOST_MODE_BARE)
+        )
+        bulk_row.addWidget(self.btn_all_bare)
+        self.btn_all_full = QPushButton("Full basis")
+        self.btn_all_full.setToolTip("Put every ghost back to ORCA's default.")
+        self.btn_all_full.clicked.connect(
+            lambda: self._set_all_ghost_modes(GHOST_MODE_FULL)
+        )
+        bulk_row.addWidget(self.btn_all_full)
+        bulk_row.addStretch()
+        ghost_layout.addLayout(bulk_row)
+
+        self.ghost_group.setLayout(ghost_layout)
+        self.ghost_group.setVisible(False)
+
+    def _set_all_ghost_modes(self, mode):
+        """Apply one treatment to every ghost -- a NICS grid is hundreds."""
+        counts = self._ghost_symbols_shown or {}
+        for symbol in counts:
+            _, custom = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
+            self.ghost_basis[symbol] = (mode, custom)
+        self._populate_ghost_table(counts)
+        self.update_preview()
+
+    def _ghost_symbols(self):
+        """Ghost symbols present in the live molecule, with their atom counts."""
+        counts = {}
+        if not self._resolve_live_mol():
+            return counts
+        try:
+            for atom in self.mol.GetAtoms():
+                if not atom.HasProp("custom_symbol"):
+                    continue
+                symbol = atom.GetProp("custom_symbol").strip()
+                if symbol.endswith(":"):
+                    counts[symbol] = counts.get(symbol, 0) + 1
+        except Exception as exc:
+            logging.warning("ghost scan failed: %s", exc)
+        return counts
+
+    def _sync_ghost_group(self):
+        """Show the Ghost Atoms box only while the molecule has ghosts."""
+        counts = self._ghost_symbols()
+        if counts == self._ghost_symbols_shown:
+            return
+        self._ghost_symbols_shown = counts
+
+        for symbol in list(self.ghost_basis):
+            if symbol not in counts:
+                del self.ghost_basis[symbol]
+
+        if counts:
+            self._populate_ghost_table(counts)
+        self.ghost_group.setVisible(bool(counts))
+
+    def _populate_ghost_table(self, counts):
+        self.ghost_table.setRowCount(len(counts))
+        for row, (symbol, count) in enumerate(sorted(counts.items())):
+            mode, custom = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
+
+            label = QTableWidgetItem("%s  x%d" % (symbol, count))
+            label.setFlags(label.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.ghost_table.setItem(row, 0, label)
+
+            combo = QComboBox()
+            combo.addItems(GHOST_MODES)
+            combo.setCurrentText(mode)
+            combo.setToolTip(
+                "Full basis: ORCA's default, what counterpoise/BSSE needs.\n"
+                "Bare: %s\n"
+                "Custom: appended to the coordinate line as typed." % GHOST_BARE_BASIS
+            )
+            combo.currentTextChanged.connect(
+                lambda text, s=symbol: self._set_ghost_mode(s, text)
+            )
+            self.ghost_table.setCellWidget(row, 1, combo)
+
+            edit = QLineEdit(custom)
+            edit.setPlaceholderText("NewGTO ... end")
+            edit.setEnabled(mode == GHOST_MODE_CUSTOM)
+            edit.textChanged.connect(
+                lambda text, s=symbol: self._set_ghost_custom(s, text)
+            )
+            self.ghost_table.setCellWidget(row, 2, edit)
+
+    def _set_ghost_mode(self, symbol, mode):
+        _, custom = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
+        self.ghost_basis[symbol] = (mode, custom)
+        for row in range(self.ghost_table.rowCount()):
+            item = self.ghost_table.item(row, 0)
+            if item is not None and item.text().startswith(symbol + " "):
+                edit = self.ghost_table.cellWidget(row, 2)
+                if edit is not None:
+                    edit.setEnabled(mode == GHOST_MODE_CUSTOM)
+        self.update_preview()
+
+    def _set_ghost_custom(self, symbol, text):
+        mode, _ = self.ghost_basis.get(symbol, (GHOST_MODE_FULL, ""))
+        self.ghost_basis[symbol] = (mode, text)
+        if mode == GHOST_MODE_CUSTOM:
+            self.update_preview()
+
+    def _restore_ghost_basis(self, stored):
+        """Adopt a saved {symbol: [mode, custom]} map, ignoring anything odd."""
+        restored = {}
+        try:
+            for symbol, value in (stored or {}).items():
+                mode, custom = (list(value) + ["", ""])[:2]
+                if mode in GHOST_MODES:
+                    restored[str(symbol)] = (mode, str(custom))
+        except (AttributeError, TypeError, ValueError) as exc:
+            logging.warning("ignoring malformed ghost_basis setting: %s", exc)
+            return
+        self.ghost_basis = restored
+        self._ghost_symbols_shown = None
+
+    def _ghost_suffix(self, symbol):
+        """What to append to this ghost's coordinate line, '' for the default."""
+        mode, custom = getattr(self, "ghost_basis", {}).get(
+            symbol, (GHOST_MODE_FULL, "")
+        )
+        if mode == GHOST_MODE_BARE:
+            return "  " + GHOST_BARE_BASIS
+        if mode == GHOST_MODE_CUSTOM and custom.strip():
+            return "  " + custom.strip()
+        return ""
+
+    def _ghosts_need_xyz(self):
+        """True when a ghost carries a basis override that only XYZ can emit."""
+        return any(
+            self._ghost_suffix(symbol) for symbol in getattr(self, "ghost_basis", {})
+        )
+
     def get_coords_lines(self):
         if not self._resolve_live_mol():
             return []
@@ -1170,6 +1358,7 @@ class OrcaSetupDialogPro(QDialog):
                 )
                 lines.append(
                     f"  {symbol: <4} {pos.x: >12.6f} {pos.y: >12.6f} {pos.z: >12.6f}"
+                    f"{self._ghost_suffix(symbol) if symbol.endswith(':') else ''}"
                 )
         except Exception as e:
             return [f"# Error: {e}"]
@@ -1277,6 +1466,14 @@ class OrcaSetupDialogPro(QDialog):
                 return []
 
             lines = []
+            if self._ghosts_need_xyz():
+                lines.append(
+                    "  # NOTE: a per-atom ghost basis was configured, but ORCA"
+                    " takes it only on Cartesian lines."
+                )
+                lines.append(
+                    "  #       Switch the coordinate format to XYZ to emit it."
+                )
             for i, row in enumerate(data):
                 symbol = row["symbol"]
 
@@ -1312,6 +1509,14 @@ class OrcaSetupDialogPro(QDialog):
                 return []
 
             lines = []
+            if self._ghosts_need_xyz():
+                lines.append(
+                    "  # NOTE: a per-atom ghost basis was configured, but ORCA"
+                    " takes it only on Cartesian lines."
+                )
+                lines.append(
+                    "  #       Switch the coordinate format to XYZ to emit it."
+                )
             for i, row in enumerate(data):
                 symbol = row["symbol"]
                 line = f"  {symbol: <3}"
@@ -1716,6 +1921,7 @@ class OrcaSetupDialogPro(QDialog):
             self.second_job_coord_src.setCurrentText(src)
         self.second_job_xyz_name.setText(data.get("second_job_xyz_name", ""))
         self.second_job_adv.setPlainText(data.get("second_job_adv", ""))
+        self._restore_ghost_basis(data.get("ghost_basis", {}))
         self._update_second_job_ui()
 
         self.update_preview()
@@ -1736,6 +1942,9 @@ class OrcaSetupDialogPro(QDialog):
                 "second_job_coord_src": self.second_job_coord_src.currentText(),
                 "second_job_xyz_name": self.second_job_xyz_name.text(),
                 "second_job_adv": self.second_job_adv.toPlainText(),
+                "ghost_basis": {
+                    sym: list(val) for sym, val in self.ghost_basis.items()
+                },
             }
             self.save_presets_to_file()
             self.update_preset_combo()

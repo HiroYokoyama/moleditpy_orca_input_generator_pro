@@ -3,11 +3,11 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "3.9.1"
+PLUGIN_VERSION = "3.9.2"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 
-PLUGIN_DESCRIPTION = "Advanced ORCA Input Generator with Preview and Presets."
+PLUGIN_DESCRIPTION = "High-functionality setting dialog for ORCA input creation. Supports Keywords, Block Builder, and Validations."
 PLUGIN_SUPPORTED_MOLEDITPY_VERSION = "4.*"
 SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "settings.json")
 

@@ -27,6 +27,7 @@ from rdkit.Chem import rdMolTransforms
 
 from .constants import ALL_ORCA_METHODS, ALL_ORCA_BASIS_SETS, ORCA_SEARCH_CATALOG
 from .mixins import Dialog3DPickingMixin
+from . import orca_blocks
 
 import logging
 import re
@@ -37,6 +38,50 @@ def _restore_apply_button(button):
         button.setText("Apply")
     except RuntimeError:
         pass
+
+
+def _bang_tokens(text):
+    """Keywords on every '!' line of *text*, comments stripped."""
+    tokens = []
+    for line in (text or "").splitlines():
+        s = line.strip()
+        if s.startswith("!"):
+            tokens.extend(s[1:].split("#", 1)[0].split())
+    return tokens
+
+
+def _compute_route_residual(dialog, route):
+    """Record what *route* has that the rebuilt route (preview_str) lost.
+
+    The builder regenerates the route from its controls, so a keyword or a
+    %-block line with no control (D3, UKS, DefGrid3, gCP(...), %scf MaxIter,
+    ...) would otherwise vanish on OK. They are carried through verbatim.
+    """
+    dialog._route_passthrough = []
+    dialog._route_passthrough_blocks = []
+    rebuilt = getattr(dialog, "preview_str", "") or ""
+
+    have = {t.upper() for t in _bang_tokens(rebuilt)}
+    for token in _bang_tokens(route):
+        if token.upper() not in have and token not in dialog._route_passthrough:
+            dialog._route_passthrough.append(token)
+
+    rebuilt_units = {}
+    for name, header, units in orca_blocks.iter_blocks(rebuilt):
+        keys = rebuilt_units.setdefault(name, set())
+        for unit in units if units is not None else [[header]]:
+            keys.add(orca_blocks.unit_key(unit))
+
+    for name, header, units in orca_blocks.iter_blocks(route):
+        keys = rebuilt_units.get(name, set())
+        if units is None:
+            if orca_blocks.unit_key([header]) not in keys:
+                dialog._route_passthrough_blocks.append(header.strip())
+            continue
+        missing = [u for u in units if orca_blocks.unit_key(u) not in keys]
+        if missing:
+            body = "\n".join(line for unit in missing for line in unit)
+            dialog._route_passthrough_blocks.append(f"%{name}\n{body}\nend")
 
 
 class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
@@ -57,6 +102,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.selected_atoms = []
         # Preserve searchable keywords that have no dedicated UI control.
         self._search_extra_keywords = []
+        # What parse_route read but no control can express: route keywords
+        # and %-block content carried through verbatim, so rebuilding the
+        # route never drops them.
+        self._route_passthrough = []
+        self._route_passthrough_blocks = []
         self.constraints = []  # List of (type, indices, value, start, end, steps, is_scan)
         self.setup_ui()
         self.parse_route(current_route)
@@ -1708,7 +1758,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if self.moread_chk.isChecked():
             route_parts.append("MOREAD")
 
-        for keyword in getattr(self, "_search_extra_keywords", []):
+        for keyword in list(getattr(self, "_search_extra_keywords", [])) + list(
+            getattr(self, "_route_passthrough", [])
+        ):
             if keyword and not any(
                 keyword.casefold() == part.casefold() for part in route_parts
             ):
@@ -1717,6 +1769,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.preview_str = self.route_line
 
         extra = self.get_extra_blocks_text()
+        kept_blocks = "\n\n".join(getattr(self, "_route_passthrough_blocks", []))
+        extra = "\n\n".join(b for b in (extra, kept_blocks) if b)
         if extra:
             self.preview_str += "\n\n" + extra
 
@@ -1781,6 +1835,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
     def parse_route(self, route):
         if not route:
             return
+        # Everything the previous route carried is in *route* now; start
+        # clean so a keyword the user deleted by hand is not resurrected.
+        self._route_passthrough = []
+        self._route_passthrough_blocks = []
+        self._search_extra_keywords = []
         self.ui_ready = False
 
         # Reset defaults before parsing so we don't accumulate old checks
@@ -1810,6 +1869,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.dispersion.setCurrentText("None")
         self.solv_model.setCurrentText("None")
         self.rijcosx.setChecked(False)
+        self.aux_basis.setCurrentText("Auto (Def2/J, etc)")
+        self.grid_combo.setCurrentText("Default")
         self.cabs_basis.setCurrentText("None")
         self.relativistic.setCurrentText("None")
         self.pno_preset.setCurrentText("Default")
@@ -1994,6 +2055,10 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.aux_basis.setCurrentText("AutoAux")
 
             # 9. SCF / Grid
+            for i in range(self.grid_combo.count()):
+                if self.grid_combo.itemText(i).upper() == tu:
+                    self.grid_combo.setCurrentIndex(i)
+                    break
             if tu == "SLOPPYSCF":
                 self.scf_sloppy.setChecked(True)
             elif tu == "LOOSESCF":
@@ -2145,8 +2210,15 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 ir = re.search(r"IRoot\s+(\d+)", bcontent, re.I)
                 if ir:
                     self.tddft_iroot.setValue(int(ir.group(1)))
-                self.tddft_triplets.setChecked("triplets true" in bcontent.lower())
-                self.tddft_tda.setChecked("tda true" in bcontent.lower())
+                self.tddft_triplets.setChecked(
+                    re.search(r"\bTriplets\s+true\b", bcontent, re.I) is not None
+                )
+                # ORCA's default is TDA on: only an explicit "TDA false"
+                # means full TDDFT. Reading absence as false would rewrite
+                # the block as "TDA false" and change the method.
+                self.tddft_tda.setChecked(
+                    re.search(r"\bTDA\s+false\b", bcontent, re.I) is None
+                )
 
             elif bname == "scf":
                 bs_match = re.search(r"BrokenSym\s+([\d,]+)", bcontent, re.I)
@@ -2239,6 +2311,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         self.ui_ready = True
         self.update_ui_state()
+        self.update_preview()
+
+        _compute_route_residual(self, route)
         self.update_preview()
 
     def _add_parsed_constraint(

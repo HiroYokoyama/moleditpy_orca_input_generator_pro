@@ -529,15 +529,22 @@ class TestGenerateSecondJobContent(unittest.TestCase):
         self.assertIn("* xyzfile 0 1 water-opt.xyz", result)
         self.assertNotIn("* xyz 0 1", result)
 
-    def test_xyzfile_fallback_from_filename(self):
+    def test_xyzfile_fallback_uses_saved_input_name(self):
+        # ORCA writes Job 1's final geometry to <input base>.xyz, so the
+        # default must follow the saved .inp, not the molecule file.
         dlg = _sj_dlg(sj_xyz="", filename="/path/to/water.mol")
+        dlg.current_inp_file = "/path/to/water-opt.inp"
+        dlg._job1_basename = types.MethodType(OrcaSetupDialogPro._job1_basename, dlg)
         result = OrcaSetupDialogPro.generate_second_job_content(dlg)
-        self.assertIn("* xyzfile 0 1 water.xyz", result)
+        self.assertIn("* xyzfile 0 1 water-opt.xyz", result)
 
-    def test_xyzfile_fallback_no_filename(self):
-        dlg = _sj_dlg(sj_xyz="", filename=None)
+    def test_xyzfile_fallback_before_save_uses_suggested_name(self):
+        dlg = _sj_dlg(sj_xyz="", filename="/path/to/water.mol")
+        dlg.current_inp_file = None
+        dlg._default_inp_basename = lambda: "water-opt"
+        dlg._job1_basename = types.MethodType(OrcaSetupDialogPro._job1_basename, dlg)
         result = OrcaSetupDialogPro.generate_second_job_content(dlg)
-        self.assertIn("* xyzfile 0 1 PREVJOB.xyz", result)
+        self.assertIn("* xyzfile 0 1 water-opt.xyz", result)
 
     def test_copy_mode_emits_coord_block(self):
         dlg = _sj_dlg(sj_coord="Copy Job 1 coordinates  (same geometry)")

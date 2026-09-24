@@ -881,12 +881,21 @@ class TestSecondJobAndCoordUi(_RealDialogTestCase):
     def test_auto_fill_second_job_xyz_with_filename(self):
         dlg = self._make_dialog(mol=_make_water(), filename="/path/to/_water.xyz")
         dlg._auto_fill_second_job_xyz()
-        self.assertEqual(dlg.second_job_xyz_name.text(), "water.xyz")
+        # Job 1 is an Opt, so Auto Suffix names the input water-opt.inp and
+        # ORCA writes the optimized geometry to water-opt.xyz. water.xyz is
+        # the starting structure.
+        self.assertEqual(dlg.second_job_xyz_name.text(), "water-opt.xyz")
+
+    def test_auto_fill_second_job_xyz_follows_saved_input(self):
+        dlg = self._make_dialog(mol=_make_water(), filename="/path/to/_water.xyz")
+        dlg.current_inp_file = "/runs/renamed_by_user.inp"
+        dlg._auto_fill_second_job_xyz()
+        self.assertEqual(dlg.second_job_xyz_name.text(), "renamed_by_user.xyz")
 
     def test_auto_fill_second_job_xyz_without_filename(self):
         dlg = self._make_dialog(mol=_make_water(), filename=None)
         dlg._auto_fill_second_job_xyz()
-        self.assertEqual(dlg.second_job_xyz_name.text(), "job.xyz")
+        self.assertEqual(dlg.second_job_xyz_name.text(), "orca_job-opt.xyz")
 
     def test_update_second_job_ui_enables_xyz_fields(self):
         dlg = self._make_dialog(mol=_make_water())
@@ -1032,6 +1041,148 @@ class TestSubmitToClusterButton(_RealDialogTestCase):
         with patch.object(main_dialog_mod.QMessageBox, "warning") as warn:
             dlg.submit_to_cluster()
         warn.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Input integrity: things that used to change the calculation silently
+# ---------------------------------------------------------------------------
+
+keyword_builder_mod = sys.modules[f"{_PRIV_PKG}.keyword_builder"]
+OrcaKeywordBuilderDialog = keyword_builder_mod.OrcaKeywordBuilderDialog
+
+
+def _tokens(route):
+    return {
+        t.upper()
+        for line in route.splitlines()
+        if line.strip().startswith("!")
+        for t in line.strip()[1:].split()
+    }
+
+
+class TestBuilderRoundTripKeepsEverything(unittest.TestCase):
+    """OK in the builder must never drop what the route already said."""
+
+    def _round_trip(self, route):
+        return OrcaKeywordBuilderDialog(None, route).get_route()
+
+    def test_route_keywords_without_a_control_survive(self):
+        for route in (
+            "! B3LYP D3 def2-SVP Opt Freq",
+            "! B3LYP def2-SVP UKS Opt",
+            "! PBE0 D4 def2-TZVP RIJCOSX def2/J DefGrid3 TightSCF",
+            "! B3LYP def2-SVP RIJK def2/JK",
+            "! B3LYP def2-SVP gCP(DFT/TZ) Opt",
+            "! DLPNO-CCSD(T) def2-TZVP def2-TZVP/C TightPNO",
+            "! B3LYP def2-SVP def2-ECP Opt",
+        ):
+            with self.subTest(route=route):
+                self.assertLessEqual(_tokens(route), _tokens(self._round_trip(route)))
+
+    def test_block_lines_without_a_control_survive(self):
+        out = self._round_trip(
+            "! B3LYP def2-SVP Opt\n%geom\n  MaxIter 500\n  Calc_Hess true\nend"
+        )
+        self.assertIn("MaxIter 500", out)
+        self.assertIn("Calc_Hess true", out)
+
+    def test_unmanaged_block_survives_verbatim(self):
+        out = self._round_trip("! B3LYP def2-SVP\n%cpcm\n  epsilon 80\nend")
+        self.assertIn("%cpcm\n  epsilon 80\nend", out)
+
+    def test_moinp_without_moread_survives(self):
+        out = self._round_trip('! B3LYP def2-SVP\n%moinp "old.gbw"')
+        self.assertIn('%moinp "old.gbw"', out)
+
+    def test_tddft_without_tda_line_keeps_orca_default(self):
+        # ORCA's default is TDA on; rewriting as "TDA false" switches to
+        # full TDDFT.
+        out = self._round_trip("! B3LYP def2-SVP\n%tddft\n  NRoots 10\nend")
+        self.assertNotIn("TDA false", out)
+
+    def test_reparse_does_not_resurrect_deleted_keywords(self):
+        dlg = OrcaKeywordBuilderDialog(None, "! B3LYP D3 def2-SVP DefGrid3 Opt")
+        dlg.parse_route("! B3LYP def2-SVP Opt")
+        self.assertEqual(_tokens(dlg.get_route()), {"B3LYP", "DEF2-SVP", "OPT"})
+
+
+class TestConsolidateBlockBoundaries(unittest.TestCase):
+    def _run(self, text):
+        return OrcaSetupDialogPro.consolidate_orca_blocks(None, text)
+
+    def test_base_directive_keeps_argument_and_next_block(self):
+        out = self._run(
+            '! B3LYP\n%base "myjob"\n%scf maxiter 200 end\n* xyz 0 1\n  H 0 0 0\n*'
+        )
+        self.assertIn('%base "myjob"', out)
+        self.assertIn("%scf\nmaxiter 200\nend", out)
+
+    def test_pointcharges_directive_is_single_line(self):
+        out = self._run(
+            '! B3LYP\n%pointcharges "env.pc"\n%scf\n  MaxIter 300\nend\n'
+            "* xyz 0 1\n  H 0 0 0\n*"
+        )
+        self.assertIn('%pointcharges "env.pc"', out)
+        self.assertIn("%scf\n  MaxIter 300\nend", out)
+
+    def test_unindented_subblock_end_does_not_close_block(self):
+        out = self._run(
+            "! B3LYP Opt\n%geom\nConstraints\n{B 0 1 C}\nend\nend\n"
+            "%scf\nmaxiter 300\nend\n* xyz 0 1\n  H 0 0 0\n*"
+        )
+        geom = out[out.index("%geom") : out.index("%scf")]
+        self.assertEqual(geom.split().count("end"), 2)
+
+    def test_indented_block_end_still_closes_block(self):
+        out = self._run(
+            "! B3LYP\n%scf\n  maxiter 300\n  end\n%tddft\n  nroots 5\nend\n"
+            "* xyz 0 1\n  H 0 0 0\n*"
+        )
+        self.assertIn("%tddft\n  nroots 5\nend", out)
+
+    def test_star_line_inside_block_is_not_coordinates(self):
+        out = self._run(
+            "! B3LYP\n* xyz 0 1\n  H 0 0 0\n*\n%plots\n  * not coords\nend"
+        )
+        self.assertIn("%plots\n  * not coords\nend", out)
+
+
+class TestSecondJobReadsJobOneOutput(_RealDialogTestCase):
+    def test_saved_name_is_written_into_job2(self):
+        dlg = self._make_dialog(mol=_make_water(), filename="/path/to/water.xyz")
+        dlg.second_job_enable.setChecked(True)
+        dlg.second_job_coord_src.setCurrentIndex(0)
+        self.assertIn("xyzfile", dlg.second_job_coord_src.currentText())
+        target = os.path.join(self._tmpdir, "chosen_name.inp")
+        with patch.object(
+            main_dialog_mod.QFileDialog, "getSaveFileName", return_value=(target, "")
+        ):
+            dlg.save_file()
+        with open(target, encoding="utf-8") as handle:
+            saved = handle.read()
+        job2 = saved.split("$new_job", 1)[1]
+        self.assertIn("* xyzfile 0 1 chosen_name.xyz", job2)
+        self.assertNotIn("water.xyz", job2)
+
+
+class TestChargeMultIntegrity(_RealDialogTestCase):
+    def test_ghost_atoms_do_not_flip_parity(self):
+        mol = Chem.AddHs(Chem.MolFromSmiles("[H][H].[H]"))
+        AllChem.EmbedMolecule(mol, randomSeed=5)
+        # XYZ Editor stores an "H:" ghost as a hydrogen with custom_symbol.
+        mol.GetAtomWithIdx(2).SetProp("custom_symbol", "H:")
+        self.assertEqual(main_dialog_mod._electron_count(mol, 0), 2)
+
+    def test_charge_follows_molecule_edited_while_open(self):
+        live = {"mol": _make_water()}
+        dlg = self._make_dialog(mol=live["mol"], get_molecule=lambda: live["mol"])
+        self.assertEqual(dlg.charge_spin.value(), 0)
+        hydroxide = Chem.AddHs(Chem.MolFromSmiles("[OH-]"))
+        AllChem.EmbedMolecule(hydroxide, randomSeed=2)
+        live["mol"] = hydroxide
+        dlg.update_preview()
+        self.assertEqual(dlg.charge_spin.value(), -1)
+        self.assertIn("* xyz -1 1", dlg.preview_text.toPlainText())
 
 
 if __name__ == "__main__":

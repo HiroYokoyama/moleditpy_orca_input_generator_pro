@@ -32,6 +32,7 @@ from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
 from . import cluster_link
+from . import orca_blocks
 from .constants import (
     GHOST_BARE_BASIS,
     BASIS_MODE_BARE,
@@ -62,6 +63,42 @@ DEFAULT_RELAY_TAG = "[prevfile:.xyz]"
 def _zm_well_conditioned(angle_deg: float) -> bool:
     """True when *angle_deg* defines a usable Z-matrix reference plane."""
     return _ZM_LINEAR_TOL_DEG < angle_deg < 180.0 - _ZM_LINEAR_TOL_DEG
+
+
+def _is_ghost_symbol(symbol: str) -> bool:
+    """El: (ORCA ghost), Bq / El-Bq (Gaussian) and DA carry no electrons."""
+    s = symbol.strip().upper()
+    return s.endswith(":") or s == "BQ" or s.endswith("-BQ") or s == "DA"
+
+
+def _electron_count(mol, charge: int) -> int:
+    """Electrons of the neutral-minus-charge system, ghosts excluded.
+
+    XYZ Editor stores an "H:" ghost as a hydrogen carrying custom_symbol, so
+    summing atomic numbers would count a proton per ghost and flip the
+    parity check for every counterpoise or NICS input.
+    """
+    protons = 0
+    for atom in mol.GetAtoms():
+        if atom.HasProp("custom_symbol") and _is_ghost_symbol(
+            atom.GetProp("custom_symbol")
+        ):
+            continue
+        protons += atom.GetAtomicNum()
+    return protons - charge
+
+
+def _charge_signature(mol):
+    """What calc_initial_charge_mult reads; a change means recompute."""
+    return tuple(
+        (
+            a.GetAtomicNum(),
+            a.GetFormalCharge(),
+            a.GetNumRadicalElectrons(),
+            a.GetProp("custom_symbol") if a.HasProp("custom_symbol") else "",
+        )
+        for a in mol.GetAtoms()
+    )
 
 
 _GHOST_TOOLTIP = (
@@ -527,15 +564,35 @@ class OrcaSetupDialogPro(QDialog):
             self.second_job_xyz_name.setEnabled(use_xyz)
             self.second_job_xyz_auto.setEnabled(use_xyz)
 
+    def _job1_basename(self):
+        """Basename ORCA gives Job 1's outputs: that of the .inp file.
+
+        ORCA writes the optimized geometry to <input base>.xyz. The molecule's
+        own file name is the wrong source: with Auto Suffix the input is
+        mol-opt.inp, and a mol.xyz next to it is the *starting* geometry.
+        """
+        if self.current_inp_file:
+            return os.path.splitext(os.path.basename(self.current_inp_file))[0]
+        return self._default_inp_basename()
+
     def _auto_fill_second_job_xyz(self):
-        """Fill xyz filename from the source molecule path."""
-        name = ""
-        if self.filename:
-            raw = self.filename.replace("\\", "/").split("/")[-1]
-            base = os.path.splitext(raw)[0].lstrip("_")
-            if base:
-                name = f"{base}.xyz"
-        self.second_job_xyz_name.setText(name or "job.xyz")
+        """Fill the xyz filename Job 1 will write."""
+        self.second_job_xyz_name.setText(f"{self._job1_basename()}.xyz")
+
+    @staticmethod
+    def _rewrite_second_job_xyz(content, base_name):
+        """Point Job 2's '* xyzfile' at <base_name>.xyz (text after $new_job)."""
+        head, sep, tail = content.partition("$new_job")
+        if not sep:
+            return content
+        tail = re.sub(
+            r"^(\s*\*\s*xyzfile\s+-?\d+\s+\d+\s+)\S+",
+            lambda m: m.group(1) + f"{base_name}.xyz",
+            tail,
+            count=1,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        return head + sep + tail
 
     def generate_second_job_content(self):
         """Return the text block placed after the $new_job separator."""
@@ -562,12 +619,7 @@ class OrcaSetupDialogPro(QDialog):
         if "xyzfile" in self.second_job_coord_src.currentText():
             xyz = self.second_job_xyz_name.text().strip()
             if not xyz:
-                if self.filename:
-                    raw = self.filename.replace("\\", "/").split("/")[-1]
-                    base = os.path.splitext(raw)[0].lstrip("_")
-                    xyz = f"{base}.xyz" if base else "PREVJOB.xyz"
-                else:
-                    xyz = "PREVJOB.xyz"
+                xyz = f"{self._job1_basename()}.xyz"
             parts.append(f"\n* xyzfile {charge} {mult} {xyz}")
         else:
             coord_lines = self.get_coords_lines()
@@ -623,10 +675,29 @@ class OrcaSetupDialogPro(QDialog):
         )
         self.save_presets_to_file()
 
+    def _refresh_charge_mult_if_molecule_changed(self):
+        """Recompute charge/mult when the live molecule is no longer the one
+        they were derived from.
+
+        Coordinates are read live on every preview, so without this an edit
+        made while the dialog is open (a proton removed, a charge added)
+        would be written with the charge of the molecule as it was.
+        """
+        if not self._resolve_live_mol():
+            return
+        try:
+            signature = _charge_signature(self.mol)
+        except Exception as _e:
+            logging.warning("charge signature failed: %s", _e)
+            return
+        if signature != getattr(self, "_charge_signature", None):
+            self.calc_initial_charge_mult()
+
     def update_preview(self):
         if not getattr(self, "ui_ready", False):
             return
 
+        self._refresh_charge_mult_if_molecule_changed()
         self._sync_basis_group()
 
         # Update persistent settings
@@ -748,13 +819,45 @@ class OrcaSetupDialogPro(QDialog):
 
         # 2. ファイル保存ダイアログ
         default_dir = os.getcwd()
-        default_base = "orca_job.inp"
+        if self.filename and os.path.isabs(self.filename):
+            default_dir = os.path.dirname(self.filename)
+        default_full = os.path.join(
+            default_dir, self._default_inp_basename() + ".inp"
+        )
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save ORCA Input", default_full, "ORCA Input (*.inp);;All Files (*)"
+        )
+
+        if file_path:
+            try:
+                # Use content from preview (editable)
+                content = self.preview_text.toPlainText()
+                # Job 2 reads what Job 1 writes, <saved base>.xyz; the name
+                # in the preview was only a guess until the file was named.
+                if (
+                    self.second_job_enable.isChecked()
+                    and "xyzfile" in self.second_job_coord_src.currentText()
+                    and not self.second_job_xyz_name.text().strip()
+                ):
+                    saved_base = os.path.splitext(os.path.basename(file_path))[0]
+                    content = self._rewrite_second_job_xyz(content, saved_base)
+                    self.preview_text.setText(content)
+
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+                self.current_inp_file = file_path
+                self._saved_inp_content = content
+                self._update_title()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
+
+    def _default_inp_basename(self):
+        """Suggested .inp basename (no extension), Auto Suffix applied."""
+        default_base = "orca_job"
 
         if self.filename:
-            # If it's an absolute path, use its directory as default
-            if os.path.isabs(self.filename):
-                default_dir = os.path.dirname(self.filename)
-
             # Normalize and extract filename to avoid leading underscores from path separators
             norm_name = self.filename.replace("\\", "/")
             base_name = norm_name.split("/")[-1]
@@ -800,35 +903,7 @@ class OrcaSetupDialogPro(QDialog):
             if suffix and not default_base.endswith(suffix):
                 default_base += suffix
 
-        default_base += ".inp"
-
-        # Combine
-        default_full = os.path.join(default_dir, default_base)
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save ORCA Input", default_full, "ORCA Input (*.inp);;All Files (*)"
-        )
-
-        if file_path:
-            try:
-                # Use content from preview (editable)
-                content = self.preview_text.toPlainText()
-
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-
-                self.current_inp_file = file_path
-                self._saved_inp_content = content
-                self._update_title()
-
-                # Hint the xyzfile name for the second job if not already set
-                if not self.second_job_xyz_name.text():
-                    saved_base = os.path.splitext(os.path.basename(file_path))[0]
-                    self.second_job_xyz_name.setPlaceholderText(
-                        f"e.g.  {saved_base}.xyz   (ORCA .xyz output from Job 1)"
-                    )
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
+        return default_base
 
     def submit_to_cluster(self):
         """Hand the saved .inp to Job Manager. Saves first when needed."""
@@ -1636,13 +1711,23 @@ class OrcaSetupDialogPro(QDialog):
         lines = text.splitlines()
 
         # 1. Split into Pre-Coord, Coords, and Post-Coord zones
+        # The coordinate section is "* xyz|int|gzmt c m" ... "*", or a single
+        # "* xyzfile|pdbfile" line. A "*" line inside a block is not one.
         coord_start = -1
         coord_end = -1
         for idx, line in enumerate(lines):
-            if line.strip().startswith("*"):
-                if coord_start == -1:
-                    coord_start = idx
+            m = re.match(
+                r"^\s*\*\s*(xyzfile|pdbfile|xyz|int|internal|gzmt)\b", line, re.I
+            )
+            if m:
+                coord_start = idx
                 coord_end = idx
+                if m.group(1).lower() not in ("xyzfile", "pdbfile"):
+                    for j in range(idx + 1, len(lines)):
+                        if lines[j].strip() == "*":
+                            coord_end = j
+                            break
+                break
 
         if coord_start != -1:
             pre_lines = lines[:coord_start]
@@ -1693,15 +1778,11 @@ class OrcaSetupDialogPro(QDialog):
                     maxcore = s
                     i += 1
                     continue
-                if s.lower().startswith("%moinp"):
-                    # Single-line directive (e.g. %moinp "prev.gbw") — never
-                    # terminated by "end". Without this special case it fell
-                    # through to the generic multi-line %block parser below,
-                    # which scanned forward for a bare "end" line to close
-                    # it and swallowed every subsequent block (%geom,
-                    # %tddft, ...) up to their own "end" as if it were
-                    # %moinp's content — corrupting the input and silently
-                    # dropping the MO filename itself.
+                if orca_blocks.is_single_line_directive(s):
+                    # %moinp "prev.gbw", %base "job", %pointcharges "x.pc",
+                    # %compound "a.cmp" ... have no "end". Read as a block,
+                    # one would swallow every following block up to their
+                    # "end" and lose its own argument.
                     others.append(line)
                     i += 1
                     continue
@@ -1721,18 +1802,11 @@ class OrcaSetupDialogPro(QDialog):
                         bname = m_start.group(1).lower()
                         if bname not in blocks:
                             blocks[bname] = []
-                        i += 1
-                        while i < len(zone_lines):
-                            l_inner = zone_lines[i]
-                            # Heuristic: only a non-indented 'end' closes a %-block
-                            # This allows nested sub-blocks like Constraints...end to be captured correctly.
-                            if l_inner.strip().lower() == "end" and (
-                                not l_inner or not l_inner[0].isspace()
-                            ):
-                                i += 1
-                                break
-                            blocks[bname].append(l_inner)
-                            i += 1
+                        # Sub-blocks (Constraints ... end) are tracked by
+                        # name, so their "end" closes them whatever its
+                        # indentation.
+                        i, body = orca_blocks.read_block(zone_lines, i)
+                        blocks[bname].extend(body)
                         continue
                 others.append(line)
                 i += 1
@@ -1980,6 +2054,7 @@ class OrcaSetupDialogPro(QDialog):
             return
 
         try:
+            self._charge_signature = _charge_signature(self.mol)
             try:
                 charge = Chem.GetFormalCharge(self.mol)
             except Exception:
@@ -2000,8 +2075,7 @@ class OrcaSetupDialogPro(QDialog):
         try:
             charge = self.charge_spin.value()
             mult = self.mult_spin.value()
-            total_protons = sum(atom.GetAtomicNum() for atom in self.mol.GetAtoms())
-            total_electrons = total_protons - charge
+            total_electrons = _electron_count(self.mol, charge)
             is_valid = (total_electrons % 2 == 0 and mult % 2 != 0) or (
                 total_electrons % 2 != 0 and mult % 2 == 0
             )

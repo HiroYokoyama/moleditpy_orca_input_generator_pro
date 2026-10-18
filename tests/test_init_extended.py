@@ -8,9 +8,9 @@ initialize()'s registration contract and the save/load/reset handlers in
 isolation, via a StubPluginContext, without ever calling run()).
 
 run() constructs a real OrcaSetupDialogPro, so this file loads a private,
-real-PyQt6/RDKit-bound copy of the whole plugin module tree -- see
+real-PySide6/RDKit-bound copy of the whole plugin module tree -- see
 tests/test_main_dialog_extended.py's module docstring for why (sibling test
-modules unconditionally clobber sys.modules["PyQt6*"]/["rdkit"] and reuse the
+modules unconditionally clobber sys.modules["PySide6*"]/["rdkit"] and reuse the
 shared "orca_input_generator_pro.*" sys.modules cache slots, independent of
 collection order).
 """
@@ -48,23 +48,23 @@ import pytest
 
 try:
     for _dep in (
-        "PyQt6",
-        "PyQt6.QtWidgets",
-        "PyQt6.QtCore",
-        "PyQt6.QtGui",
+        "PySide6",
+        "PySide6.QtWidgets",
+        "PySide6.QtCore",
+        "PySide6.QtGui",
         "rdkit",
         "rdkit.Chem",
         "rdkit.Chem.AllChem",
         "rdkit.Chem.rdMolTransforms",
     ):
         _real_module(_dep)
-except ImportError:  # bare-pytest CI has neither PyQt6 nor RDKit installed
-    pytest.skip("requires real PyQt6/RDKit (host app deps)", allow_module_level=True)
+except ImportError:  # bare-pytest CI has neither PySide6 nor RDKit installed
+    pytest.skip("requires real PySide6/RDKit (host app deps)", allow_module_level=True)
 
-_real_pyqt6_pkg = sys.modules["PyQt6"]
-_real_pyqt6_pkg.QtWidgets = sys.modules["PyQt6.QtWidgets"]
-_real_pyqt6_pkg.QtCore = sys.modules["PyQt6.QtCore"]
-_real_pyqt6_pkg.QtGui = sys.modules["PyQt6.QtGui"]
+_real_pyside6_pkg = sys.modules["PySide6"]
+_real_pyside6_pkg.QtWidgets = sys.modules["PySide6.QtWidgets"]
+_real_pyside6_pkg.QtCore = sys.modules["PySide6.QtCore"]
+_real_pyside6_pkg.QtGui = sys.modules["PySide6.QtGui"]
 
 
 def _load_private(modname, relpath):
@@ -97,7 +97,7 @@ def _make_water():
     return m
 
 
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget
 
 
 class _RealMW(QWidget):

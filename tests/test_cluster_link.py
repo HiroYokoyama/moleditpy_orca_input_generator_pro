@@ -4,7 +4,7 @@ The whole point of this module is that the plugin behaves identically when Job
 Manager is absent, so most of these tests are about *not* doing things.
 
 cluster_link is loaded straight from its file rather than imported through the
-package: orca_input_generator_pro/__init__.py imports PyQt6, and CI installs pytest only. The module
+package: orca_input_generator_pro/__init__.py imports PySide6, and CI installs pytest only. The module
 itself needs nothing beyond the standard library, which is precisely why the
 handoff can be probed before any GUI exists.
 """

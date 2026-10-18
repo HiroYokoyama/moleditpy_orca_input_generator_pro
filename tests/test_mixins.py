@@ -24,10 +24,10 @@ np = pytest.importorskip("numpy")  # host dep; absent in bare-pytest CI
 # ---------------------------------------------------------------------------
 # Several sibling test modules (test_keyword_builder.py, test_main_dialog.py,
 # ...) fake out orca_input_generator_pro.mixins with a stub Dialog3DPickingMixin
-# and/or clobber sys.modules["PyQt6*"] with permissive stub modules, with no
+# and/or clobber sys.modules["PySide6*"] with permissive stub modules, with no
 # regard for import order -- whichever test file is collected first "wins"
 # the shared cache slots. Load a fully private copy of mixins.py against
-# genuine PyQt6 (recovered from the "__real" stash conftest.py sets aside)
+# genuine PySide6 (recovered from the "__real" stash conftest.py sets aside)
 # so this file's coverage always exercises the genuine module regardless of
 # what other test files have done to the canonical sys.modules entries.
 # ---------------------------------------------------------------------------
@@ -52,15 +52,15 @@ def _real_module(name):
 
 
 try:
-    for _dep in ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtCore", "PyQt6.QtGui"):
+    for _dep in ("PySide6", "PySide6.QtWidgets", "PySide6.QtCore", "PySide6.QtGui"):
         _real_module(_dep)
-except ImportError:  # bare-pytest CI has no PyQt6 installed
-    pytest.skip("requires real PyQt6 (host app dep)", allow_module_level=True)
+except ImportError:  # bare-pytest CI has no PySide6 installed
+    pytest.skip("requires real PySide6 (host app dep)", allow_module_level=True)
 
-_real_pyqt6_pkg = sys.modules["PyQt6"]
-_real_pyqt6_pkg.QtWidgets = sys.modules["PyQt6.QtWidgets"]
-_real_pyqt6_pkg.QtCore = sys.modules["PyQt6.QtCore"]
-_real_pyqt6_pkg.QtGui = sys.modules["PyQt6.QtGui"]
+_real_pyside6_pkg = sys.modules["PySide6"]
+_real_pyside6_pkg.QtWidgets = sys.modules["PySide6.QtWidgets"]
+_real_pyside6_pkg.QtCore = sys.modules["PySide6.QtCore"]
+_real_pyside6_pkg.QtGui = sys.modules["PySide6.QtGui"]
 
 
 def _load_private_mixins():
@@ -79,9 +79,9 @@ def _load_private_mixins():
 mixins_mod = _load_private_mixins()
 Dialog3DPickingMixin = mixins_mod.Dialog3DPickingMixin
 
-from PyQt6.QtWidgets import QApplication, QDialog
-from PyQt6.QtCore import QEvent, Qt, QPointF
-from PyQt6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtCore import QEvent, Qt, QPointF
+from PySide6.QtGui import QMouseEvent
 
 _app = QApplication.instance() or QApplication([])
 
@@ -122,7 +122,7 @@ def _make_mw(has_plotter=True, atom_positions=None, atom_actor="ACTOR"):
     v3d = MagicMock()
     v3d.plotter = MagicMock()
     # super().eventFilter(obj, event) requires a genuine QObject -- a
-    # MagicMock for "obj" fails PyQt6's C++ type checking even on the
+    # MagicMock for "obj" fails PySide6's C++ type checking even on the
     # fall-through path, so the interactor must be a real (if otherwise
     # inert) QObject, not a mock.
     v3d.plotter.interactor = _make_interactor()

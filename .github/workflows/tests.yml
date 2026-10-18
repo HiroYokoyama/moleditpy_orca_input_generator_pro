@@ -54,7 +54,7 @@ jobs:
 
       - name: Clone main MoleditPy application
         run: |
-          git clone --depth 1 \
+          git clone --depth 1 --branch "${{ vars.MOLEDITPY_REF || 'migrate/pyside6-without-openbabel' }}" \
             https://github.com/HiroYokoyama/python_molecular_editor.git \
             ../python_molecular_editor
 

@@ -57,7 +57,7 @@ CI_MAIN_APP_SRC=/path/to/python_molecular_editor/moleditpy/src \
 
 ### `test_keyword_builder.py` — OrcaKeywordBuilderDialog logic (78 tests)
 
-PyQt6 and RDKit are stubbed. Classes used as base classes (`QDialog`, `QWidget`,
+PySide6 and RDKit are stubbed. Classes used as base classes (`QDialog`, `QWidget`,
 `QScrollArea`) are real inheritable stubs — not `MagicMock()` instances.
 
 | Class | What is tested |

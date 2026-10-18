@@ -3,12 +3,12 @@ tests/test_highlighter.py
 
 Behavioural tests for OrcaSyntaxHighlighter (highlighter.py).
 
-Unlike the other test modules, which install lightweight PyQt6 stubs so the
+Unlike the other test modules, which install lightweight PySide6 stubs so the
 pure-logic paths can run without a GUI toolkit, these tests need the *real*
-PyQt6: QSyntaxHighlighter/QRegularExpression behaviour is what is under test,
+PySide6: QSyntaxHighlighter/QRegularExpression behaviour is what is under test,
 and a stub cannot tell us whether a pattern flag actually exists.
 
-The whole module is skipped when PyQt6 is unavailable.  It runs headless via
+The whole module is skipped when PySide6 is unavailable.  It runs headless via
 QT_QPA_PLATFORM=offscreen, so no display server is required.
 
 ORCA's highlightBlock() is not a plain "apply every rule" loop -- it inspects
@@ -21,9 +21,9 @@ each rule's pattern text and decides whether the rule applies to this line:
 
 Each of those branches is covered below.
 
-Regression note: these tests cover the PyQt6 scoped-enum spelling
+Regression note: these tests cover the PySide6 scoped-enum spelling
 QRegularExpression.PatternOption.CaseInsensitiveOption.  The unscoped
-QRegularExpression.CaseInsensitiveOption does not exist in PyQt6 and raised
+QRegularExpression.CaseInsensitiveOption does not exist in PySide6 and raised
 AttributeError out of the highlighter constructor -- which, because setup_ui()
 builds a highlighter, stopped the plugin dialog from opening at all.
 """
@@ -38,9 +38,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
 try:
-    from PyQt6.QtGui import QTextDocument
-    from PyQt6.QtWidgets import QApplication
-except ImportError:  # pragma: no cover - exercised only on PyQt6-less runs
+    from PySide6.QtGui import QTextDocument
+    from PySide6.QtWidgets import QApplication
+except ImportError:  # pragma: no cover - exercised only on PySide6-less runs
     QApplication = None
 
 
@@ -65,7 +65,7 @@ def _load_highlighter():
 _HL_MOD = _load_highlighter() if QApplication is not None else None
 
 
-@unittest.skipIf(QApplication is None, "PyQt6 not installed")
+@unittest.skipIf(QApplication is None, "PySide6 not installed")
 class HighlighterTestBase(unittest.TestCase):
     """Shared QApplication + helpers for driving the highlighter."""
 

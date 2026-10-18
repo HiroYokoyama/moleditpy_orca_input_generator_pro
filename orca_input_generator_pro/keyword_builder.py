@@ -1,5 +1,5 @@
-from PyQt6 import QtCore
-from PyQt6.QtWidgets import (
+from PySide6 import QtCore
+from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QLabel,
@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QScrollArea,
 )
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 from rdkit.Chem import rdMolTransforms
 
 from .constants import ALL_ORCA_METHODS, ALL_ORCA_BASIS_SETS, ORCA_SEARCH_CATALOG

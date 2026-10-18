@@ -111,10 +111,8 @@ class TestPluginMetadata(unittest.TestCase):
         self.assertTrue(hasattr(_init, "PLUGIN_VERSION"))
 
     def test_plugin_version_semver(self):
-        parts = _init.PLUGIN_VERSION.split(".")
-        self.assertEqual(len(parts), 3, "Version must be X.Y.Z")
-        for p in parts:
-            self.assertTrue(p.isdigit(), f"Version part not numeric: {p}")
+        from packaging.version import Version
+        assert Version(_init.PLUGIN_VERSION).public == _init.PLUGIN_VERSION
 
     def test_plugin_author_present(self):
         self.assertTrue(hasattr(_init, "PLUGIN_AUTHOR"))

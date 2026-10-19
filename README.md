@@ -198,5 +198,9 @@ To load an existing input file: use **Open…** and all settings will be restore
 
 ## License & Disclaimer
 
-Licensed under the GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+Licensed under the GNU Lesser General Public License v3.0 — see [LICENSE](LICENSE) for details.
 Provided *as is* without warranty. Users are responsible for validating outputs before use in publications or production workflows. Please [open an issue](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/issues) if you find a bug.
+
+## Licensing scope
+
+First-party code in this migration is LGPL-3.0-or-later. See [LICENSE](LICENSE), [COPYING](COPYING) and [dependency/provenance terms](LICENSING.md). Third-party components and historical releases retain their own terms.

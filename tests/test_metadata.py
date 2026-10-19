@@ -23,10 +23,10 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def _install_stubs():
-    pyqt6 = types.ModuleType("PyQt6")
-    qt_widgets = types.ModuleType("PyQt6.QtWidgets")
-    qt_core = types.ModuleType("PyQt6.QtCore")
-    qt_gui = types.ModuleType("PyQt6.QtGui")
+    pyside6 = types.ModuleType("PySide6")
+    qt_widgets = types.ModuleType("PySide6.QtWidgets")
+    qt_core = types.ModuleType("PySide6.QtCore")
+    qt_gui = types.ModuleType("PySide6.QtGui")
     for name in [
         "QDialog",
         "QVBoxLayout",
@@ -66,15 +66,15 @@ def _install_stubs():
         "QIcon",
     ]:
         setattr(qt_gui, name, MagicMock)
-    pyqt6.QtWidgets = qt_widgets
-    pyqt6.QtCore = qt_core
-    pyqt6.QtGui = qt_gui
+    pyside6.QtWidgets = qt_widgets
+    pyside6.QtCore = qt_core
+    pyside6.QtGui = qt_gui
     sys.modules.update(
         {
-            "PyQt6": pyqt6,
-            "PyQt6.QtWidgets": qt_widgets,
-            "PyQt6.QtCore": qt_core,
-            "PyQt6.QtGui": qt_gui,
+            "PySide6": pyside6,
+            "PySide6.QtWidgets": qt_widgets,
+            "PySide6.QtCore": qt_core,
+            "PySide6.QtGui": qt_gui,
             "rdkit": MagicMock(),
             "rdkit.Chem": MagicMock(),
             "rdkit.Chem.rdMolTransforms": MagicMock(),
@@ -111,10 +111,8 @@ class TestPluginMetadata(unittest.TestCase):
         self.assertTrue(hasattr(_init, "PLUGIN_VERSION"))
 
     def test_plugin_version_semver(self):
-        parts = _init.PLUGIN_VERSION.split(".")
-        self.assertEqual(len(parts), 3, "Version must be X.Y.Z")
-        for p in parts:
-            self.assertTrue(p.isdigit(), f"Version part not numeric: {p}")
+        from packaging.version import Version
+        assert Version(_init.PLUGIN_VERSION).public == _init.PLUGIN_VERSION
 
     def test_plugin_author_present(self):
         self.assertTrue(hasattr(_init, "PLUGIN_AUTHOR"))

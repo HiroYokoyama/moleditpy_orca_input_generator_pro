@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-pytest.importorskip("PyQt6")
+pytest.importorskip("PySide6")
 
 from orca_input_generator_pro.keyword_builder import OrcaKeywordBuilderDialog
 

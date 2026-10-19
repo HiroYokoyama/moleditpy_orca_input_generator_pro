@@ -1,21 +1,21 @@
 """
 tests/conftest.py
 
-Prefer the real PyQt6 over the per-module stubs when it is installed.
+Prefer the real PySide6 over the per-module stubs when it is installed.
 
-Several test modules call a local `_install_stubs()` that injects fake PyQt6
+Several test modules call a local `_install_stubs()` that injects fake PySide6
 modules into sys.modules so pure-logic paths can be tested without a GUI
 toolkit.  Each of those helpers begins with:
 
-    if "PyQt6" in sys.modules:
+    if "PySide6" in sys.modules:
         return
 
-so importing the genuine PyQt6 *here* -- conftest is loaded before any test
+so importing the genuine PySide6 *here* -- conftest is loaded before any test
 module -- makes them all no-ops, and the suite exercises real Qt widgets
 instead of stubs.  That is what lets the GUI construction paths in
 main_dialog.py, highlighter.py and mixins.py be covered at all.
 
-When PyQt6 is not installed this module does nothing and the stubs behave
+When PySide6 is not installed this module does nothing and the stubs behave
 exactly as before, so the suite still runs on a bare `pip install pytest`.
 """
 
@@ -42,8 +42,8 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
-    from PyQt6.QtWidgets import QApplication
-except ImportError:  # pragma: no cover - PyQt6-less environments
+    from PySide6.QtWidgets import QApplication
+except ImportError:  # pragma: no cover - PySide6-less environments
     QApplication = None
 
 
@@ -53,17 +53,17 @@ if QApplication is not None:
     _app = QApplication.instance() or QApplication([])
 
     # Some sibling test modules (test_keyword_builder.py, test_metadata.py,
-    # ...) unconditionally overwrite sys.modules["PyQt6*"] with permissive
+    # ...) unconditionally overwrite sys.modules["PySide6*"] with permissive
     # stub modules once they are collected, with no regard for import order.
     # Stash the genuine module objects under alternate keys *now*, while they
     # are still guaranteed real, so any test needing real Qt later in the
     # session (e.g. test_main_dialog_extended.py, which builds a real
     # QDialog) can recover them. This only stores an extra dict entry
     # pointing at the same already-initialized module objects -- it never
-    # re-imports/re-registers the PyQt6 sip bindings, which would crash.
+    # re-imports/re-registers the PySide6 sip bindings, which would crash.
     import sys as _sys
 
-    for _name in ("PyQt6", "PyQt6.QtWidgets", "PyQt6.QtCore", "PyQt6.QtGui"):
+    for _name in ("PySide6", "PySide6.QtWidgets", "PySide6.QtCore", "PySide6.QtGui"):
         _mod = _sys.modules.get(_name)
         if _mod is not None:
             _sys.modules[_name + "__real"] = _mod

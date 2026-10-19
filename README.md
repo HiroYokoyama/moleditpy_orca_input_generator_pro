@@ -1,9 +1,11 @@
 # MoleditPy ORCA Input Generator Pro
 
+This branch targets **MoleditPy 5.0.0a1–5.x** and uses **PySide6**. Plugin licensing is unchanged.
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
 [![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
 ![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)
-[![MoleditPy](https://img.shields.io/badge/MoleditPy->=4.0.0-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
+[![MoleditPy](https://img.shields.io/badge/MoleditPy->=5.0.0-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
 [![GitHub tag](https://img.shields.io/github/v/tag/HiroYokoyama/moleditpy_orca_input_generator_pro?label=version)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/tags)
 [![GitHub Downloads](https://img.shields.io/github/downloads/HiroYokoyama/moleditpy_orca_input_generator_pro/total)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases)
 
@@ -188,7 +190,7 @@ To load an existing input file: use **Open…** and all settings will be restore
 
 ## Dependencies
 
-- **PyQt6** — graphical interface
+- **PySide6** — graphical interface
 - **RDKit** — molecular geometry and property handling
 - **NumPy** — coordinate calculations
 
@@ -196,5 +198,9 @@ To load an existing input file: use **Open…** and all settings will be restore
 
 ## License & Disclaimer
 
-Licensed under the GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+Licensed under the GNU Lesser General Public License v3.0 — see [LICENSE](LICENSE) for details.
 Provided *as is* without warranty. Users are responsible for validating outputs before use in publications or production workflows. Please [open an issue](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/issues) if you find a bug.
+
+## Licensing scope
+
+First-party code in this migration is LGPL-3.0-or-later. See [LICENSE](LICENSE), [COPYING](COPYING) and [dependency/provenance terms](LICENSING.md). Third-party components and historical releases retain their own terms.

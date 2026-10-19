@@ -35,17 +35,17 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def _install_stubs():
-    if "PyQt6" in sys.modules:
+    if "PySide6" in sys.modules:
         return
 
     class _Base:
         def __init__(self, *a, **kw):
             pass
 
-    pyqt6 = types.ModuleType("PyQt6")
-    qt_widgets = types.ModuleType("PyQt6.QtWidgets")
-    qt_core = types.ModuleType("PyQt6.QtCore")
-    qt_gui = types.ModuleType("PyQt6.QtGui")
+    pyside6 = types.ModuleType("PySide6")
+    qt_widgets = types.ModuleType("PySide6.QtWidgets")
+    qt_core = types.ModuleType("PySide6.QtCore")
+    qt_gui = types.ModuleType("PySide6.QtGui")
 
     for name in ["QDialog", "QWidget", "QScrollArea"]:
         setattr(qt_widgets, name, _Base)
@@ -91,16 +91,16 @@ def _install_stubs():
     qt_gui.QKeySequence = MagicMock
     qt_gui.QShortcut = MagicMock
 
-    pyqt6.QtWidgets = qt_widgets
-    pyqt6.QtCore = qt_core
-    pyqt6.QtGui = qt_gui
+    pyside6.QtWidgets = qt_widgets
+    pyside6.QtCore = qt_core
+    pyside6.QtGui = qt_gui
 
     sys.modules.update(
         {
-            "PyQt6": pyqt6,
-            "PyQt6.QtWidgets": qt_widgets,
-            "PyQt6.QtCore": qt_core,
-            "PyQt6.QtGui": qt_gui,
+            "PySide6": pyside6,
+            "PySide6.QtWidgets": qt_widgets,
+            "PySide6.QtCore": qt_core,
+            "PySide6.QtGui": qt_gui,
             "rdkit": MagicMock(),
             "rdkit.Chem": MagicMock(),
             "rdkit.Chem.rdMolTransforms": MagicMock(),
@@ -626,7 +626,7 @@ def _insert_template(block_label):
     # reassigning __class__ on an already-built, spec-less MagicMock keeps
     # arbitrary attribute mocking (unlike MagicMock(spec=...), which would
     # restrict attributes to the spec class's own members). Never mutate the
-    # global PyQt6.QtWidgets.QTextEdit class itself, which would corrupt
+    # global PySide6.QtWidgets.QTextEdit class itself, which would corrupt
     # every other test module collected afterwards in the same session.
     text_edit = MagicMock()
     if not isinstance(text_edit, _main_mod.QTextEdit):

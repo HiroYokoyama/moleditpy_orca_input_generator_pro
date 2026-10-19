@@ -1,5 +1,5 @@
-from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtCore import QRegularExpression
+from PySide6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
+from PySide6.QtCore import QRegularExpression
 
 
 class OrcaSyntaxHighlighter(QSyntaxHighlighter):

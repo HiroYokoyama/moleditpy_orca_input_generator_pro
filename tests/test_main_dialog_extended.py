@@ -26,7 +26,7 @@ from unittest.mock import patch, MagicMock
 
 # ---------------------------------------------------------------------------
 # Several sibling test modules (test_keyword_builder.py, test_metadata.py, ...)
-# unconditionally clobber sys.modules["PyQt6*"] with permissive MagicMock-based
+# unconditionally clobber sys.modules["PySide6*"] with permissive MagicMock-based
 # stubs as soon as they are collected, with no regard for import order. That
 # is fine for *their* pure-logic tests, but this file needs to construct the
 # real QDialog (real widgets, real event types) to exercise GUI-construction
@@ -34,7 +34,7 @@ from unittest.mock import patch, MagicMock
 # is fragile — whichever test module runs first "wins" the shared
 # orca_input_generator_pro.main_dialog cache slot), load an entirely private
 # copy of the plugin's module tree under a throwaway package name, forcing
-# real PyQt6/RDKit to be imported fresh for it. This never touches the
+# real PySide6/RDKit to be imported fresh for it. This never touches the
 # canonical "orca_input_generator_pro.*" sys.modules entries other test files
 # rely on.
 # ---------------------------------------------------------------------------
@@ -46,10 +46,10 @@ _PRIV_PKG = "_oigp_real_qt_copy"
 def _real_module(name):
     """Return the genuine installed module for `name`, recovering the copy
     conftest.py stashed under "<name>__real" if a sibling test file has since
-    replaced sys.modules[name] with a stub. Never pop-and-reimport PyQt6
+    replaced sys.modules[name] with a stub. Never pop-and-reimport PySide6
     submodules directly: re-importing them after removal from sys.modules
     re-runs their C-level sip registration, which aborts the process the
-    second time ("the PyQt6.QtCore module failed to register with the sip
+    second time ("the PySide6.QtCore module failed to register with the sip
     module")."""
     cur = sys.modules.get(name)
     # A stub can be a bare types.ModuleType() (no __file__) or a
@@ -66,37 +66,37 @@ def _real_module(name):
     if real is not None:
         sys.modules[name] = real
         return real
-    return importlib.import_module(name)  # last resort: PyQt6 never loaded yet
+    return importlib.import_module(name)  # last resort: PySide6 never loaded yet
 
 
 import pytest
 
 try:
     for _dep in (
-        "PyQt6",
-        "PyQt6.QtWidgets",
-        "PyQt6.QtCore",
-        "PyQt6.QtGui",
+        "PySide6",
+        "PySide6.QtWidgets",
+        "PySide6.QtCore",
+        "PySide6.QtGui",
         "rdkit",
         "rdkit.Chem",
         "rdkit.Chem.AllChem",
         "rdkit.Chem.rdMolTransforms",
     ):
         _real_module(_dep)
-except ImportError:  # bare-pytest CI has neither PyQt6 nor RDKit installed
-    pytest.skip("requires real PyQt6/RDKit (host app deps)", allow_module_level=True)
+except ImportError:  # bare-pytest CI has neither PySide6 nor RDKit installed
+    pytest.skip("requires real PySide6/RDKit (host app deps)", allow_module_level=True)
 
-# "from PyQt6 import QtCore" (used by keyword_builder.py/mixins.py) resolves
-# via attribute lookup on the *parent* PyQt6 package module, not just the
-# sys.modules["PyQt6.QtCore"] dict entry. Sibling stub installers fetch the
-# real, already-imported PyQt6 package object (sys.modules.get("PyQt6")) and
+# "from PySide6 import QtCore" (used by keyword_builder.py/mixins.py) resolves
+# via attribute lookup on the *parent* PySide6 package module, not just the
+# sys.modules["PySide6.QtCore"] dict entry. Sibling stub installers fetch the
+# real, already-imported PySide6 package object (sys.modules.get("PySide6")) and
 # mutate its .QtWidgets/.QtCore/.QtGui attributes in place, so restoring the
 # submodule dict entries above is not enough -- the parent's attributes must
 # be pointed at the real submodules too.
-_real_pyqt6_pkg = sys.modules["PyQt6"]
-_real_pyqt6_pkg.QtWidgets = sys.modules["PyQt6.QtWidgets"]
-_real_pyqt6_pkg.QtCore = sys.modules["PyQt6.QtCore"]
-_real_pyqt6_pkg.QtGui = sys.modules["PyQt6.QtGui"]
+_real_pyside6_pkg = sys.modules["PySide6"]
+_real_pyside6_pkg.QtWidgets = sys.modules["PySide6.QtWidgets"]
+_real_pyside6_pkg.QtCore = sys.modules["PySide6.QtCore"]
+_real_pyside6_pkg.QtGui = sys.modules["PySide6.QtGui"]
 
 
 def _load_private(modname, relpath):
@@ -120,9 +120,9 @@ _load_private("keyword_builder", "keyword_builder.py")
 main_dialog_mod = _load_private("main_dialog", "main_dialog.py")
 OrcaSetupDialogPro = main_dialog_mod.OrcaSetupDialogPro
 
-from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import Qt, QEvent
-from PyQt6.QtGui import QCloseEvent, QKeyEvent
+from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import Qt, QEvent
+from PySide6.QtGui import QCloseEvent, QKeyEvent
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -923,9 +923,9 @@ class TestKeywordBuilderIntegration(_RealDialogTestCase):
         dlg.builder_dialog = MagicMock()
         dlg.builder_dialog.get_route.return_value = "! HF STO-3G"
         # Use main_dialog_mod's own bound QDialog (captured for real at
-        # private-module load time) rather than a fresh "from PyQt6.QtWidgets
+        # private-module load time) rather than a fresh "from PySide6.QtWidgets
         # import QDialog", which can resolve to another test file's stub
-        # since sibling test modules mutate the shared PyQt6 package's
+        # since sibling test modules mutate the shared PySide6 package's
         # .QtWidgets attribute in place at their own collection time.
         QDialog = main_dialog_mod.QDialog
         dlg.on_builder_finished(QDialog.DialogCode.Accepted)

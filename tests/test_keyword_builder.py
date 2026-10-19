@@ -3,7 +3,7 @@ tests/test_keyword_builder.py
 
 Unit tests for OrcaKeywordBuilderDialog logic in keyword_builder.py.
 
-PyQt6 and RDKit are stubbed so no display or Qt installation is needed.
+PySide6 and RDKit are stubbed so no display or Qt installation is needed.
 Tests cover:
   - get_inferred_category()        pure method, no Qt
   - update_preview() / route_line  job-type → keyword mapping
@@ -34,10 +34,10 @@ class _Base:
 
 
 def _install_stubs():
-    pyqt6 = sys.modules.get("PyQt6") or types.ModuleType("PyQt6")
-    qt_widgets = types.ModuleType("PyQt6.QtWidgets")
-    qt_core = types.ModuleType("PyQt6.QtCore")
-    qt_gui = types.ModuleType("PyQt6.QtGui")
+    pyside6 = sys.modules.get("PySide6") or types.ModuleType("PySide6")
+    qt_widgets = types.ModuleType("PySide6.QtWidgets")
+    qt_core = types.ModuleType("PySide6.QtCore")
+    qt_gui = types.ModuleType("PySide6.QtGui")
 
     # Classes used as base classes must be real classes, not MagicMock,
     # to avoid MRO conflicts (MagicMock already inherits from object).
@@ -88,16 +88,16 @@ def _install_stubs():
     qt_gui.QKeySequence = MagicMock
     qt_gui.QShortcut = MagicMock
 
-    pyqt6.QtWidgets = qt_widgets
-    pyqt6.QtCore = qt_core
-    pyqt6.QtGui = qt_gui
+    pyside6.QtWidgets = qt_widgets
+    pyside6.QtCore = qt_core
+    pyside6.QtGui = qt_gui
 
     sys.modules.update(
         {
-            "PyQt6": pyqt6,
-            "PyQt6.QtWidgets": qt_widgets,
-            "PyQt6.QtCore": qt_core,
-            "PyQt6.QtGui": qt_gui,
+            "PySide6": pyside6,
+            "PySide6.QtWidgets": qt_widgets,
+            "PySide6.QtCore": qt_core,
+            "PySide6.QtGui": qt_gui,
             "rdkit": MagicMock(),
             "rdkit.Chem": MagicMock(),
             "rdkit.Chem.rdMolTransforms": MagicMock(),

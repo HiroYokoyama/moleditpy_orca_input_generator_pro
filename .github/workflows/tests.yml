@@ -17,11 +17,11 @@ permissions:
   contents: read
 
 env:
-  MOLEDITPY_REF: ${{ inputs.moleditpy_ref || vars.MOLEDITPY_REF || 'migrate/pyside6-without-openbabel' }}
+  MOLEDITPY_REF: ${{ inputs.moleditpy_ref || vars.MOLEDITPY_REF || 'main' }}
 
 jobs:
   # -------------------------------------------------------------------------
-  # Standard unit tests — no external dependencies required
+  # Standard unit tests  Eno external dependencies required
   # -------------------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
@@ -44,7 +44,7 @@ jobs:
         run: python -m pytest tests/ -v --tb=short --cov=orca_input_generator_pro --cov-report=term-missing
 
   # -------------------------------------------------------------------------
-  # Integration tests — clones the main MoleditPy app to enable real
+  # Integration tests  Eclones the main MoleditPy app to enable real
   # PluginContext tests (TestWithRealPluginContext)
   # -------------------------------------------------------------------------
   test-integration:

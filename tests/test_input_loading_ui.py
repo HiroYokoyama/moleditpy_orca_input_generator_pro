@@ -62,6 +62,20 @@ class TestInputLoading(_RealDialogTestCase):
         assert "input_text" not in state
         assert dialog.input_settings_widget.isEnabled()
 
+    def test_imported_charge_survives_even_when_source_matches_generated_text(self):
+        state = {}
+        dialog = self.make_dialog(state, mol=_make_water())
+        dialog.charge_spin.setValue(1)
+        source = dialog.preview_text.toPlainText()
+        assert "input_text" not in state
+        dialog.restore_input_text(source)
+        assert state["input_text"] == source
+        reopened = self.make_dialog(json.loads(json.dumps(state)), mol=_make_water())
+        assert reopened.charge_spin.value() == 1
+        assert reopened.preview_text.toPlainText() == source
+        reopened.refresh_input_preview()
+        assert "input_text" not in reopened.persistent_settings
+
     def test_import_displays_structure_recovers_conditions_and_keeps_source(self):
         source = Path(self._tmpdir) / "source.inp"
         source.write_text(INPUT, encoding="utf-8")

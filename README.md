@@ -19,7 +19,8 @@ the recovered settings and current structure; it can discard commands that
 the form cannot represent.
 
 Project files store a single optional `input_text` string only when Preview
-differs from the generated snapshot. Direct edits and complex imported text
+differs from the generated snapshot, or imported charge/spin cannot be
+reconstructed from the displayed coordinate-only molecule. Direct edits and complex imported text
 therefore survive a `.pmeprj` save/reopen. Normal generation, reverting to the
 generated text and Reset/Refresh omit this extra field. Loading and editing do
 not write the source input file; saving requires Save or Ctrl+S.

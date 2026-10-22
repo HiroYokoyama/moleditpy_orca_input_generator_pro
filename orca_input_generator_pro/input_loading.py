@@ -321,6 +321,7 @@ def molecule_from_rows(rows, charge=0):
             symbol = table.GetElementSymbol(atomic_number)
         symbol = symbol.title()
         atom = Chem.Atom(0 if symbol in ("X", "Bq") else symbol)
+        atom.SetNoImplicit(True)
         if label.endswith(":") or label.lower().endswith("-bq"):
             atom.SetProp("xyz_original_symbol", label)
         mol.AddAtom(atom)
@@ -332,6 +333,7 @@ def molecule_from_rows(rows, charge=0):
     except (RuntimeError, ValueError):
         pass  # Coordinates are still useful when bonding cannot be inferred.
     mol.SetIntProp("_xyz_charge", charge)
+    mol.UpdatePropertyCache(strict=False)
     return mol
 
 
@@ -340,7 +342,9 @@ class InputLoadingMixin:
         if not getattr(self, "ui_ready", False):
             return
         text = self.preview_text.toPlainText()
-        override = text != getattr(self, "_generated_text", "")
+        override = text != getattr(self, "_generated_text", "") or getattr(
+            self, "_input_text_required", False
+        )
         self._text_override = override
         if self.persistent_settings is not None:
             if override:
@@ -364,6 +368,7 @@ class InputLoadingMixin:
 
         self._generated_text = text
         self._text_override = False
+        self._input_text_required = False
         with QSignalBlocker(self.preview_text):
             self.preview_text.setPlainText(text)
         self.input_settings_widget.setEnabled(True)
@@ -373,6 +378,7 @@ class InputLoadingMixin:
 
     def refresh_input_preview(self):
         self._text_override = False
+        self._input_text_required = False
         self.input_settings_widget.setEnabled(True)
         self.input_notice.setText(
             "Full input text is authoritative. Edit Preview directly; Reset/Refresh regenerates from settings."
@@ -446,6 +452,7 @@ class InputLoadingMixin:
                 )
         settings, rows, notes = parsed
         self._close_builder()
+        self._input_text_required = False
         self.ui_ready = False
         try:
             if rows:
@@ -454,9 +461,18 @@ class InputLoadingMixin:
                     if self.display_molecule is not None:
                         self.display_molecule(mol)
                     self.mol = mol
-                    from .main_dialog import _charge_signature
+                    from .main_dialog import Chem, _charge_signature
 
                     self._charge_signature = _charge_signature(mol)
+                    # Coordinate-only molecules need not reproduce the source
+                    # charge or spin when restored from a project later.
+                    self._input_text_required = settings.get(
+                        "charge", 0
+                    ) != Chem.GetFormalCharge(mol) or settings.get(
+                        "mult", 1
+                    ) != 1 + sum(
+                        atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()
+                    )
                 except (RuntimeError, ValueError) as exc:
                     notes.append(f"Structure could not be displayed: {exc}")
             target = self.persistent_settings

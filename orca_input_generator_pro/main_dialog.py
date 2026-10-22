@@ -870,7 +870,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 ):
                     saved_base = os.path.splitext(os.path.basename(file_path))[0]
                     content = self._rewrite_second_job_xyz(content, saved_base)
-                    self.preview_text.setText(content)
+                    self._write_generated_preview(content)
 
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)

@@ -53,6 +53,20 @@ class TestInputLoading(_RealDialogTestCase):
         assert "input_text" not in state
         assert dialog.input_settings_widget.isEnabled()
 
+    def test_saving_generated_input_does_not_create_a_text_override(self):
+        state = {}
+        dialog = self.make_dialog(state, mol=_make_water())
+        destination = Path(self._tmpdir) / "generated.inp"
+        with patch.object(
+            main_dialog_mod.QFileDialog,
+            "getSaveFileName",
+            return_value=(str(destination), ""),
+        ):
+            dialog.save_file()
+        assert destination.is_file()
+        assert "input_text" not in state
+        assert not dialog._text_override
+
     def test_reverting_direct_edits_drops_redundant_text(self):
         state = {}
         dialog = self.make_dialog(state, mol=_make_water())

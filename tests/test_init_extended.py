@@ -223,6 +223,7 @@ class TestRunFilenameDetection(_BaseInitTestCase):
                 persistent_settings,
                 mark_modified,
                 get_molecule,
+                display_molecule=None,
             ):
                 captured["filename"] = filename
 

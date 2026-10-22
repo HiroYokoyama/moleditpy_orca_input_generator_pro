@@ -1,52 +1,51 @@
-import os
 import json
+import logging
+import os
 import re
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont, QKeySequence, QPalette, QShortcut
 from PySide6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QScrollArea,
-    QWidget,
-    QGroupBox,
-    QFormLayout,
-    QSpinBox,
-    QPushButton,
-    QLabel,
-    QTextEdit,
-    QLineEdit,
-    QComboBox,
-    QTabWidget,
-    QSizePolicy,
-    QMessageBox,
-    QFileDialog,
-    QInputDialog,
     QCheckBox,
+    QComboBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QFont, QPalette, QColor, QKeySequence, QShortcut
-from PySide6.QtCore import Qt
-
 from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 
-from . import cluster_link
-from . import orca_blocks
+from . import PLUGIN_NAME, PLUGIN_VERSION, SETTINGS_FILE, cluster_link, orca_blocks
 from .constants import (
-    GHOST_BARE_BASIS,
     BASIS_MODE_BARE,
     BASIS_MODE_CUSTOM,
     BASIS_MODE_DEFAULT,
     BASIS_MODES,
     BASIS_MODES_ATOM,
     BASIS_MODES_GHOST,
+    GHOST_BARE_BASIS,
     LEGACY_BASIS_MODES,
 )
 from .highlighter import OrcaSyntaxHighlighter
+from .input_loading import InputLoadingMixin
 from .keyword_builder import OrcaKeywordBuilderDialog
-from . import PLUGIN_NAME, PLUGIN_VERSION, SETTINGS_FILE
-import logging
 
 # Degrees from 0/180 within which a Z-matrix reference angle is treated as
 # collinear. Below that the three atoms defining the dihedral's plane are on a
@@ -114,7 +113,8 @@ _ATOM_TOOLTIP = (
 )
 
 
-class OrcaSetupDialogPro(QDialog):
+class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
+    INPUT_KIND = "orca"
     """
     ORCA Input Generator Pro
     """
@@ -127,6 +127,7 @@ class OrcaSetupDialogPro(QDialog):
         persistent_settings=None,
         mark_modified=None,
         get_molecule=None,
+        display_molecule=None,
     ):
         super().__init__(parent)
         self.setWindowTitle(f"{PLUGIN_NAME} v{PLUGIN_VERSION}")
@@ -138,6 +139,9 @@ class OrcaSetupDialogPro(QDialog):
         self.persistent_settings = persistent_settings
         self.mark_modified = mark_modified
         self.get_molecule = get_molecule
+        self.display_molecule = display_molecule
+        saved_text = (persistent_settings or {}).get("input_text")
+        self._text_override = False
         self.current_inp_file = None  # path of the .inp file last saved/opened
         self._saved_inp_content = None  # content at last save (for dirty detection)
         self._current_content = ""  # cached output of the most recent generate
@@ -150,6 +154,8 @@ class OrcaSetupDialogPro(QDialog):
         self.calc_initial_charge_mult()
         self.ui_ready = True
         self.update_preview()  # earlier calls no-op'd while ui_ready was False
+        if isinstance(saved_text, str):
+            self.restore_input_text(saved_text)
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -163,6 +169,7 @@ class OrcaSetupDialogPro(QDialog):
         scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
 
         settings_container = QWidget()
+        self.input_settings_widget = settings_container
         settings_layout = QVBoxLayout(settings_container)
 
         # --- 0. Preset Management ---
@@ -488,6 +495,7 @@ class OrcaSetupDialogPro(QDialog):
         preview_group = QGroupBox("Input Preview")
         preview_layout = QVBoxLayout()
         self.preview_text = QTextEdit()
+        self.preview_text.textChanged.connect(self._input_text_edited)
         self.preview_text.setReadOnly(False)
         self.preview_text.setFont(QFont("Courier New", 10))
         self.preview_text.setSizePolicy(
@@ -495,8 +503,17 @@ class OrcaSetupDialogPro(QDialog):
         )
         self.highlighter = OrcaSyntaxHighlighter(self.preview_text.document())
         preview_layout.addWidget(self.preview_text)
+        self.input_notice = QLabel(
+            "Full input text is authoritative. Edit Preview directly; Reset/Refresh regenerates from settings."
+        )
+        self.input_notice.setWordWrap(True)
+        self.input_notice.hide()
+        preview_layout.addWidget(self.input_notice)
+        recover_btn = QPushButton("Recover Conditions from Text")
+        recover_btn.clicked.connect(self.recover_input_conditions)
+        preview_layout.addWidget(recover_btn)
         btn_refresh = QPushButton("Reset/Refresh Preview")
-        btn_refresh.clicked.connect(self.update_preview)
+        btn_refresh.clicked.connect(self.refresh_input_preview)
         preview_layout.addWidget(btn_refresh)
         preview_group.setLayout(preview_layout)
         content_layout.addWidget(preview_group, 4)  # Right side preview
@@ -543,6 +560,9 @@ class OrcaSetupDialogPro(QDialog):
         self.submit_btn.setVisible(cluster_link.is_available(self.parent()))
 
         btn_layout.addWidget(self.btn_close)
+        self.load_btn = QPushButton("Load Input File...")
+        self.load_btn.clicked.connect(self.load_input_file)
+        btn_layout.addWidget(self.load_btn)
         btn_layout.addWidget(self.submit_btn)
         btn_layout.addWidget(self.save_btn)
 
@@ -696,6 +716,8 @@ class OrcaSetupDialogPro(QDialog):
     def update_preview(self):
         if not getattr(self, "ui_ready", False):
             return
+        if getattr(self, "_text_override", False):
+            return
 
         self._refresh_charge_mult_if_molecule_changed()
         self._sync_basis_group()
@@ -719,7 +741,10 @@ class OrcaSetupDialogPro(QDialog):
             p["atom_basis"] = {sym: list(val) for sym, val in self.atom_basis.items()}
 
         self._current_content = self.generate_input_content()
-        self.preview_text.setText(self._current_content)
+        if hasattr(self, "input_settings_widget"):
+            self._write_generated_preview(self._current_content)
+        else:
+            self.preview_text.setText(self._current_content)
         self._update_title()
 
         if self.mark_modified is not None:
@@ -803,7 +828,11 @@ class OrcaSetupDialogPro(QDialog):
     def save_file(self):
         # 1. 座標データの取得 (Check for error first)
         coord_style = self.coord_format_combo.currentText()
-        if "None" in coord_style or "xyzfile" in coord_style:
+        if (
+            getattr(self, "_text_override", False)
+            or "None" in coord_style
+            or "xyzfile" in coord_style
+        ):
             lines = []  # no inline coordinates to validate
         elif "XYZ" in coord_style:
             lines = self.get_coords_lines()
@@ -821,9 +850,7 @@ class OrcaSetupDialogPro(QDialog):
         default_dir = os.getcwd()
         if self.filename and os.path.isabs(self.filename):
             default_dir = os.path.dirname(self.filename)
-        default_full = os.path.join(
-            default_dir, self._default_inp_basename() + ".inp"
-        )
+        default_full = os.path.join(default_dir, self._default_inp_basename() + ".inp")
 
         file_path, _ = QFileDialog.getSaveFileName(
             self, "Save ORCA Input", default_full, "ORCA Input (*.inp);;All Files (*)"
@@ -836,7 +863,8 @@ class OrcaSetupDialogPro(QDialog):
                 # Job 2 reads what Job 1 writes, <saved base>.xyz; the name
                 # in the preview was only a guess until the file was named.
                 if (
-                    self.second_job_enable.isChecked()
+                    not getattr(self, "_text_override", False)
+                    and self.second_job_enable.isChecked()
                     and "xyzfile" in self.second_job_coord_src.currentText()
                     and not self.second_job_xyz_name.text().strip()
                 ):
@@ -851,7 +879,7 @@ class OrcaSetupDialogPro(QDialog):
                 self._saved_inp_content = content
                 self._update_title()
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
+                QMessageBox.critical(self, "Error", f"Failed to save file:\n{e!s}")
 
     def _default_inp_basename(self):
         """Suggested .inp basename (no extension), Auto Suffix applied."""
@@ -1717,7 +1745,9 @@ class OrcaSetupDialogPro(QDialog):
         coord_end = -1
         for idx, line in enumerate(lines):
             m = re.match(
-                r"^\s*\*\s*(xyzfile|pdbfile|xyz|int|internal|gzmt)\b", line, re.I
+                r"^\s*\*\s*(xyzfile|pdbfile|xyz|int|internal|gzmt)\b",
+                line,
+                re.IGNORECASE,
             )
             if m:
                 coord_start = idx
@@ -1788,7 +1818,7 @@ class OrcaSetupDialogPro(QDialog):
                     continue
                 if s.startswith("%"):
                     # One-liner
-                    m_single = re.match(r"^%(\w+)\s+(.*)\s+end", s, re.I)
+                    m_single = re.match(r"^%(\w+)\s+(.*)\s+end", s, re.IGNORECASE)
                     if m_single:
                         bname = m_single.group(1).lower()
                         if bname not in blocks:
@@ -1797,7 +1827,7 @@ class OrcaSetupDialogPro(QDialog):
                         i += 1
                         continue
                     # Multi-liner
-                    m_start = re.match(r"^%(\w+)", s, re.I)
+                    m_start = re.match(r"^%(\w+)", s, re.IGNORECASE)
                     if m_start:
                         bname = m_start.group(1).lower()
                         if bname not in blocks:
@@ -1840,7 +1870,9 @@ class OrcaSetupDialogPro(QDialog):
             k_map = {}
             filtered = []
             for line in lines:
-                m = re.match(r"^\s*(" + "|".join(d_keys) + r")\b\s+(.*)$", line, re.I)
+                m = re.match(
+                    r"^\s*(" + "|".join(d_keys) + r")\b\s+(.*)$", line, re.IGNORECASE
+                )
                 if m:
                     k_map[m.group(1).lower()] = line
                 else:

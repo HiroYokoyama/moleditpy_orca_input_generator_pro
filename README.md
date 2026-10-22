@@ -1,5 +1,29 @@
 # MoleditPy ORCA Input Generator Pro
 
+## Loading existing inputs
+
+Use **File > Import > ORCA Input...** (also available
+without a molecule loaded), or **Load Input File...** in the generator.
+ORCA `.inp` files are displayed verbatim in the editable
+Preview. Supported Job 1 conditions are recovered into the form, including
+resources, keywords, charge and multiplicity. Cartesian and ordinary Z-matrix
+coordinates can be displayed in 3D; ORCA external XYZ paths resolve relative to
+the input file. Unsupported syntax is retained as text with an explanatory
+notice. Additional jobs, custom blocks and unknown commands remain in Preview.
+
+Imported or directly edited text takes priority over generated settings.
+While that text is authoritative, the form is read-only. **Recover Conditions
+from Text** updates the recovered fields and structure without regenerating
+the input. **Reset/Refresh Preview** explicitly returns to generation from
+the recovered settings and current structure; it can discard commands that
+the form cannot represent.
+
+Project files store a single optional `input_text` string only when Preview
+differs from the generated snapshot. Direct edits and complex imported text
+therefore survive a `.pmeprj` save/reopen. Normal generation, reverting to the
+generated text and Reset/Refresh omit this extra field. Loading and editing do
+not write the source input file; saving requires Save or Ctrl+S.
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
 [![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
 ![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)

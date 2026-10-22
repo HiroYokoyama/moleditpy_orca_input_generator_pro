@@ -4,7 +4,7 @@ import os
 from PySide6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "4.1.0"
+PLUGIN_VERSION = "4.1.1"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 
@@ -76,11 +76,12 @@ def run(mw, input_file=None):
     if _context is not None:
         dlg = _context.get_window("dialog")
         if dlg is not None and dlg.isVisible():
+            loaded = True
             if input_file:
-                dlg.load_input_file(input_file)
+                loaded = dlg.load_input_file(input_file)
             dlg.raise_()
             dlg.activateWindow()
-            return
+            return loaded
 
     _dialog_opened = True
 
@@ -114,7 +115,8 @@ def run(mw, input_file=None):
         _context.register_window("dialog", dlg)
     dlg.show()
     if input_file:
-        dlg.load_input_file(input_file)
+        return dlg.load_input_file(input_file)
+    return True
 
 
 def initialize(context):
@@ -142,6 +144,49 @@ def initialize(context):
     add_menu_action = getattr(context, "add_menu_action", None)
     if callable(add_menu_action):
         add_menu_action("File/Import/ORCA Input...", load_input)
+
+    def validate_input(path):
+        from .input_loading import parse_input, read_input
+
+        parse_input(read_input(path), "orca", path)
+
+    def open_input(path):
+        # Reject unrelated .inp formats before creating or changing any dialog.
+        validate_input(path)
+        if not run(context.get_main_window(), input_file=path):
+            raise RuntimeError("Input loading was cancelled or failed.")
+
+    register_opener = getattr(context, "register_file_opener", None)
+    if callable(register_opener):
+        register_opener(".inp", open_input, priority=100)
+
+    def handle_drop(path):
+        if os.path.splitext(path)[1].lower() != ".inp":
+            return False
+        try:
+            validate_input(path)
+        except (OSError, ValueError, UnicodeError):
+            return False
+
+        from PySide6.QtCore import QTimer
+
+        def load_dropped_input():
+            try:
+                if run(context.get_main_window(), input_file=path):
+                    context.set_current_file(path)
+            except Exception:
+                logging.exception("Could not load dropped ORCA input")
+                QMessageBox.warning(
+                    context.get_main_window(), PLUGIN_NAME, "Could not load input file."
+                )
+
+        # Leave the native drop event before opening dialogs or drawing molecules.
+        QTimer.singleShot(0, context.get_main_window(), load_dropped_input)
+        return True
+
+    register_drop = getattr(context, "register_drop_handler", None)
+    if callable(register_drop):
+        register_drop(handle_drop, priority=100)
 
     # Register Persistence Handlers
     def on_save():

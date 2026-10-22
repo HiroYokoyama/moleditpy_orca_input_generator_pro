@@ -2,6 +2,12 @@
 
 ## Loading existing inputs
 
+`.inp` files are registered with MoleditPy's file-opener registry and
+drag-and-drop handlers (priority 100). Open them through the generated File > Import
+entry, launch MoleditPy with an input path, or drop a file onto the main window.
+Drops open the generator after the native drop event finishes; unrelated input
+formats and binary files are declined.
+
 Use **File > Import > ORCA Input...** (also available
 without a molecule loaded), or **Load Input File...** in the generator.
 ORCA `.inp` files are displayed verbatim in the editable

@@ -1,16 +1,4 @@
-"""The Zenodo archive script, driven end to end against a fake Zenodo.
-
-Two production failures live here as regressions:
-
-1. The v1.2.0 archive step died on ``{"status": 400, "message": "Invalid value
-   gpl-3.0."}`` -- the script echoes the parent record's stored licence id back
-   to the API, and this record still carries the pre-SPDX ``gpl-3.0``.
-2. That failure happened *after* the files were committed, so the retry then hit
-   an already-populated draft, where re-registering a key is another 400.
-
-The script is loaded from its path (it lives in scripts/, not in the package)
-and every HTTP call is served by a stub, so nothing here touches the network.
-"""
+"""Exercise native RDM metadata and interrupted uploads through mocked HTTP."""
 
 import importlib.util
 import io
@@ -44,7 +32,12 @@ class FakeZenodo:
     def __init__(
         self, parent_license="gpl-3.0", draft_entries=None, files_shape="list"
     ):
-        self.parent_license = parent_license
+        self.parent_license = {
+            "gpl-3.0": "gpl-3.0-or-later",
+            "gpl-2.0": "gpl-2.0-or-later",
+            "lgpl-3.0": "lgpl-3.0-or-later",
+            "agpl-3.0": "agpl-3.0-or-later",
+        }.get(parent_license, parent_license)
         self.draft_entries = draft_entries or {}
         # "list" is what production returns; "dict" is the documented RDM shape.
         self.files_shape = files_shape
@@ -68,12 +61,42 @@ class FakeZenodo:
                     "publish": f"{DRAFT_SELF}/actions/publish",
                 },
             }
+        if method == "GET" and url == f"{BASE}/records/{RECORD_ID}/versions/latest":
+            return {
+                "id": RECORD_ID,
+                "parent": {"id": "family"},
+                "metadata": {"version": "1.1.2"},
+            }
+        if method == "GET" and url.startswith(f"{BASE}/records/{RECORD_ID}/versions?"):
+            return {"hits": {"hits": []}}
         if method == "GET" and url == DRAFT_SELF:
-            if self.files_shape == "list":
-                return {"files": [{"key": key} for key in self.draft_entries]}
-            return {"files": {"entries": self.draft_entries}}
+            return {
+                "metadata": {
+                    "title": "Test Record",
+                    "version": "1.1.2",
+                    "resource_type": {"id": "software"},
+                    "creators": [
+                        {
+                            "person_or_org": {
+                                "type": "personal",
+                                "name": "Yokoyama, Hiromichi",
+                                "family_name": "Yokoyama",
+                                "given_name": "Hiromichi",
+                            }
+                        }
+                    ],
+                    "rights": [
+                        {"id": self.parent_license, "title": {"en": "Display label"}}
+                    ],
+                }
+            }
         if method == "GET" and url == DRAFT_FILES:
-            return {"entries": [{"key": key} for key in self.draft_entries]}
+            entries = (
+                list(self.draft_entries.values())
+                if self.files_shape == "list"
+                else self.draft_entries
+            )
+            return {"entries": entries}
         if method == "DELETE" and url.startswith(DRAFT_FILES + "/"):
             self.draft_entries.pop(url.rsplit("/", 1)[-1], None)
             return b""
@@ -131,13 +154,14 @@ class ZenodoScriptTestCase(unittest.TestCase):
             patch.object(sys, "argv", argv),
             patch("urllib.request.urlopen", fake.urlopen),
             patch("os.path.exists", return_value=True),
+            patch("os.path.isfile", return_value=True),
             patch("builtins.open", lambda *a, **k: io.BytesIO(b"payload")),
         ):
             update_zenodo.main()
 
 
-class TestLicenceNormalisation(ZenodoScriptTestCase):
-    def test_legacy_gpl3_is_mapped_to_spdx(self):
+class TestNativeLicencePreservation(ZenodoScriptTestCase):
+    def test_native_gpl3_rights_are_preserved_without_display_fields(self):
         fake = FakeZenodo(parent_license="gpl-3.0")
         self.run_script(fake, argv_extra=["--publish"])
         rights = fake.put_metadata["metadata"]["rights"]
@@ -148,7 +172,7 @@ class TestLicenceNormalisation(ZenodoScriptTestCase):
         self.run_script(fake)
         self.assertEqual(fake.put_metadata["metadata"]["rights"], [{"id": "mit"}])
 
-    def test_other_legacy_families_are_mapped(self):
+    def test_native_license_families_are_preserved(self):
         for legacy, spdx in (
             ("gpl-2.0", "gpl-2.0-or-later"),
             ("lgpl-3.0", "lgpl-3.0-or-later"),
@@ -184,7 +208,11 @@ class TestRetryAgainstAPopulatedDraft(ZenodoScriptTestCase):
     def test_deletion_precedes_registration(self):
         fake = FakeZenodo(draft_entries={"app.zip": {"key": "app.zip"}})
         self.run_script(fake)
-        methods = [(m, u) for m, u in fake.calls if m == "DELETE" or u == DRAFT_FILES]
+        methods = [
+            (m, u)
+            for m, u in fake.calls
+            if m == "DELETE" or (m == "POST" and u == DRAFT_FILES)
+        ]
         self.assertEqual(methods[0][0], "DELETE")
 
     def test_unrelated_draft_files_are_left_alone(self):
@@ -208,60 +236,47 @@ class TestRetryAgainstAPopulatedDraft(ZenodoScriptTestCase):
         )
 
 
-class TestExistingDraftFiles(unittest.TestCase):
-    def test_dict_entries(self):
-        draft = {"files": {"entries": {"a.zip": {"key": "a.zip"}}}}
-        self.assertEqual(
-            update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), ["a.zip"]
-        )
-
-    def test_list_entries(self):
-        draft = {"files": {"entries": [{"key": "a.zip"}, {"nokey": 1}]}}
-        self.assertEqual(
-            update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), ["a.zip"]
-        )
-
-    def test_absent_entries_are_fetched_from_the_files_endpoint(self):
-        with patch.object(
-            update_zenodo, "make_request", return_value={"entries": [{"key": "b.zip"}]}
-        ) as fetch:
+class TestUploadPlanning(unittest.TestCase):
+    def test_matching_committed_file_is_not_registered_again(self):
+        with patch.object(update_zenodo, "file_md5", return_value="abc"):
             self.assertEqual(
-                update_zenodo.existing_draft_files({}, DRAFT_FILES, {}), ["b.zip"]
-            )
-        fetch.assert_called_once()
-
-    def test_files_as_a_bare_list(self):
-        # What production actually returned; the dict-only version raised
-        # AttributeError: 'list' object has no attribute 'get'.
-        draft = {"files": [{"key": "a.zip"}, {"key": "source.tar.gz"}]}
-        self.assertEqual(
-            update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}),
-            ["a.zip", "source.tar.gz"],
-        )
-
-    def test_empty_draft_body_falls_back_to_the_files_endpoint(self):
-        draft = {"files": []}
-        with patch.object(
-            update_zenodo, "make_request", return_value=[{"key": "b.zip"}]
-        ):
-            self.assertEqual(
-                update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), ["b.zip"]
+                update_zenodo.plan_file_uploads(
+                    [{"key": "a.zip", "status": "completed", "checksum": "md5:abc"}],
+                    ["a.zip"],
+                ),
+                ([], []),
             )
 
-    def test_unexpected_shape_is_not_fatal(self):
-        draft = {"files": {"entries": "nonsense"}}
-        with patch.object(update_zenodo, "make_request", return_value="nonsense"):
+    def test_incomplete_file_is_replaced_even_with_a_matching_checksum(self):
+        with patch.object(update_zenodo, "file_md5", return_value="abc"):
             self.assertEqual(
-                update_zenodo.existing_draft_files(draft, DRAFT_FILES, {}), []
+                update_zenodo.plan_file_uploads(
+                    {
+                        "a.zip": {
+                            "key": "a.zip",
+                            "status": "pending",
+                            "checksum": "md5:abc",
+                        }
+                    },
+                    ["a.zip"],
+                ),
+                (["a.zip"], ["a.zip"]),
             )
 
-    def test_a_failed_listing_does_not_abort_the_upload(self):
-        with patch.object(
-            update_zenodo, "make_request", side_effect=RuntimeError("HTTP Error 404")
-        ):
-            self.assertEqual(
-                update_zenodo.existing_draft_files({}, DRAFT_FILES, {}), []
-            )
+    def test_failed_listing_aborts_before_registering_or_publishing(self):
+        fake = FakeZenodo()
+        handle = fake.handle
+
+        def fail_listing(request):
+            if request.get_method() == "GET" and request.full_url == DRAFT_FILES:
+                raise RuntimeError("File listing failed")
+            return handle(request)
+
+        fake.handle = fail_listing
+        with self.assertRaisesRegex(RuntimeError, "File listing failed"):
+            ZenodoScriptTestCase().run_script(fake, argv_extra=["--publish"])
+        self.assertIsNone(fake.registered)
+        self.assertFalse(fake.published)
 
 
 class TestVersionGuard(ZenodoScriptTestCase):
@@ -283,6 +298,7 @@ class TestVersionGuard(ZenodoScriptTestCase):
                 patch.object(sys, "argv", argv),
                 patch("urllib.request.urlopen", fake.urlopen),
                 patch("os.path.exists", return_value=True),
+                patch("os.path.isfile", return_value=True),
                 patch("builtins.open", lambda *a, **k: io.BytesIO(b"payload")),
             ):
                 update_zenodo.main()

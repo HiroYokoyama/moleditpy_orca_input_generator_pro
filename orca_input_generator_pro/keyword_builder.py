@@ -1,36 +1,36 @@
-from PySide6 import QtCore
-from PySide6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QLabel,
-    QLineEdit,
-    QSpinBox,
-    QPushButton,
-    QGroupBox,
-    QHBoxLayout,
-    QComboBox,
-    QTextEdit,
-    QTabWidget,
-    QCheckBox,
-    QWidget,
-    QFormLayout,
-    QTableWidget,
-    QTableWidgetItem,
-    QCompleter,
-    QPlainTextEdit,
-    QGridLayout,
-    QSizePolicy,
-    QScrollArea,
-)
-from PySide6.QtCore import Qt
-from rdkit.Chem import rdMolTransforms
-
-from .constants import ALL_ORCA_METHODS, ALL_ORCA_BASIS_SETS, ORCA_SEARCH_CATALOG
-from .mixins import Dialog3DPickingMixin
-from . import orca_blocks
-
 import logging
 import re
+
+from PySide6 import QtCore
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QCompleter,
+    QDialog,
+    QFormLayout,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+from rdkit.Chem import rdMolTransforms
+
+from . import orca_blocks
+from .constants import ALL_ORCA_BASIS_SETS, ALL_ORCA_METHODS, ORCA_SEARCH_CATALOG
+from .mixins import Dialog3DPickingMixin
 
 
 def _restore_apply_button(button):
@@ -63,6 +63,8 @@ def _compute_route_residual(dialog, route):
 
     have = {t.upper() for t in _bang_tokens(rebuilt)}
     for token in _bang_tokens(route):
+        if token.upper() in ("CALCFC", "CALCHESS") and "Calc_Hess true" in rebuilt:
+            continue
         if token.upper() not in have and token not in dialog._route_passthrough:
             dialog._route_passthrough.append(token)
 
@@ -564,9 +566,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "cc-pVDZ-F12-CABS",
                 "cc-pVTZ-F12-CABS",
                 "cc-pVQZ-F12-CABS",
-                "aug-cc-pVDZ/C",
-                "aug-cc-pVTZ/C",
-                "cc-pVTZ-F12-MP2Fit",
             ]
         )
         layout.addRow("CABS Basis (F12):", self.cabs_basis)
@@ -858,8 +857,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.opt_verytight = QCheckBox("VeryTightOpt")
         self.opt_loose = QCheckBox("LooseOpt")
         self.opt_cart = QCheckBox("COpt (Cartesian)")
-        self.opt_calcfc = QCheckBox("CalcFC")
-        self.opt_ts_mode = QCheckBox("CalcHess (for TS)")
+        self.opt_calcfc = QCheckBox("Calculate initial Hessian")
+        self.opt_ts_mode = QCheckBox("Calculate initial Hessian (TS)")
 
         # Row 1: Convergence
         opt_layout.addWidget(self.opt_tight, 0, 0)
@@ -1431,7 +1430,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         # 2. Solvation
         # ALPB is xTB-only in ORCA 6 — auto-reset if a non-semi-empirical method is set
-        if not is_semi and self.solv_model.currentText() == "ALPB":
+        if "XTB" not in method_text.upper() and self.solv_model.currentText() == "ALPB":
             self.solv_model.blockSignals(True)
             self.solv_model.setCurrentText("None")
             self.solv_model.blockSignals(False)
@@ -1526,7 +1525,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         mtype = self.get_inferred_category(self.method_name.currentText())
         if "Semi-Empirical" in mtype:
             route_parts.append(method)
-        elif "3c" in method:
+        elif "3C" in method.upper():
             route_parts.append(method)
         else:
             route_parts.append(method)
@@ -1626,23 +1625,19 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if is_opt_job:
             if self.opt_cart.isChecked():
                 route_parts.append("COpt")
-            if self.opt_calcfc.isChecked():
-                route_parts.append("CalcFC")
-            if self.opt_ts_mode.isChecked():
-                route_parts.append("CalcHess")
 
         # Freq Options
-        if self.freq_group.isVisible():
-            if self.freq_num.isChecked():
-                route_parts.append("NumFreq")
-            if self.freq_raman.isChecked():
-                route_parts.append("Raman")
+        if "Freq" in job_txt and self.freq_num.isChecked():
+            route_parts = [part for part in route_parts if part != "Freq"]
+            route_parts.append("NumFreq")
+        if "Freq" in job_txt and self.freq_raman.isChecked():
+            route_parts.append("Raman")
 
         # Solvation
         solv = self.solv_model.currentText()
         if solv != "None":
             if "CPC(Water)" in solv:
-                route_parts.append("CPC(Water)")
+                route_parts.append("CPCM(Water)")
             else:
                 solvent = self.solvent.currentText()
                 if "CPCM" == solv:
@@ -1821,14 +1816,19 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 blocks.append(f'%moinp "{mf}"')
 
         # 3. Constraints & Scan
+        geom_text = ""
         if getattr(self, "constraint_table", None) is not None:
             geom_text = self.get_constraints_text()
             # Add MaxIter 256 if checked
             if self.iter256_chk.isChecked():
                 geom_text = "  MaxIter 256\n" + geom_text
-
-            if geom_text:
-                blocks.append(f"%geom\n{geom_text}end")
+        if (
+            "Opt" in self.job_type.currentText()
+            or "Scan" in self.job_type.currentText()
+        ) and (self.opt_calcfc.isChecked() or self.opt_ts_mode.isChecked()):
+            geom_text = "  Calc_Hess true\n" + geom_text
+        if geom_text:
+            blocks.append(f"%geom\n{geom_text}end")
 
         return "\n\n".join(blocks)
 
@@ -1849,6 +1849,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.opt_cart.setChecked(False)
         self.opt_calcfc.setChecked(False)
         self.opt_ts_mode.setChecked(False)
+        self.iter256_chk.setChecked(False)
 
         self.freq_num.setChecked(False)
         self.freq_raman.setChecked(False)
@@ -1907,7 +1908,11 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if cleaned_route.startswith("!"):
             cleaned_route = cleaned_route[1:].strip()
 
-        tokens = cleaned_route.split()
+        tokens = (
+            _bang_tokens(route)
+            if route.lstrip().startswith("!")
+            else cleaned_route.split()
+        )
         if not tokens:
             self.ui_ready = True
             return
@@ -1917,6 +1922,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         found_method = False
         found_basis = False
+        self.method_name.setCurrentText("")
+        self.basis_set.setCurrentText("")
 
         for t in tokens:
             tu = t.upper()
@@ -1939,7 +1946,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.job_type.setCurrentText("Optimization + Freq (Opt Freq)")
                 else:
                     self.job_type.setCurrentText("Optimization Only (Opt)")
-            elif tu == "FREQ":
+            elif tu in ("FREQ", "NUMFREQ"):
                 if self.job_type.currentText() == "Optimization Only (Opt)":
                     self.job_type.setCurrentText("Optimization + Freq (Opt Freq)")
                 else:
@@ -2181,12 +2188,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             section = section.strip()
             if not section.startswith("%"):
                 # Check for MaxIter 256 in the ! line or comments just in case
-                if re.search(r"MaxIter\s+256", section, re.I):
+                if re.search(r"MaxIter\s+256", section, re.IGNORECASE):
                     self.iter256_chk.setChecked(True)
                 continue
 
             # Extract block name and content
-            m_block = re.match(r"%(\w+)\s+(.*)", section, re.S | re.I)
+            m_block = re.match(r"%(\w+)\s+(.*)", section, re.DOTALL | re.IGNORECASE)
             if not m_block:
                 continue
 
@@ -2204,28 +2211,29 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
             if bname == "tddft":
                 self.tddft_enable.setChecked(True)
-                nr = re.search(r"NRoots\s+(\d+)", bcontent, re.I)
+                nr = re.search(r"NRoots\s+(\d+)", bcontent, re.IGNORECASE)
                 if nr:
                     self.tddft_nroots.setValue(int(nr.group(1)))
-                ir = re.search(r"IRoot\s+(\d+)", bcontent, re.I)
+                ir = re.search(r"IRoot\s+(\d+)", bcontent, re.IGNORECASE)
                 if ir:
                     self.tddft_iroot.setValue(int(ir.group(1)))
                 self.tddft_triplets.setChecked(
-                    re.search(r"\bTriplets\s+true\b", bcontent, re.I) is not None
+                    re.search(r"\bTriplets\s+true\b", bcontent, re.IGNORECASE)
+                    is not None
                 )
                 # ORCA's default is TDA on: only an explicit "TDA false"
                 # means full TDDFT. Reading absence as false would rewrite
                 # the block as "TDA false" and change the method.
                 self.tddft_tda.setChecked(
-                    re.search(r"\bTDA\s+false\b", bcontent, re.I) is None
+                    re.search(r"\bTDA\s+false\b", bcontent, re.IGNORECASE) is None
                 )
 
             elif bname == "scf":
-                bs_match = re.search(r"BrokenSym\s+([\d,]+)", bcontent, re.I)
+                bs_match = re.search(r"BrokenSym\s+([\d,]+)", bcontent, re.IGNORECASE)
                 if bs_match:
                     self.bs_chk.setChecked(True)
                     self.bs_spins.setText(bs_match.group(1))
-                guess_match = re.search(r"Guess\s+(\w+)", bcontent, re.I)
+                guess_match = re.search(r"Guess\s+(\w+)", bcontent, re.IGNORECASE)
                 if guess_match:
                     _gmap = {
                         "PMODEL": "PModel",
@@ -2238,12 +2246,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     )
 
             elif bname == "geom":
-                if re.search(r"MaxIter\s+256", bcontent, re.I):
+                if re.search(r"\bCalc_Hess\s+true\b", bcontent, re.IGNORECASE):
+                    self.opt_calcfc.setChecked(True)
+                if re.search(r"MaxIter\s+256", bcontent, re.IGNORECASE):
                     self.iter256_chk.setChecked(True)
 
                 # Constraints sub-block
                 const_match = re.search(
-                    r"Constraints\s+(.*?)\s+end", bcontent, re.I | re.S
+                    r"Constraints\s+(.*?)\s+end", bcontent, re.IGNORECASE | re.DOTALL
                 )
                 if const_match:
                     for line in const_match.group(1).splitlines():
@@ -2251,7 +2261,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         if not line:
                             continue
                         # { B 0 1 1.5 C } or { C 0 C }
-                        m = re.search(r"\{\s*(\w)\s+(.*?)\s+C\s*\}", line, re.I)
+                        m = re.search(
+                            r"\{\s*(\w)\s+(.*?)\s+C\s*\}", line, re.IGNORECASE
+                        )
                         if m:
                             c_type_char = m.group(1).upper()
                             parts = m.group(2).split()
@@ -2271,7 +2283,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                                 self._add_parsed_constraint(c_type, idx_str, val, False)
 
                 # Scan sub-block
-                scan_match = re.search(r"Scan\s+(.*?)\s+end", bcontent, re.I | re.S)
+                scan_match = re.search(
+                    r"Scan\s+(.*?)\s+end", bcontent, re.IGNORECASE | re.DOTALL
+                )
                 if scan_match:
                     for line in scan_match.group(1).splitlines():
                         line = line.strip()
@@ -2281,7 +2295,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         m = re.search(
                             r"^([BADC])\s+(.*?)\s*=\s*([^,]+),\s*([^,]+),\s*(\d+)",
                             line,
-                            re.I,
+                            re.IGNORECASE,
                         )
                         if m:
                             c_type_char = m.group(1).upper()

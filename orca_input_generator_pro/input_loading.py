@@ -7,6 +7,91 @@ import re
 
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 logger = logging.getLogger(__name__)
+BOHR_ANGSTROM = 0.529177210903
+
+
+def coordinate_units(route, kind):
+    """Length/angle factors from input units to Angstrom/degrees."""
+    length, angle = 1.0, 1.0
+    if kind == "orca":
+        keywords = " ".join(
+            line.split("#", 1)[0]
+            for line in route.splitlines()
+            if line.lstrip().startswith("!")
+        )
+        for token in keywords.split():
+            if token.casefold() in ("bohrs", "angs"):
+                length = BOHR_ANGSTROM if token.casefold() == "bohrs" else 1.0
+    else:
+        for match in re.finditer(
+            r"\bunits\s*(?:=\s*)?(?:\(([^)]*)\)|([a-z]+))", route, re.IGNORECASE
+        ):
+            for token in re.split(r"[,\s]+", match[1] or match[2]):
+                token = token.casefold()
+                if token in ("au", "bohr", "bohrs"):
+                    length = BOHR_ANGSTROM
+                elif token in ("ang", "angs", "angstrom", "angstroms"):
+                    length = 1.0
+                elif token in ("rad", "radian", "radians"):
+                    angle = 180.0 / math.pi
+                elif token in ("deg", "degree", "degrees"):
+                    angle = 1.0
+    return length, angle
+
+
+def checkpoint_geometry(route):
+    """Gaussian geometry source, including parenthesized option lists."""
+    for match in re.finditer(
+        r"\bgeom\s*(?:=\s*)?(?:\(([^)]*)\)|([a-z]+))", route, re.IGNORECASE
+    ):
+        options = {
+            part.casefold() for part in re.split(r"[,\s]+", match[1] or match[2])
+        }
+        if "allcheck" in options:
+            return "allcheck"
+        if options & {"check", "checkpoint"}:
+            return "check"
+    return ""
+
+
+def coordinates_for_route(lines, kind, route, style="Cartesian"):
+    """Express generated coordinates in the units selected by this job."""
+    length, angle = coordinate_units(route, kind)
+    if (length, angle) == (1.0, 1.0):
+        return lines
+    result = []
+    internal = "Internal" in style or "Z-Matrix" in style
+    standard = kind == "orca" and "int)" in style
+    for line in lines:
+        parts = line.split()
+        if not parts or parts[0].startswith(("#", "!")):
+            result.append(line)
+            continue
+        if internal:
+            variable = re.fullmatch(r"\s*([BAD]\d+)\s*=\s*([-+\d.eE]+)\s*", line)
+            if variable:
+                factor = length if variable[1].startswith("B") else angle
+                result.append(f" {variable[1]}={float(variable[2]) / factor:.10f}")
+                continue
+            positions = (
+                ((4, length), (5, angle), (6, angle))
+                if standard
+                else ((2, length), (4, angle), (6, angle))
+            )
+        else:
+            positions = ((1, length), (2, length), (3, length))
+        # Replace only numeric fields; keep labels, references and basis suffixes.
+        tokens = list(re.finditer(r"\S+", line))
+        for index, factor in reversed(positions):
+            if index < len(tokens):
+                token = tokens[index]
+                try:
+                    number = _number(token[0]) / factor
+                except ValueError:
+                    continue
+                line = line[: token.start()] + f"{number:.10f}" + line[token.end() :]
+        result.append(line)
+    return result
 
 
 def read_input(path):
@@ -51,7 +136,7 @@ def cartesian_rows(lines, gaussian=False):
     return rows
 
 
-def internal_rows(lines, variables="", orca_internal=False):
+def internal_rows(lines, variables="", orca_internal=False, angle_factor=1.0):
     """Display ordinary Z-matrices without evaluating input as Python code."""
     values = {}
     for line in variables.splitlines():
@@ -131,8 +216,10 @@ def internal_rows(lines, variables="", orca_internal=False):
                         cross(axis, subtract(rows[refs[2]][1:], rows[refs[1]][1:]))
                     )
                 tangent = cross(normal, axis)
-                angle = math.radians(value(parts[4]))
-                dihedral = math.radians(value(parts[6])) if index > 2 else 0.0
+                angle = math.radians(value(parts[4]) * angle_factor)
+                dihedral = (
+                    math.radians(value(parts[6]) * angle_factor) if index > 2 else 0.0
+                )
                 direction = tuple(
                     math.cos(angle) * a
                     + math.sin(angle)
@@ -241,6 +328,11 @@ def parse_input(text, kind, source_path=""):
         settings.update(
             route=sections[0].strip(), nproc=1, chk="", oldchk="", link1_enabled=False
         )
+        allcheck = checkpoint_geometry(settings["route"]) == "allcheck"
+        if allcheck:
+            settings["comment"] = ""
+            settings["tail"] = "\n\n".join(sections[1:]).strip()
+            sections = sections[:1]
         if len(sections) > 1:
             settings["comment"] = " ".join(sections[1].splitlines())
         for key, value in re.findall(
@@ -269,7 +361,9 @@ def parse_input(text, kind, source_path=""):
                 except ValueError:
                     try:
                         rows = internal_rows(
-                            geometry_lines[1:], sections[3] if len(sections) > 3 else ""
+                            geometry_lines[1:],
+                            sections[3] if len(sections) > 3 else "",
+                            angle_factor=coordinate_units(settings["route"], kind)[1],
                         )
                         settings["coord_format"] = (
                             "Z-Matrix (variables)" if len(sections) > 3 else "Z-Matrix"
@@ -280,20 +374,17 @@ def parse_input(text, kind, source_path=""):
                 notes.append(
                     "Molecular specification was retained as text; no structure was displayed."
                 )
-        settings["tail"] = sections[3].strip() if len(sections) > 3 else ""
+        if not allcheck:
+            settings["tail"] = sections[3].strip() if len(sections) > 3 else ""
     if len(jobs) > 1:
         notes.append(
             "Additional jobs are preserved in the full text; recovered controls describe Job 1."
         )
     if rows:
-        route = settings.get("route", "")
-        if kind == "orca":
-            bohr = re.search(r"(?i)\bbohrs\b", route)
-        else:
-            bohr = re.search(r"(?i)\bunits\s*=\s*\(?\s*(?:au|bohr|bohrs)\b", route)
-        if bohr:
+        length, _angle = coordinate_units(settings.get("route", ""), kind)
+        if length != 1.0:
             rows = [
-                (symbol, *(coordinate * 0.529177210903 for coordinate in point))
+                (symbol, *(coordinate * length for coordinate in point))
                 for symbol, *point in rows
             ]
     if not rows and not notes:
@@ -324,6 +415,9 @@ def molecule_from_rows(rows, charge=0):
         atom.SetNoImplicit(True)
         if label.endswith(":") or label.lower().endswith("-bq"):
             atom.SetProp("xyz_original_symbol", label)
+            atom.SetProp("custom_symbol", label)
+        elif symbol in ("X", "Bq"):
+            atom.SetProp("custom_symbol", symbol)
         mol.AddAtom(atom)
         conf.SetAtomPosition(index, (x, y, z))
     mol.AddConformer(conf)

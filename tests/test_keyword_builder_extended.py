@@ -334,8 +334,8 @@ def _ui_dialog(method="B3LYP", job="Single Point Energy (SP)", solv_model="None"
     dlg.tab_tddft = object()
     dlg.tddft_enable = _FakeCheck(False)
 
-    dlg.get_inferred_category = (
-        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    dlg.get_inferred_category = lambda text: (
+        OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
     return dlg
 
@@ -437,8 +437,8 @@ class TestSetupUiStructural(unittest.TestCase):
             dlg
         )
         dlg.setup_tddft_tab = lambda: OrcaKeywordBuilderDialog.setup_tddft_tab(dlg)
-        dlg.setup_constraints_tab = (
-            lambda: OrcaKeywordBuilderDialog.setup_constraints_tab(dlg)
+        dlg.setup_constraints_tab = lambda: (
+            OrcaKeywordBuilderDialog.setup_constraints_tab(dlg)
         )
         dlg.setup_props_tab = lambda: OrcaKeywordBuilderDialog.setup_props_tab(dlg)
         dlg.connect_signals = lambda: OrcaKeywordBuilderDialog.connect_signals(dlg)
@@ -974,13 +974,11 @@ def _constraints_dialog(mol=None):
     dlg.job_type = _FakeCombo(["Single Point Energy (SP)"])
     dlg.show_atom_labels_for = lambda *a, **k: None
     dlg.update_preview = lambda: None
-    dlg.update_selection_display = (
-        lambda: OrcaKeywordBuilderDialog.update_selection_display(dlg)
+    dlg.update_selection_display = lambda: (
+        OrcaKeywordBuilderDialog.update_selection_display(dlg)
     )
-    dlg.on_scan_checkbox_state_changed = (
-        lambda r, chk: OrcaKeywordBuilderDialog.on_scan_checkbox_state_changed(
-            dlg, r, chk
-        )
+    dlg.on_scan_checkbox_state_changed = lambda r, chk: (
+        OrcaKeywordBuilderDialog.on_scan_checkbox_state_changed(dlg, r, chk)
     )
     return dlg
 
@@ -1311,8 +1309,8 @@ def _preview_dialog(**overrides):
     dlg.constraint_table.rowCount.return_value = 0
     dlg.tddft_enable = _check(False)
 
-    dlg.get_inferred_category = (
-        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    dlg.get_inferred_category = lambda text: (
+        OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
     dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(
         dlg
@@ -1374,7 +1372,8 @@ class TestUpdatePreviewJobTypes(unittest.TestCase):
     def test_opt_ts_mode_adds_calchess(self):
         dlg = _preview_dialog(job_type=_combo("Transition State Opt (OptTS)"))
         dlg.opt_ts_mode = _check(True)
-        self.assertIn("CalcHess", _preview_route(dlg))
+        _preview_route(dlg)
+        self.assertIn("Calc_Hess true", dlg.preview_str)
 
     def test_freq_options_visible(self):
         freq_group = MagicMock()

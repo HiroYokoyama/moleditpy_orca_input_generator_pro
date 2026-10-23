@@ -13,6 +13,7 @@ SINGLE_LINE_DIRECTIVES = {"moinp", "maxcore", "base", "pointcharges", "id"}
 # Known ones are matched regardless of indentation; an unknown sub-block
 # still works when its "end" is indented (see read_block).
 SUBBLOCK_KEYWORDS = {
+    "definition",
     "constraints",
     "scan",
     "coords",
@@ -51,21 +52,21 @@ def is_single_line_directive(stripped):
     rest = stripped[len(name) + 1 :].strip()
     if name in SINGLE_LINE_DIRECTIVES:
         return True
-    if not rest or re.search(r"\bend\s*$", rest, re.I):
+    if not rest or re.search(r"\bend\s*$", rest, re.IGNORECASE):
         return False
     return rest[0] in "\"'" or re.match(r"^[+-]?\d", rest) is not None
 
 
 def one_liner_body(stripped):
     """'maxiter 200' for '%scf maxiter 200 end', else None."""
-    m = re.match(r"^%\w+\s+(.*?)\s+end\b(.*)$", stripped, re.I | re.S)
+    m = re.match(r"^%\w+\s+(.*?)\s+end\b(.*)$", stripped, re.IGNORECASE | re.DOTALL)
     if not m:
         return None
     return m.group(1)
 
 
 def _is_end(line):
-    return line.strip().lower() == "end"
+    return line.split("#", 1)[0].strip().lower() == "end"
 
 
 def _opens_subblock(line):
@@ -76,7 +77,7 @@ def _opens_subblock(line):
     if first not in SUBBLOCK_KEYWORDS:
         return False
     # "NewGTO "def2-SVP" end" opens and closes on one line.
-    return re.search(r"\bend\s*$", s, re.I) is None
+    return re.search(r"\bend\s*$", s, re.IGNORECASE) is None
 
 
 def _later_unindented_end(lines, start):
@@ -114,7 +115,11 @@ def read_block(lines, start):
                 i += 1
                 continue
             return i + 1, body
-        if _opens_subblock(line):
+        if _opens_subblock(line) or (
+            line.lstrip().startswith("%")
+            and not is_single_line_directive(line.strip())
+            and one_liner_body(line.strip()) is None
+        ):
             depth += 1
         body.append(line)
         i += 1

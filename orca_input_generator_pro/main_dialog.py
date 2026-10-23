@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import re
 
@@ -44,7 +45,7 @@ from .constants import (
     LEGACY_BASIS_MODES,
 )
 from .highlighter import OrcaSyntaxHighlighter
-from .input_loading import InputLoadingMixin
+from .input_loading import InputLoadingMixin, coordinates_for_route
 from .keyword_builder import OrcaKeywordBuilderDialog
 
 # Degrees from 0/180 within which a Z-matrix reference angle is treated as
@@ -364,7 +365,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 "%cpcm ... end",
                 "%rel ... end",
                 "%mp2 ... end",
-                "%dft ... end",
+                "DFT Grid (DefGrid2)",
                 "%frag (BSSE/Counterpoise)",
                 "%freq ... end",
                 "%loc ... end",
@@ -642,7 +643,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 xyz = f"{self._job1_basename()}.xyz"
             parts.append(f"\n* xyzfile {charge} {mult} {xyz}")
         else:
-            coord_lines = self.get_coords_lines()
+            coord_lines = coordinates_for_route(self.get_coords_lines(), "orca", kw)
             parts.append(f"\n* xyz {charge} {mult}")
             parts.extend(coord_lines)
             parts.append("*")
@@ -1077,11 +1078,10 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         elif "%md" in txt:
             template = (
                 "%md\n"
-                "  TimeStep    0.5      # fs — integration step\n"
-                "  TotalTime   1000     # fs — total simulation time\n"
-                "  Temp        300      # K  — target temperature\n"
-                "  InitVel     Random   # Random / Restart\n"
-                "  Thermostat  NHCQ  Tau 10   # NHC Nosé-Hoover, relaxation time (fs)\n"
+                "  Timestep    0.5_fs   # integration step\n"
+                "  Initvel     300_K    # Maxwell-Boltzmann velocities\n"
+                "  Thermostat  NHC 300_K Timecon 10.0_fs\n"
+                "  Run         2000     # 1000 fs\n"
                 "end\n"
             )
         elif "%compound" in txt:
@@ -1092,13 +1092,12 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 "  ! B3LYP def2-SVP Opt TightSCF\n"
                 "  * xyzfile 0 1 start.xyz\n"
                 "Step_End\n"
+                "Read_Geom(1);                         # geometry from step 1\n"
                 "\n"
                 "New_Step                              # --- Step 2: Single-point ---\n"
                 "  ! DLPNO-CCSD(T) def2-TZVP TightSCF\n"
-                "  Read_Geom 1                         # geometry from step 1\n"
-                "  * xyzfile 0 1\n"
                 "Step_End\n"
-                "EndRun\n"
+                "End\n"
             )
         elif "%basis" in txt:
             template = (
@@ -1133,31 +1132,26 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 "  # RI_MP2_ALG 0        # 0=conventional, 1=semi-direct\n"
                 "end\n"
             )
-        elif "%dft" in txt:
+        elif "%dft" in txt or "DFT Grid" in txt:
             template = (
-                "%dft\n"
-                "  Grid        DefGrid2   # DFT integration grid (DefGrid1/DefGrid2/DefGrid3)\n"
-                "  GridX       DefGrid1   # HF exchange grid (can be smaller for speed)\n"
-                "  # IntAcc    4.34       # radial accuracy; each +1 adds ~15 radial points\n"
-                "  # FinalGrid DefGrid3   # final energy grid (default = same as Grid)\n"
-                "  # NewExchangeFunc 1 HF 0.20 end  # custom HF exchange fraction\n"
-                "end\n"
+                "! DefGrid2\n"
+                "# Global integration grid preset, including COSX GridX.\n"
+                "# Use DefGrid3 for a finer preset; no %dft block is needed.\n"
             )
         elif "%frag" in txt:
             template = (
                 "# Counterpoise (BSSE) correction — ORCA 6 fragment approach\n"
                 "# Define fragments; run 3 jobs: dimer, ghost-frag-2, ghost-frag-1\n"
                 "%frag\n"
-                "  NFrags   2              # total number of fragments\n"
-                "  Frag1 = {0,1,2}         # 0-based atom indices for fragment 1\n"
-                "  Frag2 = {3,4,5}         # 0-based atom indices for fragment 2\n"
-                "  Charge1 = 0  Mult1 = 1  # charge & multiplicity of fragment 1\n"
-                "  Charge2 = 0  Mult2 = 1  # charge & multiplicity of fragment 2\n"
+                "  Definition\n"
+                "    1 {0 1 2} end         # edit atom indices for fragment 1\n"
+                "    2 {3 4 5} end         # edit atom indices for fragment 2\n"
+                "  end\n"
                 "end\n"
                 "\n"
                 "# For monomer A calculation (fragment 2 as ghost basis only):\n"
                 "%geom\n"
-                "  GhostFrags {2}          # fragment 2 atoms become ghost atoms\n"
+                "  GhostFrags {2} end      # fragment 2 atoms become ghost atoms\n"
                 "end\n"
             )
         elif "%freq" in txt:
@@ -1204,6 +1198,12 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
             )
             # Switch to Post-Coordinate tab automatically
             self.adv_tabs.setCurrentWidget(self.post_adv_edit)
+
+        if "%frag" in txt:
+            self.adv_tabs.setCurrentWidget(self.post_adv_edit)
+        elif "%compound" in txt:
+            self.coord_format_combo.setCurrentText("None (no coordinates)")
+            self.keywords_edit.clear()
 
         current_widget = self.adv_tabs.currentWidget()
         if isinstance(current_widget, QTextEdit):
@@ -1270,11 +1270,10 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         if "MD" in upper_tokens and "%md" not in combined:
             inserts.append(
                 "%md\n"
-                "  TimeStep    0.5      # fs\n"
-                "  TotalTime   1000     # fs\n"
-                "  Temp        300      # K\n"
-                "  InitVel     Random\n"
-                "  Thermostat  NHCQ  Tau 10\n"
+                "  Timestep    0.5_fs   # integration step\n"
+                "  Initvel     300_K\n"
+                "  Thermostat  NHC 300_K Timecon 10.0_fs\n"
+                "  Run         2000     # 1000 fs\n"
                 "end\n"
             )
 
@@ -1448,6 +1447,8 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
             conf = self.mol.GetConformer()
             for i in range(self.mol.GetNumAtoms()):
                 pos = conf.GetAtomPosition(i)
+                if not all(math.isfinite(v) for v in (pos.x, pos.y, pos.z)):
+                    raise ValueError("Coordinates must be finite.")
                 atom = self.mol.GetAtomWithIdx(i)
                 # Use custom symbol from XYZ Editor if present, otherwise element symbol
                 symbol = (
@@ -1548,6 +1549,10 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 row["refs"].append(refs[2])
                 row["values"].append(get_dihedral(i, refs[0], refs[1], refs[2]))
 
+            if not all(math.isfinite(value) for value in row["values"]):
+                raise ValueError(
+                    "A linear reference plane cannot define this Z-matrix."
+                )
             z_data.append(row)
             defined.append(i)
 
@@ -1688,7 +1693,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
             content.append(f"* xyzfile {charge} {mult} {xyz_name}")
         elif "Cartesian" in coord_style:
             content.append(f"* xyz {charge} {mult}")
-            content.extend(self.get_coords_lines())
+            content.extend(coordinates_for_route(self.get_coords_lines(), "orca", kw))
             content.append("*")
         else:
             is_gzmt = "gzmt" in coord_style
@@ -1704,11 +1709,15 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                     "# ERROR: Z-Matrix generation failed. Falling back to XYZ."
                 )
                 content.append(f"* xyz {charge} {mult}")
-                content.extend(self.get_coords_lines())
+                content.extend(
+                    coordinates_for_route(self.get_coords_lines(), "orca", kw)
+                )
                 content.append("*")
             else:
                 content.append(f"{header} {charge} {mult}")
-                content.extend(zmat_lines)
+                content.extend(
+                    coordinates_for_route(zmat_lines, "orca", kw, coord_style)
+                )
                 content.append("*")
 
         # 4. Post-Coordinate Blocks (%) - Move here
@@ -1743,7 +1752,17 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         # "* xyzfile|pdbfile" line. A "*" line inside a block is not one.
         coord_start = -1
         coord_end = -1
-        for idx, line in enumerate(lines):
+        idx = 0
+        while idx < len(lines):
+            line = lines[idx]
+            stripped = line.strip()
+            if (
+                stripped.startswith("%")
+                and not orca_blocks.is_single_line_directive(stripped)
+                and orca_blocks.one_liner_body(stripped) is None
+            ):
+                idx, _body = orca_blocks.read_block(lines, idx)
+                continue
             m = re.match(
                 r"^\s*\*\s*(xyzfile|pdbfile|xyz|int|internal|gzmt)\b",
                 line,
@@ -1754,10 +1773,11 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 coord_end = idx
                 if m.group(1).lower() not in ("xyzfile", "pdbfile"):
                     for j in range(idx + 1, len(lines)):
-                        if lines[j].strip() == "*":
+                        if lines[j].split("#", 1)[0].strip() == "*":
                             coord_end = j
                             break
                 break
+            idx += 1
 
         if coord_start != -1:
             pre_lines = lines[:coord_start]
@@ -1799,7 +1819,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                         i += 1
                         while i < len(zone_lines):
                             pal += "\n" + zone_lines[i]
-                            if zone_lines[i].strip().lower() == "end":
+                            if zone_lines[i].split("#", 1)[0].strip().lower() == "end":
                                 i += 1
                                 break
                             i += 1
@@ -2108,8 +2128,9 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
             charge = self.charge_spin.value()
             mult = self.mult_spin.value()
             total_electrons = _electron_count(self.mol, charge)
-            is_valid = (total_electrons % 2 == 0 and mult % 2 != 0) or (
-                total_electrons % 2 != 0 and mult % 2 == 0
+            is_valid = (
+                0 <= mult - 1 <= total_electrons
+                and (total_electrons - mult + 1) % 2 == 0
             )
             if is_valid:
                 self.charge_spin.setPalette(self.default_palette)

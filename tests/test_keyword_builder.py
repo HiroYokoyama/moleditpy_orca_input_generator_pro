@@ -258,8 +258,8 @@ def _make_dialog(
     # Bind real methods
     dlg.update_ui_state = lambda: None
     dlg.update_preview = lambda: OrcaKeywordBuilderDialog.update_preview(dlg)
-    dlg.get_inferred_category = (
-        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    dlg.get_inferred_category = lambda text: (
+        OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
     dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(
         dlg
@@ -662,14 +662,14 @@ class TestRouteOptOptions(unittest.TestCase):
 
     def test_calcfc_adds_calcfc(self):
         dlg = _make_dialog(job="Optimization Only (Opt)", calcfc=True)
-        r = _route(dlg)
-        self.assertIn("CalcFC", r)
+        _route(dlg)
+        self.assertIn("Calc_Hess true", dlg.preview_str)
 
     def test_cart_and_calcfc_both_present(self):
         dlg = _make_dialog(job="Optimization Only (Opt)", cart=True, calcfc=True)
         r = _route(dlg)
         self.assertIn("COpt", r)
-        self.assertIn("CalcFC", r)
+        self.assertIn("Calc_Hess true", dlg.preview_str)
 
     def test_sp_no_cart_keyword(self):
         # cart flag only applies to opt jobs
@@ -696,8 +696,8 @@ class TestRouteSolvation(unittest.TestCase):
 
     def test_cpc_water_shortform(self):
         r = self._kw("CPC(Water)")
-        self.assertIn("CPC(Water)", r)
-        self.assertNotIn("CPCM", r)
+        self.assertIn("CPCM(Water)", r)
+        self.assertNotIn("CPC(Water)", r)
 
     def test_none_solvation_no_keyword(self):
         r = _route(_make_dialog(solv="None"))

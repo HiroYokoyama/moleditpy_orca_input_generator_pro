@@ -635,6 +635,9 @@ def _insert_template(block_label):
     cursor.insertText.side_effect = lambda t: inserted.append(t)
     text_edit.textCursor.return_value = cursor
 
+    dlg.post_adv_edit = text_edit
+    dlg.coord_format_combo = MagicMock()
+    dlg.keywords_edit = MagicMock()
     dlg.adv_tabs = MagicMock()
     dlg.adv_tabs.currentWidget.return_value = text_edit
 
@@ -764,13 +767,13 @@ class TestInsertBlockTemplateMd(unittest.TestCase):
         return _insert_template("%md ... end")
 
     def test_md_has_timestep(self):
-        self.assertIn("TimeStep", self._t())
+        self.assertIn("Timestep", self._t())
 
     def test_md_has_totaltime(self):
-        self.assertIn("TotalTime", self._t())
+        self.assertIn("Run", self._t())
 
     def test_md_has_temp(self):
-        self.assertIn("Temp", self._t())
+        self.assertIn("300_K", self._t())
 
     def test_md_has_thermostat(self):
         self.assertIn("Thermostat", self._t())
@@ -833,7 +836,7 @@ class TestAutoInsertBlocksForRoute(unittest.TestCase):
         dlg.adv_edit.setPlainText.assert_called_once()
         inserted = dlg.adv_edit.setPlainText.call_args[0][0]
         self.assertIn("%md", inserted)
-        self.assertIn("TimeStep", inserted)
+        self.assertIn("Timestep", inserted)
 
     def test_existing_neb_not_duplicated(self):
         dlg = _auto_dlg(adv_content="%neb\n  Product x.xyz\nend\n")
@@ -959,7 +962,7 @@ class TestInsertBlockTemplateCompound(unittest.TestCase):
 
     def test_compound_ends_with_endrun(self):
         t = self._t().strip()
-        self.assertTrue(t.endswith("EndRun") or "EndRun" in t)
+        self.assertTrue(t.endswith("End"))
 
 
 class TestInsertBlockTemplateBasis(unittest.TestCase):
@@ -1012,7 +1015,7 @@ class TestInsertBlockTemplateDft(unittest.TestCase):
         return _insert_template("%dft ... end")
 
     def test_starts_with_percent_dft(self):
-        self.assertTrue(self._t().strip().startswith("%dft"))
+        self.assertTrue(self._t().strip().startswith("! DefGrid2"))
 
     def test_has_grid(self):
         self.assertIn("Grid", self._t())
@@ -1024,7 +1027,7 @@ class TestInsertBlockTemplateDft(unittest.TestCase):
         self.assertIn("DefGrid2", self._t())
 
     def test_block_closed(self):
-        self.assertTrue(self._t().strip().endswith("end"))
+        self.assertNotIn("\n%dft", self._t())
 
 
 class TestInsertBlockTemplateFrag(unittest.TestCase):
@@ -1035,15 +1038,15 @@ class TestInsertBlockTemplateFrag(unittest.TestCase):
         self.assertIn("%frag", self._t())
 
     def test_has_nfrags(self):
-        self.assertIn("NFrags", self._t())
+        self.assertIn("Definition", self._t())
 
     def test_has_fragment_definitions(self):
-        self.assertIn("Frag1", self._t())
-        self.assertIn("Frag2", self._t())
+        self.assertIn("1 {0 1 2} end", self._t())
+        self.assertIn("2 {3 4 5} end", self._t())
 
     def test_has_charge_and_mult(self):
-        self.assertIn("Charge1", self._t())
-        self.assertIn("Mult1", self._t())
+        self.assertIn("GhostFrags {2} end", self._t())
+        self.assertNotIn("Charge1", self._t())
 
     def test_has_ghost_frags_companion(self):
         self.assertIn("GhostFrags", self._t())

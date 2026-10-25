@@ -31,6 +31,14 @@ therefore survive a `.pmeprj` save/reopen. Normal generation, reverting to the
 generated text and Reset/Refresh omit this extra field. Loading and editing do
 not write the source input file; saving requires Save or Ctrl+S.
 
+Generated charge/multiplicity selections are retained with the molecule's
+charge signature, so changing the molecule invalidates stale selections.
+External XYZ filenames and resource values outside the initial form ranges
+also survive project reopening. Restoring saved input text preserves the
+project molecule; only explicit input import or Recover Conditions replaces
+its structure. Input export stages the complete text before replacing an
+existing file, keeping the previous file if writing fails.
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
 [![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
 ![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)

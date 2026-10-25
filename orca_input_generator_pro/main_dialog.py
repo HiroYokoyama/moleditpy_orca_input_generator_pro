@@ -45,7 +45,7 @@ from .constants import (
     LEGACY_BASIS_MODES,
 )
 from .highlighter import OrcaSyntaxHighlighter
-from .input_loading import InputLoadingMixin, coordinates_for_route
+from .input_loading import InputLoadingMixin, coordinates_for_route, write_input
 from .keyword_builder import OrcaKeywordBuilderDialog
 
 # Degrees from 0/180 within which a Z-matrix reference angle is treated as
@@ -142,6 +142,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         self.get_molecule = get_molecule
         self.display_molecule = display_molecule
         saved_text = (persistent_settings or {}).get("input_text")
+        saved_charge_mult = (persistent_settings or {}).get("generated_charge_mult")
         self._text_override = False
         self.current_inp_file = None  # path of the .inp file last saved/opened
         self._saved_inp_content = None  # content at last save (for dirty detection)
@@ -153,10 +154,11 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         self.load_presets_from_file()
         self.load_persistent_settings()
         self.calc_initial_charge_mult()
+        self._restore_generated_charge_mult(saved_charge_mult)
         self.ui_ready = True
         self.update_preview()  # earlier calls no-op'd while ui_ready was False
         if isinstance(saved_text, str):
-            self.restore_input_text(saved_text)
+            self.restore_input_text(saved_text, restore_structure=False)
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -726,6 +728,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         # Update persistent settings
         if self.persistent_settings is not None:
             p = self.persistent_settings
+            self._store_generated_charge_mult()
             p["nproc"] = self.nproc_spin.value()
             p["maxcore"] = self.mem_spin.value()
             p["route"] = self.keywords_edit.toPlainText()
@@ -733,6 +736,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
             p["adv_post"] = self.post_adv_edit.toPlainText()
             p["comment"] = self.comment_edit.text()
             p["coord_format"] = self.coord_format_combo.currentText()
+            p["xyzfile"] = self.xyzfile_name_edit.text()
             p["second_job_enabled"] = self.second_job_enable.isChecked()
             p["second_job_maxcore"] = self.second_job_mem_spin.value()
             p["second_job_keywords"] = self.second_job_keywords.toPlainText()
@@ -762,11 +766,11 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         try:
             p = self.persistent_settings
             if "nproc" in p:
-                self.nproc_spin.setValue(p["nproc"])
+                self._restore_spin_value(self.nproc_spin, p["nproc"])
             if "maxcore" in p:
-                self.mem_spin.setValue(p["maxcore"])
+                self._restore_spin_value(self.mem_spin, p["maxcore"])
             if "route" in p:
-                self.keywords_edit.setText(p["route"])
+                self.keywords_edit.setPlainText(p["route"])
             if "adv" in p:
                 self.adv_edit.setPlainText(p["adv"])
             if "adv_post" in p:
@@ -775,10 +779,14 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 self.comment_edit.setText(p["comment"])
             if "coord_format" in p:
                 self.coord_format_combo.setCurrentText(p["coord_format"])
+            if "xyzfile" in p:
+                self.xyzfile_name_edit.setText(p["xyzfile"])
             if "second_job_enabled" in p:
                 self.second_job_enable.setChecked(p["second_job_enabled"])
             if "second_job_maxcore" in p:
-                self.second_job_mem_spin.setValue(p["second_job_maxcore"])
+                self._restore_spin_value(
+                    self.second_job_mem_spin, p["second_job_maxcore"]
+                )
             if "second_job_keywords" in p:
                 self.second_job_keywords.setPlainText(p["second_job_keywords"])
             if "second_job_coord_src" in p:
@@ -871,10 +879,9 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                 ):
                     saved_base = os.path.splitext(os.path.basename(file_path))[0]
                     content = self._rewrite_second_job_xyz(content, saved_base)
+                write_input(file_path, content)
+                if not getattr(self, "_text_override", False):
                     self._write_generated_preview(content)
-
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
 
                 self.current_inp_file = file_path
                 self._saved_inp_content = content
@@ -2203,8 +2210,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
             return
         try:
             content = self.preview_text.toPlainText()
-            with open(self.current_inp_file, "w", encoding="utf-8") as f:
-                f.write(content)
+            write_input(self.current_inp_file, content)
             self._saved_inp_content = content
             self._current_content = content
             self._update_title()

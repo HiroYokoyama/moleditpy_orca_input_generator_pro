@@ -22,6 +22,7 @@ class TestInputLoading(_RealDialogTestCase):
             for name in (
                 "PySide6",
                 "PySide6.QtCore",
+                "PySide6.QtGui",
                 "PySide6.QtWidgets",
                 "rdkit",
                 "rdkit.Chem",
@@ -30,6 +31,12 @@ class TestInputLoading(_RealDialogTestCase):
         context = patch.dict(sys.modules, modules)
         context.start()
         self.addCleanup(context.stop)
+        for child in ("QtCore", "QtGui", "QtWidgets"):
+            binding = patch.object(
+                modules["PySide6"], child, modules[f"PySide6.{child}"]
+            )
+            binding.start()
+            self.addCleanup(binding.stop)
         chemistry = patch.object(modules["rdkit"], "Chem", modules["rdkit.Chem"])
         chemistry.start()
         self.addCleanup(chemistry.stop)
@@ -320,3 +327,88 @@ class TestInputLoading(_RealDialogTestCase):
         reopened = self.make_dialog(self.project_roundtrip(state), mol=_make_water())
         assert reopened.mem_spin.value() == 10
         assert reopened.preview_text.toPlainText() == expected
+
+    def test_extreme_input_integers_are_retained_without_qt_overflow(self):
+        replacements = [
+            ("nprocs 16", "nprocs 999999999999999999999999"),
+            ("maxcore 3456", "maxcore 999999999999999999999999"),
+            ("xyz -1 2", "xyz -999999999999999999999999 2"),
+            ("xyz -1 2", "xyz -1 999999999999999999999999"),
+        ]
+        for old, new in replacements:
+            with self.subTest(field=old):
+                source = INPUT.replace(old, new)
+                dialog = self.make_dialog({"input_text": source}, mol=_make_water())
+                assert dialog.preview_text.toPlainText() == source
+                assert dialog.persistent_settings["input_text"] == source
+                dialog.restore_input_text(source)
+                assert dialog.preview_text.toPlainText() == source
+                assert dialog.persistent_settings["input_text"] == source
+
+    def test_save_as_default_references_survive_project_reopening(self):
+        state = {}
+        dialog = self.make_dialog(state, mol=_make_water(), filename="project.pmeprj")
+        dialog.second_job_enable.setChecked(True)
+        dialog.second_job_coord_src.setCurrentIndex(0)
+        destination = Path(self._tmpdir) / "chosen-name.input"
+        with patch.object(
+            main_dialog_mod.QFileDialog,
+            "getSaveFileName",
+            return_value=(str(destination), ""),
+        ):
+            dialog.save_file()
+        saved = destination.read_text(encoding="utf-8")
+        assert "chosen-name" in saved
+        assert "input_text" not in state
+        dialog.update_preview()
+        assert dialog.preview_text.toPlainText() == saved
+        reopened = self.make_dialog(
+            self.project_roundtrip(state), mol=_make_water(), filename="project.pmeprj"
+        )
+        assert reopened.preview_text.toPlainText() == saved
+
+    def test_cancelled_close_on_reset_keeps_old_input_separate_from_new_project(self):
+        plugin = sys.modules[main_dialog_mod.__package__]
+        state = {}
+        with (
+            patch.object(plugin, "current_settings", state),
+            patch.object(plugin, "_dialog_opened", True),
+            patch.object(plugin, "_context", None),
+        ):
+            context = Mock()
+            plugin.initialize(context)
+            save = context.register_save_handler.call_args.args[0]
+            load = context.register_load_handler.call_args.args[0]
+            reset = context.register_document_reset_handler.call_args.args[0]
+            old = self.make_dialog(
+                state,
+                mol=_make_water(),
+                mark_modified=Mock(),
+                get_molecule=lambda: _make_water(),
+                display_molecule=Mock(),
+            )
+            old.preview_text.setPlainText(INPUT + "\n# old document edits\n")
+            source = old.preview_text.toPlainText()
+            old.show()
+            context.get_window.return_value = old
+            with patch.object(old, "_confirm_discard", return_value=False):
+                reset()
+            assert old.isVisible()
+            assert old.persistent_settings["input_text"] == source
+            assert old.persistent_settings is not plugin.current_settings
+            assert old.mark_modified is None
+            assert old.get_molecule is None
+            assert old.display_molecule is None
+            assert "Detached input" in old.windowTitle()
+            assert save() is None
+            new_source = INPUT + "\n# new document\n"
+            load({"input_text": new_source})
+            old.preview_text.setPlainText(source + "# another old edit\n")
+            assert save()["input_text"] == new_source
+            context.current_molecule = _make_water()
+            context.get_main_window.return_value = None
+            plugin.run(None)
+            reopened = context.register_window.call_args.args[1]
+            self.addCleanup(reopened.deleteLater)
+            assert reopened is not old
+            assert reopened.preview_text.toPlainText() == new_source

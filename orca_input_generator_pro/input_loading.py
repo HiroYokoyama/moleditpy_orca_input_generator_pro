@@ -457,6 +457,20 @@ def molecule_from_rows(rows, charge=0):
 
 
 class InputLoadingMixin:
+    def detach_project(self):
+        """Keep unsaved input without linking it to the host's next document."""
+        self.persistent_settings = dict(self.persistent_settings or {})
+        self.mark_modified = None
+        self.get_molecule = None
+        self.display_molecule = None
+        self._project_detached = True
+        self.input_notice.setText(
+            "This input belongs to the previous project. Save it separately; "
+            "it is no longer linked to the current project."
+        )
+        self.input_notice.show()
+        self._update_title()
+
     @staticmethod
     def _restore_spin_value(widget, value, *, signed=False):
         # Project JSON may contain old, malformed or unusually large values.
@@ -467,6 +481,21 @@ class InputLoadingMixin:
         widget.setMinimum(min(widget.minimum(), value))
         widget.setMaximum(max(widget.maximum(), value))
         widget.setValue(value)
+
+    def _remember_generated_reference(self, key, value):
+        if (
+            self.persistent_settings is None
+            or self.persistent_settings.get(key) == value
+        ):
+            return
+        self.persistent_settings[key] = value
+        if self.mark_modified is not None:
+            try:
+                self.mark_modified()
+            except (RuntimeError, ValueError, AttributeError):
+                logger.exception(
+                    "Could not mark the project modified after input export"
+                )
 
     def _store_generated_charge_mult(self):
         if self.persistent_settings is None:
@@ -618,7 +647,7 @@ class InputLoadingMixin:
                     from .main_dialog import _charge_signature
 
                     self._charge_signature = _charge_signature(mol)
-                except (RuntimeError, ValueError) as exc:
+                except (RuntimeError, ValueError, OverflowError) as exc:
                     notes.append(f"Structure could not be displayed: {exc}")
             if self.mol is not None:
                 from .main_dialog import Chem
@@ -639,10 +668,7 @@ class InputLoadingMixin:
             ):
                 if key in settings:
                     widget = getattr(self, name)
-                    widget.setRange(
-                        min(widget.minimum(), settings[key]),
-                        max(widget.maximum(), settings[key]),
-                    )
+                    self._restore_spin_value(widget, settings[key])
             if (
                 "mem_unit" in settings
                 and self.mem_unit.findText(settings["mem_unit"]) < 0
@@ -664,11 +690,9 @@ class InputLoadingMixin:
             for name, key in (("charge_spin", "charge"), ("mult_spin", "mult")):
                 if key in settings:
                     widget = getattr(self, name)
-                    widget.setRange(
-                        min(widget.minimum(), settings[key]),
-                        max(widget.maximum(), settings[key]),
+                    self._restore_spin_value(
+                        widget, settings[key], signed=key == "charge"
                     )
-                    widget.setValue(settings[key])
             if "xyzfile" in settings:
                 self.xyzfile_name_edit.setText(settings["xyzfile"])
             self._generated_text = self.generate_input_content()

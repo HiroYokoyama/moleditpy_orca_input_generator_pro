@@ -156,9 +156,10 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         self.calc_initial_charge_mult()
         self._restore_generated_charge_mult(saved_charge_mult)
         self.ui_ready = True
-        self.update_preview()  # earlier calls no-op'd while ui_ready was False
         if isinstance(saved_text, str):
             self.restore_input_text(saved_text, restore_structure=False)
+        else:
+            self.update_preview()
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
@@ -596,6 +597,11 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         """
         if self.current_inp_file:
             return os.path.splitext(os.path.basename(self.current_inp_file))[0]
+        saved_base = (getattr(self, "persistent_settings", None) or {}).get(
+            "job1_basename"
+        )
+        if isinstance(saved_base, str) and saved_base:
+            return saved_base
         return self._default_inp_basename()
 
     def _auto_fill_second_job_xyz(self):
@@ -884,6 +890,9 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
                     self._write_generated_preview(content)
 
                 self.current_inp_file = file_path
+                self._remember_generated_reference(
+                    "job1_basename", os.path.splitext(os.path.basename(file_path))[0]
+                )
                 self._saved_inp_content = content
                 self._update_title()
             except Exception as e:
@@ -2197,6 +2206,8 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
 
     def _update_title(self):
         base = f"{PLUGIN_NAME} v{PLUGIN_VERSION}"
+        if getattr(self, "_project_detached", False):
+            base += " — Detached input"
         if self.current_inp_file:
             name = os.path.basename(self.current_inp_file)
             dirty = " *" if self._is_modified() else ""

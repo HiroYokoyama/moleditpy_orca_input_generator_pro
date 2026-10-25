@@ -387,7 +387,7 @@ class TestOnResetDialogPresent(_BaseInitTestCase):
             _init_mod.get_default_settings()["nproc"],
         )
 
-    def test_close_cancelled_defers_reset(self):
+    def test_close_cancelled_detaches_old_input_and_resets_project(self):
         dlg = MagicMock()
         dlg.isVisible.return_value = True  # user hit Cancel on unsaved-changes prompt
         self.ctx.register_window("dialog", dlg)
@@ -397,8 +397,9 @@ class TestOnResetDialogPresent(_BaseInitTestCase):
         self.reset()
 
         dlg.close.assert_called_once()
-        self.assertTrue(_init_mod._dialog_opened)  # not cleared -- deferred
-        self.assertEqual(_init_mod.current_settings["nproc"], 77)
+        dlg.detach_project.assert_called_once()
+        self.assertFalse(_init_mod._dialog_opened)
+        self.assertEqual(_init_mod.current_settings, _init_mod.get_default_settings())
 
     def test_close_raises_is_caught_and_reset_proceeds(self):
         dlg = MagicMock()

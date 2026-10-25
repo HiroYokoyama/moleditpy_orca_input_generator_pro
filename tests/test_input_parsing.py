@@ -156,3 +156,12 @@ def test_utf16_bom_and_binary_rejection(tmp_path):
     path.write_bytes(b"binary\0content")
     with pytest.raises(ValueError):
         loader.read_input(path)
+
+
+def test_input_encoding_failure_keeps_previous_file(tmp_path):
+    destination = tmp_path / "existing.input"
+    destination.write_text("previous input", encoding="utf-8")
+    with pytest.raises(UnicodeEncodeError):
+        loader.write_input(destination, "invalid \ud800")
+    assert destination.read_text(encoding="utf-8") == "previous input"
+    assert list(tmp_path.iterdir()) == [destination]

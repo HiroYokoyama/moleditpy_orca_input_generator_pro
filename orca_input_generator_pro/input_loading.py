@@ -4,10 +4,35 @@ import logging
 import math
 import os
 import re
+import stat
+import tempfile
 
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 logger = logging.getLogger(__name__)
 BOHR_ANGSTROM = 0.529177210903
+
+
+def write_input(path, text):
+    """Replace an input only after its complete UTF-8 text is staged."""
+    path = os.path.realpath(path)
+    mode = stat.S_IMODE(os.stat(path).st_mode) if os.path.exists(path) else None
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=os.path.dirname(path),
+            prefix=".moleditpy-input-",
+            delete=False,
+        ) as handle:
+            temporary = handle.name
+            handle.write(text)
+        if mode is not None:
+            os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def coordinate_units(route, kind):
@@ -432,6 +457,70 @@ def molecule_from_rows(rows, charge=0):
 
 
 class InputLoadingMixin:
+    def detach_project(self):
+        """Keep unsaved input without linking it to the host's next document."""
+        self.persistent_settings = dict(self.persistent_settings or {})
+        self.mark_modified = None
+        self.get_molecule = None
+        self.display_molecule = None
+        self._project_detached = True
+        self.input_notice.setText(
+            "This input belongs to the previous project. Save it separately; "
+            "it is no longer linked to the current project."
+        )
+        self.input_notice.show()
+        self._update_title()
+
+    @staticmethod
+    def _restore_spin_value(widget, value, *, signed=False):
+        # Project JSON may contain old, malformed or unusually large values.
+        if type(value) is not int or not -(2**31) <= value < 2**31:
+            return
+        if not signed and value < 1:
+            return
+        widget.setMinimum(min(widget.minimum(), value))
+        widget.setMaximum(max(widget.maximum(), value))
+        widget.setValue(value)
+
+    def _remember_generated_reference(self, key, value):
+        if (
+            self.persistent_settings is None
+            or self.persistent_settings.get(key) == value
+        ):
+            return
+        self.persistent_settings[key] = value
+        if self.mark_modified is not None:
+            try:
+                self.mark_modified()
+            except (RuntimeError, ValueError, AttributeError):
+                logger.exception(
+                    "Could not mark the project modified after input export"
+                )
+
+    def _store_generated_charge_mult(self):
+        if self.persistent_settings is None:
+            return
+        signature = getattr(self, "_charge_signature", None)
+        if signature is None:
+            self.persistent_settings.pop("generated_charge_mult", None)
+            return
+        self.persistent_settings["generated_charge_mult"] = {
+            "signature": [list(atom) for atom in signature],
+            "charge": self.charge_spin.value(),
+            "mult": self.mult_spin.value(),
+        }
+
+    def _restore_generated_charge_mult(self, saved):
+        if not isinstance(saved, dict):
+            return
+        signature = getattr(self, "_charge_signature", None)
+        if signature is None or saved.get("signature") != [list(a) for a in signature]:
+            return
+        for name, key in (("charge_spin", "charge"), ("mult_spin", "mult")):
+            self._restore_spin_value(
+                getattr(self, name), saved.get(key), signed=key == "charge"
+            )
+
     def _input_text_edited(self):
         if not getattr(self, "ui_ready", False):
             return
@@ -530,7 +619,7 @@ class InputLoadingMixin:
         self._update_title()
         return True
 
-    def restore_input_text(self, text, parsed=None, path=""):
+    def restore_input_text(self, text, parsed=None, path="", *, restore_structure=True):
         from PySide6.QtCore import QSignalBlocker
 
         if parsed is None:
@@ -549,26 +638,29 @@ class InputLoadingMixin:
         self._input_text_required = False
         self.ui_ready = False
         try:
-            if rows:
+            if rows and (restore_structure or self.mol is None):
                 try:
                     mol = molecule_from_rows(rows, settings.get("charge", 0))
-                    if self.display_molecule is not None:
+                    if restore_structure and self.display_molecule is not None:
                         self.display_molecule(mol)
                     self.mol = mol
-                    from .main_dialog import Chem, _charge_signature
+                    from .main_dialog import _charge_signature
 
                     self._charge_signature = _charge_signature(mol)
-                    # Coordinate-only molecules need not reproduce the source
-                    # charge or spin when restored from a project later.
-                    self._input_text_required = settings.get(
-                        "charge", 0
-                    ) != Chem.GetFormalCharge(mol) or settings.get(
-                        "mult", 1
-                    ) != 1 + sum(
-                        atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()
-                    )
-                except (RuntimeError, ValueError) as exc:
+                except (RuntimeError, ValueError, OverflowError) as exc:
                     notes.append(f"Structure could not be displayed: {exc}")
+            if self.mol is not None:
+                from .main_dialog import Chem
+
+                # Even if source text matches generated text, its charge/spin
+                # may differ from what the project molecule would regenerate.
+                self._input_text_required = settings.get(
+                    "charge", 0
+                ) != Chem.GetFormalCharge(self.mol) or settings.get(
+                    "mult", 1
+                ) != 1 + sum(
+                    atom.GetNumRadicalElectrons() for atom in self.mol.GetAtoms()
+                )
             target = self.persistent_settings
             for name, key in (
                 ("nproc_spin", "nproc"),
@@ -576,10 +668,7 @@ class InputLoadingMixin:
             ):
                 if key in settings:
                     widget = getattr(self, name)
-                    widget.setRange(
-                        min(widget.minimum(), settings[key]),
-                        max(widget.maximum(), settings[key]),
-                    )
+                    self._restore_spin_value(widget, settings[key])
             if (
                 "mem_unit" in settings
                 and self.mem_unit.findText(settings["mem_unit"]) < 0
@@ -595,17 +684,15 @@ class InputLoadingMixin:
                     {
                         key: value
                         for key, value in settings.items()
-                        if key not in ("charge", "mult", "xyzfile")
+                        if key not in ("charge", "mult")
                     }
                 )
             for name, key in (("charge_spin", "charge"), ("mult_spin", "mult")):
                 if key in settings:
                     widget = getattr(self, name)
-                    widget.setRange(
-                        min(widget.minimum(), settings[key]),
-                        max(widget.maximum(), settings[key]),
+                    self._restore_spin_value(
+                        widget, settings[key], signed=key == "charge"
                     )
-                    widget.setValue(settings[key])
             if "xyzfile" in settings:
                 self.xyzfile_name_edit.setText(settings["xyzfile"])
             self._generated_text = self.generate_input_content()

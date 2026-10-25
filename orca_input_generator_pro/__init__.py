@@ -4,7 +4,7 @@ import os
 from PySide6.QtWidgets import QMessageBox
 
 PLUGIN_NAME = "ORCA Input Generator Pro"
-PLUGIN_VERSION = "4.1.2"
+PLUGIN_VERSION = "4.1.3"
 PLUGIN_AUTHOR = "HiroYokoyama"
 
 
@@ -75,7 +75,11 @@ def run(mw, input_file=None):
 
     if _context is not None:
         dlg = _context.get_window("dialog")
-        if dlg is not None and dlg.isVisible():
+        if (
+            dlg is not None
+            and dlg.isVisible()
+            and getattr(dlg, "_project_detached", False) is not True
+        ):
             loaded = True
             if input_file:
                 loaded = dlg.load_input_file(input_file)
@@ -216,18 +220,9 @@ def initialize(context):
                 logging.warning("ORCA plugin: could not close dialog on reset: %s", e)
             else:
                 if dlg.isVisible():
-                    # dlg.close() triggered closeEvent()'s "Unsaved Changes"
-                    # prompt and the user chose Cancel (or Save failed), so
-                    # the dialog is still open and still editing this
-                    # document's data. Clearing current_settings / flipping
-                    # _dialog_opened off here would silently disconnect the
-                    # still-open dialog's future saves from the project file
-                    # (on_save() gates on _dialog_opened). Defer the reset.
-                    logging.info(
-                        "ORCA plugin: document reset deferred — dialog "
-                        "close was cancelled by the user"
-                    )
-                    return
+                    # The host has already reset the document; this notification
+                    # cannot veto it. Keep unsaved input in an independent editor.
+                    dlg.detach_project()
 
         _dialog_opened = False
         current_settings.clear()

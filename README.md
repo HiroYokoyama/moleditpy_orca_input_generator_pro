@@ -31,6 +31,24 @@ therefore survive a `.pmeprj` save/reopen. Normal generation, reverting to the
 generated text and Reset/Refresh omit this extra field. Loading and editing do
 not write the source input file; saving requires Save or Ctrl+S.
 
+Generated charge/multiplicity selections are retained with the molecule's
+charge signature, so changing the molecule invalidates stale selections.
+External XYZ filenames and resource values outside the initial form ranges
+also survive project reopening. Restoring saved input text preserves the
+project molecule; only explicit input import or Recover Conditions replaces
+its structure. Input export stages the complete text before replacing an
+existing file, keeping the previous file if writing fails.
+
+Automatic file references chosen by Save As survive project reopening
+without storing an extra full-text copy. Out-of-range resource, charge and
+spin integers remain in authoritative input text without being passed to Qt
+widgets that cannot represent them.
+
+If an input editor remains open after the host resets its document, its
+unsaved text is retained in a detached editor. It cannot modify the next
+project's molecule or saved input; opening the generator creates a separate
+editor for the new project.
+
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
 [![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
 ![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)

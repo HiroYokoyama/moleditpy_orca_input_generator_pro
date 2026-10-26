@@ -163,6 +163,12 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
+        file_actions = QHBoxLayout()
+        file_actions.addStretch()
+        self.load_btn = QPushButton("Load Input File...")
+        self.load_btn.clicked.connect(self.load_input_file)
+        file_actions.addWidget(self.load_btn)
+        main_layout.addLayout(file_actions)
 
         # --- Horizontal Split Layer ---
         content_layout = QHBoxLayout()
@@ -564,9 +570,6 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         self.submit_btn.setVisible(cluster_link.is_available(self.parent()))
 
         btn_layout.addWidget(self.btn_close)
-        self.load_btn = QPushButton("Load Input File...")
-        self.load_btn.clicked.connect(self.load_input_file)
-        btn_layout.addWidget(self.load_btn)
         btn_layout.addWidget(self.submit_btn)
         btn_layout.addWidget(self.save_btn)
 

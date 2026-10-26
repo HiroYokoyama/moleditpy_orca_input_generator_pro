@@ -163,6 +163,12 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
 
     def setup_ui(self):
         main_layout = QVBoxLayout()
+        file_actions = QHBoxLayout()
+        file_actions.addStretch()
+        self.load_btn = QPushButton("Load Input File...")
+        self.load_btn.clicked.connect(self.load_input_file)
+        file_actions.addWidget(self.load_btn)
+        main_layout.addLayout(file_actions)
 
         # --- Horizontal Split Layer ---
         content_layout = QHBoxLayout()
@@ -498,12 +504,6 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
         # --- Right Side: Preview ---
         preview_group = QGroupBox("Input Preview")
         preview_layout = QVBoxLayout()
-        preview_actions = QHBoxLayout()
-        preview_actions.addStretch()
-        self.load_btn = QPushButton("Load Input File...")
-        self.load_btn.clicked.connect(self.load_input_file)
-        preview_actions.addWidget(self.load_btn)
-        preview_layout.addLayout(preview_actions)
         self.preview_text = QTextEdit()
         self.preview_text.textChanged.connect(self._input_text_edited)
         self.preview_text.setReadOnly(False)

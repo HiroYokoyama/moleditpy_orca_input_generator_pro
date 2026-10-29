@@ -1,0 +1,45 @@
+title: "ORCA Input Generator Pro"
+description: "Prepare ORCA calculation inputs in MoleditPy."
+baseurl: "/moleditpy_orca_input_generator_pro"
+url: "https://hiroyokoyama.github.io"
+main_site_url: "https://hiroyokoyama.github.io/python_molecular_editor"
+repository: "HiroYokoyama/moleditpy_orca_input_generator_pro"
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-readme-index
+  - jekyll-relative-links
+
+readme_index:
+  enabled: true
+  remove_originals: false
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: page
+
+exclude:
+  - tests
+  - scripts
+  - __pycache__
+  - .pytest_cache
+  - .ruff_cache
+  - AGENTS.md
+  - CLAUDE.md
+  - CHANGELOG.md
+  - "*.py"
+  - "*.toml"
+  - "*.ini"
+  - "*.cfg"
+  - "*.zip"
+  - "*.whl"
+  - "*.egg-info"
+  - "*.json"

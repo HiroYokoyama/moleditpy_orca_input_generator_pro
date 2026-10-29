@@ -1,5 +1,36 @@
 # MoleditPy ORCA Input Generator Pro
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
+[![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
+![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)
+[![MoleditPy](https://img.shields.io/badge/MoleditPy->=5.0.0-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
+[![GitHub tag](https://img.shields.io/github/v/tag/HiroYokoyama/moleditpy_orca_input_generator_pro?label=version)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/tags)
+[![GitHub Downloads](https://img.shields.io/github/downloads/HiroYokoyama/moleditpy_orca_input_generator_pro/total)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases)
+
+An advanced **ORCA Input Generator** plugin for **MoleditPy**, designed to streamline the creation of high-quality ORCA 5/6 calculation input files with a focus on usability, automation, and interactive 3D tools.
+
+Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro)
+
+![main](img/main.png)
+![builder](img/builder.png)
+![constraints](img/constraints.png)
+
+---
+
+## Key Features
+
+- **Comprehensive Keyword Builder** — tabbed GUI covering methods, job types, solvation, dispersion, TD-DFT, constraints, and all advanced options
+- **Real-time Preview** — generated keyword line and full `.inp` file update instantly as you make changes
+- **Round-trip Parsing** — open an existing `.inp` file and all settings are restored into the UI
+- **Interactive Constraints & Scans** — click atoms in the MoleditPy 3D viewer to define distance/angle/dihedral constraints or coordinate scans
+- **22 Block Templates** — one-click insertion of annotated `%block ... end` stubs for every major ORCA block
+- **Job Manager Relay Tag** — tick a box to fill the `* xyzfile` filename with a configurable tag (`[prevfile:.xyz]` by default) instead of a literal filename; the Job Manager plugin resolves it to the real geometry from whichever job you pick when this input is submitted. The tag text is editable and can be saved as the default for new documents
+- **Syntax Highlighting** — `.inp` files get colour-coded keywords, blocks, and resource headers
+- **Session Persistence** — last-used settings are saved and restored between sessions
+- **599 automated tests** across all features
+
+---
+
 ## Loading existing inputs
 
 `.inp` files are registered with MoleditPy's file-opener registry and
@@ -48,35 +79,6 @@ If an input editor remains open after the host resets its document, its
 unsaved text is retained in a detached editor. It cannot modify the next
 project's molecule or saved input; opening the generator creates a separate
 editor for the new project.
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20726060.svg)](https://doi.org/10.5281/zenodo.20726060)
-[![Tests](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml/badge.svg)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/actions/workflows/tests.yml)
-![Test Coverage](https://img.shields.io/badge/coverage->90%25-green)
-[![MoleditPy](https://img.shields.io/badge/MoleditPy->=5.0.0-3577F7)](https://github.com/HiroYokoyama/python_molecular_editor)
-[![GitHub tag](https://img.shields.io/github/v/tag/HiroYokoyama/moleditpy_orca_input_generator_pro?label=version)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/tags)
-[![GitHub Downloads](https://img.shields.io/github/downloads/HiroYokoyama/moleditpy_orca_input_generator_pro/total)](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro/releases)
-
-An advanced **ORCA Input Generator** plugin for **MoleditPy**, designed to streamline the creation of high-quality ORCA 5/6 calculation input files with a focus on usability, automation, and interactive 3D tools.
-
-Repo: [https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro](https://github.com/HiroYokoyama/moleditpy_orca_input_generator_pro)
-
-![main](img/main.png)
-![builder](img/builder.png)
-![constraints](img/constraints.png)
-
----
-
-## Key Features
-
-- **Comprehensive Keyword Builder** — tabbed GUI covering methods, job types, solvation, dispersion, TD-DFT, constraints, and all advanced options
-- **Real-time Preview** — generated keyword line and full `.inp` file update instantly as you make changes
-- **Round-trip Parsing** — open an existing `.inp` file and all settings are restored into the UI
-- **Interactive Constraints & Scans** — click atoms in the MoleditPy 3D viewer to define distance/angle/dihedral constraints or coordinate scans
-- **22 Block Templates** — one-click insertion of annotated `%block ... end` stubs for every major ORCA block
-- **Job Manager Relay Tag** — tick a box to fill the `* xyzfile` filename with a configurable tag (`[prevfile:.xyz]` by default) instead of a literal filename; the Job Manager plugin resolves it to the real geometry from whichever job you pick when this input is submitted. The tag text is editable and can be saved as the default for new documents
-- **Syntax Highlighting** — `.inp` files get colour-coded keywords, blocks, and resource headers
-- **Session Persistence** — last-used settings are saved and restored between sessions
-- **599 automated tests** across all features
 
 ---
 

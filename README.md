@@ -253,18 +253,3 @@ Provided *as is* without warranty. Users are responsible for validating outputs 
 ## Licensing scope
 
 First-party code in this migration is LGPL-3.0-or-later. See [LICENSE](LICENSE), [COPYING](COPYING) and [dependency/provenance terms](LICENSING.md). Third-party components and historical releases retain their own terms.
-
-## Input correctness audit (2026-10-24)
-
-Generated coordinates honor each job's explicit length/angle units. Loading an
-input and refreshing it preserves ghost-atom identity and physical bond lengths.
-Builders retain omitted/default basis choices rather than injecting their own
-default basis into an existing input. The complete imported/edited text remains
-authoritative until Reset/Refresh.
-
-The initial Hessian control emits `%geom Calc_Hess true`, and numerical
-frequencies do not depend on whether the builder is visible. MD, fragment and
-Compound templates follow the ORCA manual syntax; example geometries, fragment
-indices and run lengths still need to be adapted to the calculation.
-
-See [the audit record](docs/INPUT_AUDIT.md) for sources and validation limits.

@@ -18,6 +18,7 @@ plugins:
 readme_index:
   enabled: true
   remove_originals: false
+  with_frontmatter: true
 
 defaults:
   - scope:
@@ -27,7 +28,6 @@ defaults:
       layout: page
 
 exclude:
-  - tests
   - scripts
   - __pycache__
   - .pytest_cache

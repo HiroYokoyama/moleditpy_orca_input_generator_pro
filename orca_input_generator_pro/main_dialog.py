@@ -47,6 +47,7 @@ from .constants import (
 from .highlighter import OrcaSyntaxHighlighter
 from .input_loading import InputLoadingMixin, coordinates_for_route, write_input
 from .keyword_builder import OrcaKeywordBuilderDialog
+from .wheel_guard import install_wheel_guard
 
 # Degrees from 0/180 within which a Z-matrix reference angle is treated as
 # collinear. Below that the three atoms defining the dihedral's plane are on a
@@ -499,6 +500,7 @@ class OrcaSetupDialogPro(QDialog, InputLoadingMixin):
 
         settings_layout.addStretch()
         scroll_area.setWidget(settings_container)
+        install_wheel_guard(settings_container)
         content_layout.addWidget(scroll_area, 3)  # Left side settings
 
         # --- Right Side: Preview ---

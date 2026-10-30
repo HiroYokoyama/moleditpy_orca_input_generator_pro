@@ -31,6 +31,7 @@ from rdkit.Chem import rdMolTransforms
 from . import orca_blocks
 from .constants import ALL_ORCA_BASIS_SETS, ALL_ORCA_METHODS, ORCA_SEARCH_CATALOG
 from .mixins import Dialog3DPickingMixin
+from .wheel_guard import install_wheel_guard
 
 
 def _restore_apply_button(button):
@@ -1039,6 +1040,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
 
         scroll = QScrollArea()
         scroll.setWidget(inner)
+        install_wheel_guard(inner)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
 

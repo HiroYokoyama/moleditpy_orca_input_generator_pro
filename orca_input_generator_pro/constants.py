@@ -433,6 +433,7 @@ ALL_ORCA_BASIS_SETS = [
     "m6-31G*",
     "ma-def-TZVP",
     "ma-def2-mSVP",
+    "ma-def2-QZVP",
     "ma-def2-QZVPP",
     "ma-def2-SV(P)",
     "ma-def2-SVP",
@@ -1041,7 +1042,6 @@ ORCA_SEARCH_CATALOG = [
         "RI",
         "Standard resolution of identity for MP2/Coupled Cluster",
     ),
-    ("RI / Approximations", "COSX", "Chain-of-spheres exchange without RI-J"),
     (
         "RI / Approximations",
         "RI-SOMF(1X)",

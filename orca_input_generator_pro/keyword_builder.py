@@ -1045,12 +1045,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.keepints_chk = QCheckBox("KeepInts (retain integral file for reuse)")
         layout.addRow(self.keepints_chk)
 
-        layout.addRow(QLabel("— Exchange Approximation —"))
-        self.cosx_chk = QCheckBox(
-            "COSX (chain-of-spheres exchange, without RI Coulomb)"
-        )
-        layout.addRow(self.cosx_chk)
-
         inner.setLayout(layout)
 
         scroll = QScrollArea()
@@ -1372,7 +1366,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.somf_chk,
             self.keepdens_chk,
             self.keepints_chk,
-            self.cosx_chk,
             self.tddft_enable,
             self.tddft_nroots,
             self.tddft_triplets,
@@ -1725,10 +1718,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if fc != "Default":
             route_parts.append(fc)
 
-        # COSX (standalone chain-of-spheres without RI Coulomb)
-        if self.cosx_chk.isChecked():
-            route_parts.append("COSX")
-
         # Spin-orbit coupling
         if self.somf_chk.isChecked():
             route_parts.append("RI-SOMF(1X)")
@@ -1909,7 +1898,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.somf_chk.setChecked(False)
         self.keepdens_chk.setChecked(False)
         self.keepints_chk.setChecked(False)
-        self.cosx_chk.setChecked(False)
         self.tddft_enable.setChecked(False)
         self.constraint_table.setRowCount(0)
 
@@ -2168,8 +2156,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.keepdens_chk.setChecked(True)
             elif tu == "KEEPINTS":
                 self.keepints_chk.setChecked(True)
-            elif tu == "COSX":
-                self.cosx_chk.setChecked(True)
 
             # 14. CABS basis (not in ALL_ORCA_BASIS_SETS — check explicitly)
             _cabs_map = {
@@ -2627,9 +2613,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             elif keyword == "NoRI":
                 self.rijcosx.setChecked(False)
                 self.nori_chk.setChecked(True)
-                applied_to_control = True
-            elif keyword == "COSX":
-                self.cosx_chk.setChecked(True)
                 applied_to_control = True
             elif keyword == "RI-SOMF(1X)":
                 self.somf_chk.setChecked(True)

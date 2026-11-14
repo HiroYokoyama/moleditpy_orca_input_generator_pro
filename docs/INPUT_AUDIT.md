@@ -72,8 +72,9 @@ with the ORCA 6.1 manual. ORCA itself was not run.
   `M062X`, `M06L`, `LC-PBE` and `bt-PNO-EOM-CCSD`.
 - Not in the manual, and removed from the lists: `M06-HF`, `MN12-L`, `wPBE`,
   `wPBEh`, `B97M-rV`, `SSB-D`, `PTPSS-D3`, `SF-EOM-CCSD`, `PM6`,
-  `ma-def2-QZVP`, the solvent `HMPA`, `Grid4`-`Grid6`, `NoGrid`, `NoAux`,
+  the solvent `HMPA`, `Grid4`-`Grid6`, `NoGrid`, `NoAux`,
   the `Hessian` and `NumHess` job types, and the `SOMO` and `OptRot` boxes.
+  (`ma-def2-QZVP` was mistakenly removed here and restored in 4.1.9.)
 - Written as blocks, because ORCA has no such simple keyword: polarizability
   and Raman (`%elprop Polar true`), hyperpolarizability (`%elprop Hyperpol
   true`), the g-tensor (`%eprnmr GTensor true`), zero-field splitting
@@ -87,5 +88,5 @@ with the ORCA 6.1 manual. ORCA itself was not run.
 ALPB selected those solvents are greyed out and a selected one moves to Water;
 a loaded `ALPB(CCl4)` stays in the route as typed.
 
-Kept on purpose: the standalone `COSX` box, for older ORCA versions. The 6.1
-manual neither lists nor rules out `! COSX`.
+4.1.9: `ma-def2-QZVP` is restored to `ALL_ORCA_BASIS_SETS` (exists in ORCA).
+The standalone `COSX` checkbox is removed.

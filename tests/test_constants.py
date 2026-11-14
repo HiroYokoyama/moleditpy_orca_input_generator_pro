@@ -292,6 +292,9 @@ class TestAllOrcaBasisSetsList(unittest.TestCase):
     def test_def2_qzvp_present(self):
         self.assertIn("def2-QZVP", self.basis_sets)
 
+    def test_ma_def2_qzvp_present(self):
+        self.assertIn("ma-def2-QZVP", self.basis_sets)
+
     def test_cc_pvdz_present(self):
         self.assertIn("cc-pVDZ", self.basis_sets)
 

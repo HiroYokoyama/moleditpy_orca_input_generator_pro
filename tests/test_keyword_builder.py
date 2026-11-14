@@ -247,7 +247,6 @@ def _make_dialog(
     dlg.somf_chk = _check(False)
     dlg.keepdens_chk = _check(False)
     dlg.keepints_chk = _check(False)
-    dlg.cosx_chk = _check(False)
     dlg.moread_file = MagicMock()
     dlg.moread_file.text.return_value = ""
     dlg.tddft_enable = _check(False)

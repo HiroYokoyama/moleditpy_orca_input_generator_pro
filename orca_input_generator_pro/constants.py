@@ -591,6 +591,10 @@ LEGACY_METHOD_ALIASES = {
     "DLPNO-EOM-CCSD": "bt-PNO-EOM-CCSD",
 }
 
+# Solvents of the builder's list that ORCA's ALPB model does not have
+# (ORCA 6.1 manual, Table 2.56). C-PCM and SMD have all of them.
+ALPB_UNSUPPORTED_SOLVENTS = ("Cyclohexane", "CCl4", "Pyridine")
+
 ORCA_SEARCH_CATALOG = [
     # --- Job Types & Tasks ---
     ("Job Types", "Opt", "Geometry Optimization to local ground-state minimum"),

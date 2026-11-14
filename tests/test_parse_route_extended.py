@@ -2032,5 +2032,17 @@ class TestParsePropertyBlocks(unittest.TestCase):
         dlg.job_type.setCurrentText.assert_any_call("Optimize H Only (OptH)")
 
 
+class TestParseAlpbUnsupportedSolvent(unittest.TestCase):
+    def test_unsupported_solvent_is_not_loaded_into_alpb(self):
+        dlg = _parse("! XTB2 ALPB(CCl4)")
+        self.assertNotIn(
+            unittest.mock.call("ALPB"), dlg.solv_model.setCurrentText.call_args_list
+        )
+
+    def test_supported_solvent_loads(self):
+        dlg = _parse("! XTB2 ALPB(Toluene)")
+        dlg.solv_model.setCurrentText.assert_any_call("ALPB")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -82,5 +82,9 @@ with the ORCA 6.1 manual. ORCA itself was not run.
 - A route from an older version loads into the corrected form. A removed
   keyword that has no replacement stays in the route as typed.
 
-Left as it was: the standalone `COSX` box. The manual neither lists nor rules
-out `! COSX`.
+4.1.7: ALPB has no Cyclohexane, CCl4 or Pyridine (manual Table 2.56). With
+ALPB selected those solvents are greyed out and a selected one moves to Water;
+a loaded `ALPB(CCl4)` stays in the route as typed.
+
+Kept on purpose: the standalone `COSX` box, for older ORCA versions. The 6.1
+manual neither lists nor rules out `! COSX`.

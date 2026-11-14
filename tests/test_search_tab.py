@@ -117,6 +117,27 @@ def test_orca_search_moread_ticks_the_checkbox_not_raw_text():
     assert dlg._search_extra_keywords == []
 
 
+def test_orca_search_l_opth_is_in_the_catalog_and_written_as_typed():
+    # L-OptH is a real ORCA keyword (accepted by ORCA 6.1.1) with no control
+    # of its own, so it goes to the route as the raw keyword.
+    from orca_input_generator_pro.constants import ORCA_SEARCH_CATALOG
+
+    assert any(k == "L-OptH" and c == "Job Types" for c, k, _ in ORCA_SEARCH_CATALOG)
+    dlg = types.SimpleNamespace(_search_extra_keywords=[], update_preview=MagicMock())
+    dlg._add_search_keyword = (
+        lambda keyword: OrcaKeywordBuilderDialog._add_search_keyword(dlg, keyword)
+    )
+    dlg._apply_search_item = (
+        lambda keyword, category, btn=None: OrcaKeywordBuilderDialog._apply_search_item(
+            dlg, keyword, category, btn
+        )
+    )
+
+    dlg._apply_search_item("L-OptH", "Job Types")
+
+    assert dlg._search_extra_keywords == ["L-OptH"]
+
+
 def test_orca_search_loose_scf_wires_the_checkbox_not_raw_text():
     # scf_loose (and the other SCF tiers besides Tight/VeryTight) have their
     # own mutually-exclusive checkboxes. Regression for a bug where applying

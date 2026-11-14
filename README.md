@@ -89,6 +89,7 @@ editor for the new project.
 | Single Point | *(default)* |
 | Geometry Optimisation | `Opt` |
 | Optimise hydrogens only | `OptH` |
+| Optimise hydrogens only (L-BFGS) | `L-OptH` (search catalog) |
 | Frequency | `Freq` |
 | Opt + Freq | `Opt Freq` |
 | Gradient (SP + forces) | `EnGrad` |

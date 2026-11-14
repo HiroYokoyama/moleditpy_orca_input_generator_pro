@@ -88,7 +88,7 @@ editor for the new project.
 |-----|-------------|
 | Single Point | *(default)* |
 | Geometry Optimisation | `Opt` |
-| Optimise hydrogens only | `Opt` with `%geom optimizehydrogens true` |
+| Optimise hydrogens only | `OptH` |
 | Frequency | `Freq` |
 | Opt + Freq | `Opt Freq` |
 | Gradient (SP + forces) | `EnGrad` |

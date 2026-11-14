@@ -60,3 +60,27 @@ No private input, host settings or calculation data are used as fixtures.
 - Full local suite: 1015 passed, with real PySide6/RDKit installed.
 - Ruff E4/E7/E9/F/I checks and changed-file formatting pass; Python 3.9 syntax parsing passes. Broader workspace lint rules retain pre-existing logging/broad-catch style findings.
 - Integration-grid template uses ! DefGrid2; CABS selection lists complementary auxiliary bases rather than correlation-fitting bases.
+
+## Keyword audit, 2026-11-14 (4.1.6)
+
+Every method, basis set and simple keyword the builder can write was compared
+with the ORCA 6.1 manual. ORCA itself was not run.
+
+- Pople sets take a comma between the heavy-atom and hydrogen parts:
+  `6-31G(d,p)`, `6-311++G(2df,2pd)`. The 34 names without it are corrected.
+- `M06-2X`, `M06-L`, `LC-wPBE` and `DLPNO-EOM-CCSD` become the ORCA keywords
+  `M062X`, `M06L`, `LC-PBE` and `bt-PNO-EOM-CCSD`.
+- Not in the manual, and removed from the lists: `M06-HF`, `MN12-L`, `wPBE`,
+  `wPBEh`, `B97M-rV`, `SSB-D`, `PTPSS-D3`, `SF-EOM-CCSD`, `PM6`,
+  `ma-def2-QZVP`, the solvent `HMPA`, `Grid4`-`Grid6`, `NoGrid`, `NoAux`,
+  the `Hessian` and `NumHess` job types, and the `SOMO` and `OptRot` boxes.
+- Written as blocks, because ORCA has no such simple keyword: polarizability
+  and Raman (`%elprop Polar true`), hyperpolarizability (`%elprop Hyperpol
+  true`), the g-tensor (`%eprnmr GTensor true`), zero-field splitting
+  (`%eprnmr DTensor ssandso`) and hydrogen-only optimization (`Opt` with
+  `%geom optimizehydrogens true`).
+- A route from an older version loads into the corrected form. A removed
+  keyword that has no replacement stays in the route as typed.
+
+Left as it was: the standalone `COSX` box. The manual neither lists nor rules
+out `! COSX`.

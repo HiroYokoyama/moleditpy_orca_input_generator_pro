@@ -61,9 +61,7 @@ def _bang_tokens(text):
 # old token must not be carried through as well.
 _LEGACY_ROUTE_TOKENS = {"OPTH", "RAMAN", "POLARIZABILITY", "HYPERPOL", "EPR", "ZFS"}
 
-_POPLE_NO_COMMA = re.compile(
-    r"^(6-311?\+{0,2}G)\((\d?DF?)(\d?PD?)\)$", re.IGNORECASE
-)
+_POPLE_NO_COMMA = re.compile(r"^(6-311?\+{0,2}G)\((\d?DF?)(\d?PD?)\)$", re.IGNORECASE)
 
 
 def _modern_method_or_basis(token):
@@ -2245,9 +2243,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.zfs_chk.setChecked(True)
 
             elif bname == "geom":
-                if re.search(
-                    r"\boptimizehydrogens\s+true\b", bcontent, re.IGNORECASE
-                ):
+                if re.search(r"\boptimizehydrogens\s+true\b", bcontent, re.IGNORECASE):
                     self.job_type.setCurrentText("Optimize H Only (OptH)")
                 if re.search(r"\bCalc_Hess\s+true\b", bcontent, re.IGNORECASE):
                     self.opt_calcfc.setChecked(True)

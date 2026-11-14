@@ -1338,10 +1338,6 @@ class TestUpdatePreviewJobTypes(unittest.TestCase):
         dlg = _preview_dialog(job_type=_combo("NumGrad (Numerical Gradient)"))
         self.assertIn("NumGrad", _preview_route(dlg))
 
-    def test_numhess(self):
-        dlg = _preview_dialog(job_type=_combo("NumHess (Numerical Hessian only)"))
-        self.assertIn("NumHess", _preview_route(dlg))
-
     def test_esd_abs(self):
         dlg = _preview_dialog(job_type=_combo("ESD(ABS) (Vibronic Absorption)"))
         self.assertIn("ESD(ABS)", _preview_route(dlg))
@@ -1385,7 +1381,7 @@ class TestUpdatePreviewJobTypes(unittest.TestCase):
         dlg.freq_raman = _check(True)
         r = _preview_route(dlg)
         self.assertIn("NumFreq", r)
-        self.assertIn("Raman", r)
+        self.assertNotIn("Raman", r)
 
 
 class TestUpdatePreviewMethodOptions(unittest.TestCase):
@@ -1460,13 +1456,7 @@ class TestUpdatePreviewMethodOptions(unittest.TestCase):
             ("pop_hirshfeld", "Hirshfeld"),
             ("uco_chk", "UCO"),
             ("uno_chk", "UNO"),
-            ("somo_chk", "SOMO"),
             ("fod_chk", "FOD"),
-            ("optrot_chk", "OptRot"),
-            ("pol_chk", "Polarizability"),
-            ("hyperpol_chk", "Hyperpol"),
-            ("epr_chk", "EPR"),
-            ("zfs_chk", "ZFS"),
         ]:
             setattr(dlg, name, _check(True))
         r = _preview_route(dlg)
@@ -1476,13 +1466,7 @@ class TestUpdatePreviewMethodOptions(unittest.TestCase):
             "Hirshfeld",
             "UCO",
             "UNO",
-            "SOMO",
             "FOD",
-            "OptRot",
-            "Polarizability",
-            "Hyperpol",
-            "EPR",
-            "ZFS",
         ]:
             self.assertIn(kw, r)
 

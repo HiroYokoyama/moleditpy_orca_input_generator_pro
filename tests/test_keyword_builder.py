@@ -343,17 +343,11 @@ class TestRouteJobType(unittest.TestCase):
         self.assertIn("Freq", r)
         self.assertNotIn(" Opt", r)
 
-    def test_opth_emits_opth(self):
-        r = self._kw("Optimize H Only (OptH)")
-        self.assertIn("OptH", r)
-
-    def test_opth_does_not_emit_bare_opt(self):
-        # "OptH" is not the same as "Opt" job
-        r = self._kw("Optimize H Only (OptH)")
-        # route should contain "OptH" but the Opt keyword must come from OptH, not "Opt " alone
-        tokens = r.split()
-        self.assertIn("OptH", tokens)
-        self.assertNotIn("Opt", tokens)  # no standalone "Opt" token
+    def test_opth_emits_opt_not_opth(self):
+        # ORCA has no OptH keyword; %geom optimizehydrogens true carries it.
+        tokens = self._kw("Optimize H Only (OptH)").split()
+        self.assertIn("Opt", tokens)
+        self.assertNotIn("OptH", tokens)
 
     def test_optts_emits_optts(self):
         r = self._kw("Transition State Opt (OptTS)")
@@ -377,10 +371,6 @@ class TestRouteJobType(unittest.TestCase):
         r = self._kw("Gradient")
         self.assertIn("Gradient", r)
 
-    def test_hessian_emits_hessian(self):
-        r = self._kw("Hessian")
-        self.assertIn("Hessian", r)
-
 
 class TestRouteConvergence(unittest.TestCase):
     def test_tight_opt_replaces_opt(self):
@@ -398,7 +388,7 @@ class TestRouteConvergence(unittest.TestCase):
 
     def test_opth_with_tight_opt(self):
         r = _route(_make_dialog(job="Optimize H Only (OptH)", tight=True))
-        self.assertIn("OptH", r)
+        self.assertNotIn("OptH", r)
         self.assertIn("TightOpt", r)
 
     def test_optts_with_tight_opt(self):
@@ -839,6 +829,43 @@ class TestGetExtraBlocksText(unittest.TestCase):
         t = OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
         self.assertIn("%geom", t)
         self.assertIn("MaxIter 256", t)
+
+
+class TestBlockOnlyProperties(unittest.TestCase):
+    """ORCA takes these in a %-block; none of them is a simple keyword."""
+
+    def _both(self, job="Single Point Energy (SP)", **checks):
+        dlg = _make_tddft_dialog(enable=False)
+        dlg.job_type = _combo(job)
+        for name, value in checks.items():
+            setattr(dlg, name, _check(value))
+        return _route(dlg).split(), OrcaKeywordBuilderDialog.get_extra_blocks_text(dlg)
+
+    def test_polarizability_and_hyperpol_share_one_elprop_block(self):
+        tokens, blocks = self._both(pol_chk=True, hyperpol_chk=True)
+        self.assertEqual(blocks, "%elprop\n  Polar true\n  Hyperpol true\nend")
+        self.assertNotIn("Polarizability", tokens)
+        self.assertNotIn("Hyperpol", tokens)
+
+    def test_raman_asks_for_the_polarizability(self):
+        tokens, blocks = self._both(job="Frequency Only (Freq)", freq_raman=True)
+        self.assertIn("%elprop\n  Polar true\nend", blocks)
+        self.assertNotIn("Raman", tokens)
+
+    def test_raman_is_ignored_without_a_frequency_job(self):
+        _, blocks = self._both(freq_raman=True)
+        self.assertNotIn("%elprop", blocks)
+
+    def test_epr_and_zfs_share_one_eprnmr_block(self):
+        tokens, blocks = self._both(epr_chk=True, zfs_chk=True)
+        self.assertEqual(blocks, "%eprnmr\n  GTensor true\n  DTensor ssandso\nend")
+        self.assertNotIn("EPR", tokens)
+        self.assertNotIn("ZFS", tokens)
+
+    def test_opth_writes_optimizehydrogens(self):
+        tokens, blocks = self._both(job="Optimize H Only (OptH)")
+        self.assertIn("Opt", tokens)
+        self.assertEqual(blocks, "%geom\n  optimizehydrogens true\nend")
 
 
 if __name__ == "__main__":

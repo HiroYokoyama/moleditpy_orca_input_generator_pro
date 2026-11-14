@@ -88,18 +88,17 @@ editor for the new project.
 |-----|-------------|
 | Single Point | *(default)* |
 | Geometry Optimisation | `Opt` |
+| Optimise hydrogens only | `Opt` with `%geom optimizehydrogens true` |
 | Frequency | `Freq` |
 | Opt + Freq | `Opt Freq` |
 | Gradient (SP + forces) | `EnGrad` |
 | Numerical Gradient | `NumGrad` |
-| Numerical Hessian | `NumHess` |
 | Transition State | `OptTS` |
 | IRC | `IRC` |
 | NMR | `NMR` |
 | Vibronic Absorption | `ESD(ABS)` |
 | Vibronic Fluorescence | `ESD(FLUOR)` |
 | Gradient (general) | `Gradient` |
-| Hessian (general) | `Hessian` |
 
 ---
 
@@ -107,8 +106,8 @@ editor for the new project.
 
 ### DFT
 - **GGA**: BLYP, BP86, PBE, revPBE, OLYP, …
-- **Hybrid**: B3LYP, PBE0, TPSSh, B3PW91, CAM-B3LYP, ωB97X-D3, M06-2X, …
-- **Meta-GGA / meta-Hybrid**: TPSS, M06-L, r2SCAN, …
+- **Hybrid**: B3LYP, PBE0, TPSSh, B3PW91, CAM-B3LYP, ωB97X-D3, M062X, …
+- **Meta-GGA / meta-Hybrid**: TPSS, M06L, r2SCAN, …
 - **Double Hybrid**: B2PLYP, RI-B2PLYP, PWPB95, …
 - **3c composites**: B97-3c, r2SCAN-3c, HF-3c
 
@@ -160,13 +159,11 @@ editor for the new project.
 | Hirshfeld / CM5 charges | Hirshfeld |
 | Uncoupled MOs | UCO |
 | Natural UHF orbitals | UNO |
-| Singly-occupied MOs | SOMO |
 | Fractional occupation density | FOD |
-| Optical rotation | OptRot |
-| Polarizability | Polarizability |
-| Hyperpolarizability | Hyperpol |
-| EPR parameters | EPR |
-| Zero-field splitting | ZFS |
+| Polarizability | `%elprop Polar true` |
+| Hyperpolarizability | `%elprop Hyperpol true` |
+| EPR g-tensor | `%eprnmr GTensor true` |
+| Zero-field splitting | `%eprnmr DTensor ssandso` |
 | Spin-orbit coupling integrals | RI-SOMF(1X) |
 | No RI in properties | NoRI |
 | FrozenCore / NoFrozenCore | FrozenCore / NoFrozenCore |

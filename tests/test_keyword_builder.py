@@ -343,11 +343,15 @@ class TestRouteJobType(unittest.TestCase):
         self.assertIn("Freq", r)
         self.assertNotIn(" Opt", r)
 
-    def test_opth_emits_opt_not_opth(self):
-        # ORCA has no OptH keyword; %geom optimizehydrogens true carries it.
+    def test_opth_emits_opth(self):
+        r = self._kw("Optimize H Only (OptH)")
+        self.assertIn("OptH", r)
+
+    def test_opth_does_not_emit_bare_opt(self):
+        # "OptH" is not the same as "Opt" job
         tokens = self._kw("Optimize H Only (OptH)").split()
-        self.assertIn("Opt", tokens)
-        self.assertNotIn("OptH", tokens)
+        self.assertIn("OptH", tokens)
+        self.assertNotIn("Opt", tokens)  # no standalone "Opt" token
 
     def test_optts_emits_optts(self):
         r = self._kw("Transition State Opt (OptTS)")
@@ -388,7 +392,7 @@ class TestRouteConvergence(unittest.TestCase):
 
     def test_opth_with_tight_opt(self):
         r = _route(_make_dialog(job="Optimize H Only (OptH)", tight=True))
-        self.assertNotIn("OptH", r)
+        self.assertIn("OptH", r)
         self.assertIn("TightOpt", r)
 
     def test_optts_with_tight_opt(self):
@@ -862,10 +866,10 @@ class TestBlockOnlyProperties(unittest.TestCase):
         self.assertNotIn("EPR", tokens)
         self.assertNotIn("ZFS", tokens)
 
-    def test_opth_writes_optimizehydrogens(self):
+    def test_opth_writes_no_geom_block(self):
         tokens, blocks = self._both(job="Optimize H Only (OptH)")
-        self.assertIn("Opt", tokens)
-        self.assertEqual(blocks, "%geom\n  optimizehydrogens true\nend")
+        self.assertIn("OptH", tokens)
+        self.assertNotIn("optimizehydrogens", blocks)
 
 
 if __name__ == "__main__":

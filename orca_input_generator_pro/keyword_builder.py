@@ -60,7 +60,7 @@ def _bang_tokens(text):
 # Simple keywords the builder wrote before 4.1.6 that ORCA does not have. The
 # parser turns each into its control, which now writes the %-block form, so the
 # old token must not be carried through as well.
-_LEGACY_ROUTE_TOKENS = {"OPTH", "RAMAN", "POLARIZABILITY", "HYPERPOL", "EPR", "ZFS"}
+_LEGACY_ROUTE_TOKENS = {"RAMAN", "POLARIZABILITY", "HYPERPOL", "EPR", "ZFS"}
 
 _POPLE_NO_COMMA = re.compile(r"^(6-311?\+{0,2}G)\((\d?DF?)(\d?PD?)\)$", re.IGNORECASE)
 
@@ -1592,8 +1592,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append(opt_conv if opt_conv else "Opt")
             route_parts.append("Freq")
         elif "OptH" in job_txt:
-            # ORCA has no OptH keyword: %geom optimizehydrogens true does it.
-            route_parts.append(opt_conv if opt_conv else "Opt")
+            route_parts.append("OptH")
+            if opt_conv:
+                route_parts.append(opt_conv)
         elif "Only (Opt)" in job_txt:
             route_parts.append(opt_conv if opt_conv else "Opt")
         elif "OptTS" in job_txt:
@@ -1838,8 +1839,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             or "Scan" in self.job_type.currentText()
         ) and (self.opt_calcfc.isChecked() or self.opt_ts_mode.isChecked()):
             geom_text = "  Calc_Hess true\n" + geom_text
-        if "OptH" in self.job_type.currentText():
-            geom_text = "  optimizehydrogens true\n" + geom_text
         if geom_text:
             blocks.append(f"%geom\n{geom_text}end")
 
@@ -2266,8 +2265,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     self.zfs_chk.setChecked(True)
 
             elif bname == "geom":
-                if re.search(r"\boptimizehydrogens\s+true\b", bcontent, re.IGNORECASE):
-                    self.job_type.setCurrentText("Optimize H Only (OptH)")
                 if re.search(r"\bCalc_Hess\s+true\b", bcontent, re.IGNORECASE):
                     self.opt_calcfc.setChecked(True)
                 if re.search(r"MaxIter\s+256", bcontent, re.IGNORECASE):

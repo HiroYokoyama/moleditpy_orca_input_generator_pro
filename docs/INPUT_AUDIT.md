@@ -78,7 +78,8 @@ with the ORCA 6.1 manual. ORCA itself was not run.
   and Raman (`%elprop Polar true`), hyperpolarizability (`%elprop Hyperpol
   true`), the g-tensor (`%eprnmr GTensor true`), zero-field splitting
   (`%eprnmr DTensor ssandso`) and hydrogen-only optimization (`Opt` with
-  `%geom optimizehydrogens true`).
+  `%geom optimizehydrogens true`). 4.1.8 writes `OptH` again: ORCA accepts
+  it although the 6.1 manual documents only `L-OptH`.
 - A route from an older version loads into the corrected form. A removed
   keyword that has no replacement stays in the route as typed.
 

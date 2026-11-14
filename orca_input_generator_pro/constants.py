@@ -598,6 +598,7 @@ ALPB_UNSUPPORTED_SOLVENTS = ("Cyclohexane", "CCl4", "Pyridine")
 ORCA_SEARCH_CATALOG = [
     # --- Job Types & Tasks ---
     ("Job Types", "Opt", "Geometry Optimization to local ground-state minimum"),
+    ("Job Types", "OptH", "Optimize Hydrogens only (keeps heavy atoms constrained)"),
     (
         "Job Types",
         "Freq",
@@ -660,11 +661,6 @@ ORCA_SEARCH_CATALOG = [
         "Job Types",
         "Raman",
         "Raman intensities: a frequency job with %elprop Polar true",
-    ),
-    (
-        "Job Types",
-        "OptH",
-        "Optimize hydrogens only: Opt with %geom optimizehydrogens true",
     ),
     # --- Methods / Functionals ---
     (

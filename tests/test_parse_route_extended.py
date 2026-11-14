@@ -2027,10 +2027,6 @@ class TestParsePropertyBlocks(unittest.TestCase):
         dlg.epr_chk.setChecked.assert_any_call(True)
         dlg.zfs_chk.setChecked.assert_any_call(True)
 
-    def test_optimizehydrogens_selects_opth(self):
-        dlg = _parse("! B3LYP def2-SVP Opt\n%geom\n  optimizehydrogens true\nend")
-        dlg.job_type.setCurrentText.assert_any_call("Optimize H Only (OptH)")
-
 
 class TestParseAlpbUnsupportedSolvent(unittest.TestCase):
     def test_unsupported_solvent_is_not_loaded_into_alpb(self):

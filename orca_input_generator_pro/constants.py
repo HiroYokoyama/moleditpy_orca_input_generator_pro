@@ -602,6 +602,11 @@ ORCA_SEARCH_CATALOG = [
     ("Job Types", "OptH", "Optimize Hydrogens only (keeps heavy atoms constrained)"),
     (
         "Job Types",
+        "L-OptH",
+        "Hydrogen-only optimization with the L-BFGS optimizer (Cartesian, large systems)",
+    ),
+    (
+        "Job Types",
         "Freq",
         "Harmonic Vibrational Frequency Calculation & Thermochemistry",
     ),

@@ -90,3 +90,25 @@ a loaded `ALPB(CCl4)` stays in the route as typed.
 
 4.1.9: `ma-def2-QZVP` is restored to `ALL_ORCA_BASIS_SETS` (exists in ORCA).
 The standalone `COSX` checkbox is removed.
+
+## Final keyword check, 2026-11-14 (4.2.0)
+
+Every keyword removed in 4.1.6 was run through ORCA 6.1.1 (Linux), one
+water input each. ORCA's own output decided: an unknown keyword stops with
+`UNRECOGNIZED OR DUPLICATED KEYWORD(S) IN SIMPLE INPUT LINE`.
+
+- Rejected, so the removal stands: `M06-HF`, `MN12-L`, `wPBE`, `wPBEh`,
+  `B97M-rV`, `SSB-D`, `PTPSS-D3`, `SF-EOM-CCSD`, `PM6`, `LC-wPBE`, `M06-2X`,
+  `M06-L`, `DLPNO-EOM-CCSD`, the comma-less Pople names, `Grid4`-`Grid6`,
+  `NoGrid`, `NoAux`, `Hessian`, `NumHess`, `Raman`, `Polarizability`,
+  `Hyperpol`, `EPR`, `ZFS`, `SOMO`, `OptRot`, `RI-J`, `EPRNMR`, `AutoTRAH`,
+  the standalone `COSX`, `CPCM(HMPA)` and `ALPB` with CCl4, Cyclohexane or
+  Pyridine.
+- Accepted: `OptH`, `ma-def2-QZVP`, `M062X`, `M06L`, `LC-PBE`, the Pople
+  names with the comma, `TRAH`, `NoCOSX`, `%elprop` and `%eprnmr` as the
+  builder writes them, `%geom optimizehydrogens true`, and `L-OptH`.
+- 4.2.0 adds `L-OptH` (hydrogen-only optimization with the L-BFGS
+  optimizer) to the search catalog. It has no control of its own and is
+  written to the route as typed.
+- Not covered: only ORCA 6.1.1 was run; older versions may accept some of
+  the rejected names.

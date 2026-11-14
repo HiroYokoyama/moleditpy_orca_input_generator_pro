@@ -29,7 +29,12 @@ from PySide6.QtWidgets import (
 from rdkit.Chem import rdMolTransforms
 
 from . import orca_blocks
-from .constants import ALL_ORCA_BASIS_SETS, ALL_ORCA_METHODS, ORCA_SEARCH_CATALOG
+from .constants import (
+    ALL_ORCA_BASIS_SETS,
+    ALL_ORCA_METHODS,
+    LEGACY_METHOD_ALIASES,
+    ORCA_SEARCH_CATALOG,
+)
 from .mixins import Dialog3DPickingMixin
 from .wheel_guard import install_wheel_guard
 
@@ -51,6 +56,25 @@ def _bang_tokens(text):
     return tokens
 
 
+# Simple keywords the builder wrote before 4.1.6 that ORCA does not have. The
+# parser turns each into its control, which now writes the %-block form, so the
+# old token must not be carried through as well.
+_LEGACY_ROUTE_TOKENS = {"OPTH", "RAMAN", "POLARIZABILITY", "HYPERPOL", "EPR", "ZFS"}
+
+_POPLE_NO_COMMA = re.compile(r"^(6-311?\+{0,2}G)\((\d?DF?)(\d?PD?)\)$", re.IGNORECASE)
+
+
+def _modern_method_or_basis(token):
+    """The ORCA spelling of a method or Pople basis written by an old version."""
+    alias = LEGACY_METHOD_ALIASES.get(token.upper())
+    if alias:
+        return alias
+    m = _POPLE_NO_COMMA.match(token)
+    if m:
+        return f"{m.group(1)}({m.group(2)},{m.group(3)})"
+    return token
+
+
 def _compute_route_residual(dialog, route):
     """Record what *route* has that the rebuilt route (preview_str) lost.
 
@@ -65,6 +89,10 @@ def _compute_route_residual(dialog, route):
     have = {t.upper() for t in _bang_tokens(rebuilt)}
     for token in _bang_tokens(route):
         if token.upper() in ("CALCFC", "CALCHESS") and "Calc_Hess true" in rebuilt:
+            continue
+        if token.upper() in _LEGACY_ROUTE_TOKENS:
+            continue
+        if _modern_method_or_basis(token).upper() in have:
             continue
         if token.upper() not in have and token not in dialog._route_passthrough:
             dialog._route_passthrough.append(token)
@@ -288,15 +316,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             m.upper()
             for m in [
                 "CAM-B3LYP",
-                "LC-wPBE",
+                "LC-PBE",
                 "wB97",
                 "wB97M-V",
                 "wB97X",
                 "wB97X-D3",
                 "wB97X-D4",
                 "wB97X-V",
-                "wPBE",
-                "wPBEh",
             ]
         ]:
             return "DFT (Range-Separated)"
@@ -308,7 +334,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "DSD-BLYP",
                 "DSD-PBEP86",
                 "mPW2PLYP",
-                "PTPSS-D3",
                 "PWPB95",
             ]
         ]:
@@ -319,17 +344,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "B3LYP",
                 "B3PW91",
                 "B97-3c",
-                "B97M-rV",
                 "B97M-V",
                 "BHandHLYP",
                 "BLYP",
                 "BP",
                 "BP86",
                 "M06",
-                "M06-2X",
-                "M06-HF",
-                "M06-L",
-                "MN12-L",
+                "M062X",
+                "M06L",
                 "MN15",
                 "O3LYP",
                 "OPBE",
@@ -342,7 +364,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "revPBE",
                 "revPBE0",
                 "SCAN",
-                "SSB-D",
                 "TPSS",
                 "TPSSh",
                 "X3LYP",
@@ -403,7 +424,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "DLPNO-CCSD(T1)-F12/D",
                 "DLPNO-CCSD-F12",
                 "DLPNO-CCSD-F12/D",
-                "DLPNO-EOM-CCSD",
+                "bt-PNO-EOM-CCSD",
                 "EA-EOM-CCSD",
                 "EOM-CCSD",
                 "IP-EOM-CCSD",
@@ -416,7 +437,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "QCISD-F12",
                 "QCISD-F12/RI",
                 "RI-CEPA/1-F12",
-                "SF-EOM-CCSD",
                 "STEOM-CCSD",
                 "STEOM-DLPNO-CCSD",
             ]
@@ -450,7 +470,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "NATIVE-XTB1",
                 "NATIVE-XTB2",
                 "PM3",
-                "PM6",
                 "XTB",
                 "XTB0",
                 "XTB1",
@@ -556,7 +575,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         # Auxiliary Basis (RI/RIJCOSX)
         self.aux_basis = QComboBox()
         self.aux_basis.addItems(
-            ["Auto (Def2/J, etc)", "None", "Def2/J", "Def2/JK", "AutoAux", "NoAux"]
+            ["Auto (Def2/J, etc)", "None", "Def2/J", "Def2/JK", "AutoAux"]
         )
         layout.addRow("Aux Basis (RI):", self.aux_basis)
 
@@ -586,17 +605,14 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "B3LYP",
                     "B3PW91",
                     "B97-3c",
-                    "B97M-rV",
                     "B97M-V",
                     "BHandHLYP",
                     "BLYP",
                     "BP",
                     "BP86",
                     "M06",
-                    "M06-2X",
-                    "M06-HF",
-                    "M06-L",
-                    "MN12-L",
+                    "M062X",
+                    "M06L",
                     "MN15",
                     "O3LYP",
                     "OPBE",
@@ -609,7 +625,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "revPBE",
                     "revPBE0",
                     "SCAN",
-                    "SSB-D",
                     "TPSS",
                     "TPSSh",
                     "X3LYP",
@@ -619,15 +634,13 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.method_name.addItems(
                 [
                     "CAM-B3LYP",
-                    "LC-wPBE",
+                    "LC-PBE",
                     "wB97",
                     "wB97M-V",
                     "wB97X",
                     "wB97X-D3",
                     "wB97X-D4",
                     "wB97X-V",
-                    "wPBE",
-                    "wPBEh",
                 ]
             )
         elif "Double Hybrid" in mtype:
@@ -638,7 +651,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "DSD-BLYP",
                     "DSD-PBEP86",
                     "mPW2PLYP",
-                    "PTPSS-D3",
                     "PWPB95",
                 ]
             )
@@ -678,10 +690,9 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "DLPNO-CCSD(T)",
                     "DLPNO-CCSD(T1)",
                     "EOM-CCSD",
-                    "DLPNO-EOM-CCSD",
+                    "bt-PNO-EOM-CCSD",
                     "IP-EOM-CCSD",
                     "EA-EOM-CCSD",
-                    "SF-EOM-CCSD",
                     "STEOM-CCSD",
                     "STEOM-DLPNO-CCSD",
                     "CCSD(T)-F12",
@@ -739,7 +750,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     "NATIVE-XTB1",
                     "NATIVE-XTB2",
                     "PM3",
-                    "PM6",
                     "XTB",
                     "XTB0",
                     "XTB1",
@@ -781,14 +791,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "Scan (Relaxed Surface)",
                 "Transition State Opt (OptTS)",
                 "Gradient",
-                "Hessian",
                 "GOAT (Global Search)",
                 "NEB (Nudged Elastic Band)",
                 "MD (Molecular Dynamics)",
                 "IRC (Intrinsic Reaction Coordinate)",
                 "EnGrad (Single Point + Gradient)",
                 "NumGrad (Numerical Gradient)",
-                "NumHess (Numerical Hessian only)",
                 "ESD(ABS) (Vibronic Absorption)",
                 "ESD(FLUOR) (Vibronic Fluorescence)",
             ]
@@ -883,7 +891,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.freq_group = QGroupBox("Freq Options")
         freq_layout = QHBoxLayout()
         self.freq_num = QCheckBox("NumFreq")
-        self.freq_raman = QCheckBox("Raman")
+        self.freq_raman = QCheckBox("Raman (%elprop Polar)")
         freq_layout.addWidget(self.freq_num)
         freq_layout.addWidget(self.freq_raman)
         self.freq_group.setLayout(freq_layout)
@@ -916,7 +924,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             "Acetone",
             "CCl4",
             "DMF",
-            "HMPA",
             "Pyridine",
         ]
         self.solvent.addItems(solvents)
@@ -945,10 +952,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 "defgrid1",
                 "defgrid2",
                 "defgrid3",
-                "Grid4",
-                "Grid5",
-                "Grid6",
-                "NoGrid",
             ]
         )
         self.grid_combo.setCurrentText("Default")
@@ -975,23 +978,19 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         layout.addRow(self.uco_chk)
 
         layout.addRow(QLabel("— Properties —"))
-        self.pol_chk = QCheckBox("Polarizability")
+        self.pol_chk = QCheckBox("Polarizability (%elprop Polar)")
         layout.addRow(self.pol_chk)
-        self.hyperpol_chk = QCheckBox("Hyperpolarizability (Hyperpol)")
+        self.hyperpol_chk = QCheckBox("Hyperpolarizability (%elprop Hyperpol)")
         layout.addRow(self.hyperpol_chk)
-        self.epr_chk = QCheckBox("EPR g-tensor (! EPR)")
+        self.epr_chk = QCheckBox("EPR g-tensor (%eprnmr GTensor)")
         layout.addRow(self.epr_chk)
-        self.zfs_chk = QCheckBox("Zero-Field Splitting (! ZFS)")
+        self.zfs_chk = QCheckBox("Zero-Field Splitting (%eprnmr DTensor)")
         layout.addRow(self.zfs_chk)
 
         self.uno_chk = QCheckBox("UNO (Unrestricted Natural Orbitals)")
         layout.addRow(self.uno_chk)
-        self.somo_chk = QCheckBox("SOMO (Singly Occupied MO analysis)")
-        layout.addRow(self.somo_chk)
         self.fod_chk = QCheckBox("FOD (Fractional Occupation Density)")
         layout.addRow(self.fod_chk)
-        self.optrot_chk = QCheckBox("OptRot (Optical Rotation)")
-        layout.addRow(self.optrot_chk)
 
         layout.addRow(QLabel("— Output Verbosity —"))
         self.print_level = QComboBox()
@@ -1345,9 +1344,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             self.pop_hirshfeld,
             self.uco_chk,
             self.uno_chk,
-            self.somo_chk,
             self.fod_chk,
-            self.optrot_chk,
             self.pol_chk,
             self.hyperpol_chk,
             self.epr_chk,
@@ -1547,9 +1544,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                     # Def2/J and Def2/JK are Coulomb-only auxiliaries — wrong for WF RI
                     # correlation. Use exact comparison so "Auto (Def2/J, etc)" falls
                     # through to ORCA's default rather than being mapped to AutoAux.
-                    if aux == "NoAux":
-                        route_parts.append("NoAux")
-                    elif aux in ("Def2/J", "Def2/JK"):
+                    if aux in ("Def2/J", "Def2/JK"):
                         route_parts.append("AutoAux")
                     elif aux == "AutoAux":
                         route_parts.append("AutoAux")
@@ -1562,8 +1557,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         route_parts.append("Def2/J")
                     elif "AutoAux" in aux:
                         route_parts.append("AutoAux")
-                    elif "NoAux" in aux:
-                        route_parts.append("NoAux")
 
         # Job Type and Opt Options
         job_txt = self.job_type.currentText()
@@ -1582,9 +1575,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append(opt_conv if opt_conv else "Opt")
             route_parts.append("Freq")
         elif "OptH" in job_txt:
-            route_parts.append("OptH")
-            if opt_conv:
-                route_parts.append(opt_conv)
+            # ORCA has no OptH keyword: %geom optimizehydrogens true does it.
+            route_parts.append(opt_conv if opt_conv else "Opt")
         elif "Only (Opt)" in job_txt:
             route_parts.append(opt_conv if opt_conv else "Opt")
         elif "OptTS" in job_txt:
@@ -1600,16 +1592,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("EnGrad")
         elif "NumGrad" in job_txt:
             route_parts.append("NumGrad")
-        elif "NumHess" in job_txt:
-            route_parts.append("NumHess")
         elif "ESD(ABS)" in job_txt:
             route_parts.append("ESD(ABS)")
         elif "ESD(FLUOR)" in job_txt:
             route_parts.append("ESD(FLUOR)")
         elif "Gradient" in job_txt:
             route_parts.append("Gradient")
-        elif "Hessian" in job_txt:
-            route_parts.append("Hessian")
         elif "NMR" in job_txt:
             route_parts.append("NMR")
         elif "GOAT" in job_txt:
@@ -1632,8 +1620,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         if "Freq" in job_txt and self.freq_num.isChecked():
             route_parts = [part for part in route_parts if part != "Freq"]
             route_parts.append("NumFreq")
-        if "Freq" in job_txt and self.freq_raman.isChecked():
-            route_parts.append("Raman")
 
         # Solvation
         solv = self.solv_model.currentText()
@@ -1702,24 +1688,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             route_parts.append("Hirshfeld")
 
         # Properties
-        if self.pol_chk.isChecked():
-            route_parts.append("Polarizability")
-        if self.hyperpol_chk.isChecked():
-            route_parts.append("Hyperpol")
-        if self.epr_chk.isChecked():
-            route_parts.append("EPR")
-        if self.zfs_chk.isChecked():
-            route_parts.append("ZFS")
         if self.uco_chk.isChecked():
             route_parts.append("UCO")
         if self.uno_chk.isChecked():
             route_parts.append("UNO")
-        if self.somo_chk.isChecked():
-            route_parts.append("SOMO")
         if self.fod_chk.isChecked():
             route_parts.append("FOD")
-        if self.optrot_chk.isChecked():
-            route_parts.append("OptRot")
 
         # Output verbosity
         pl = self.print_level.currentText()
@@ -1808,6 +1782,24 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             if guess != "Default":
                 blocks.append(f"%scf\n  Guess {guess}\nend")
 
+        # 2b-2. Properties ORCA takes in a block, not as a simple keyword
+        elprop = []
+        if self.pol_chk.isChecked() or (
+            "Freq" in self.job_type.currentText() and self.freq_raman.isChecked()
+        ):
+            elprop.append("  Polar true")
+        if self.hyperpol_chk.isChecked():
+            elprop.append("  Hyperpol true")
+        if elprop:
+            blocks.append("%elprop\n" + "\n".join(elprop) + "\nend")
+        eprnmr = []
+        if self.epr_chk.isChecked():
+            eprnmr.append("  GTensor true")
+        if self.zfs_chk.isChecked():
+            eprnmr.append("  DTensor ssandso")
+        if eprnmr:
+            blocks.append("%eprnmr\n" + "\n".join(eprnmr) + "\nend")
+
         # 2c. MOREAD filename via %moinp directive
         if (
             getattr(self, "moread_chk", None) is not None
@@ -1829,6 +1821,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             or "Scan" in self.job_type.currentText()
         ) and (self.opt_calcfc.isChecked() or self.opt_ts_mode.isChecked()):
             geom_text = "  Calc_Hess true\n" + geom_text
+        if "OptH" in self.job_type.currentText():
+            geom_text = "  optimizehydrogens true\n" + geom_text
         if geom_text:
             blocks.append(f"%geom\n{geom_text}end")
 
@@ -1885,9 +1879,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.pop_hirshfeld.setChecked(False)
         self.uco_chk.setChecked(False)
         self.uno_chk.setChecked(False)
-        self.somo_chk.setChecked(False)
         self.fod_chk.setChecked(False)
-        self.optrot_chk.setChecked(False)
         self.pol_chk.setChecked(False)
         self.hyperpol_chk.setChecked(False)
         self.epr_chk.setChecked(False)
@@ -1928,6 +1920,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         self.basis_set.setCurrentText("")
 
         for t in tokens:
+            t = _modern_method_or_basis(t)
             tu = t.upper()
 
             # 1. Method & Basis (Priority)
@@ -1961,12 +1954,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.job_type.setCurrentText("Scan (Relaxed Surface)")
             elif tu == "NMR":
                 self.job_type.setCurrentText("NMR")
-            elif tu in ["GRADIENT", "HESSIAN"]:
-                # Direct match for Gradient/Hessian
-                for i in range(self.job_type.count()):
-                    if tu in self.job_type.itemText(i).upper():
-                        self.job_type.setCurrentIndex(i)
-                        break
+            elif tu == "GRADIENT":
+                self.job_type.setCurrentText("Gradient")
             elif tu == "GOAT":
                 self.job_type.setCurrentText("GOAT (Global Search)")
             elif tu in (
@@ -1991,8 +1980,6 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.job_type.setCurrentText("EnGrad (Single Point + Gradient)")
             elif tu == "NUMGRAD":
                 self.job_type.setCurrentText("NumGrad (Numerical Gradient)")
-            elif tu == "NUMHESS":
-                self.job_type.setCurrentText("NumHess (Numerical Hessian only)")
             elif tu == "ESD(ABS)":
                 self.job_type.setCurrentText("ESD(ABS) (Vibronic Absorption)")
             elif tu == "ESD(FLUOR)":
@@ -2102,12 +2089,8 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                 self.uco_chk.setChecked(True)
             elif tu == "UNO":
                 self.uno_chk.setChecked(True)
-            elif tu == "SOMO":
-                self.somo_chk.setChecked(True)
             elif tu == "FOD":
                 self.fod_chk.setChecked(True)
-            elif tu == "OPTROT":
-                self.optrot_chk.setChecked(True)
 
             # 10b. Properties
             if tu == "POLARIZABILITY":
@@ -2247,7 +2230,21 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
                         _gmap.get(guess_match.group(1).upper(), "Default")
                     )
 
+            elif bname == "elprop":
+                if re.search(r"\bPolar\s+(true|1)\b", bcontent, re.IGNORECASE):
+                    self.pol_chk.setChecked(True)
+                if re.search(r"\bHyperpol\s+(true|1)\b", bcontent, re.IGNORECASE):
+                    self.hyperpol_chk.setChecked(True)
+
+            elif bname == "eprnmr":
+                if re.search(r"\bGTensor\s+(true|1)\b", bcontent, re.IGNORECASE):
+                    self.epr_chk.setChecked(True)
+                if re.search(r"\bDTensor\s+ssandso\b", bcontent, re.IGNORECASE):
+                    self.zfs_chk.setChecked(True)
+
             elif bname == "geom":
+                if re.search(r"\boptimizehydrogens\s+true\b", bcontent, re.IGNORECASE):
+                    self.job_type.setCurrentText("Optimize H Only (OptH)")
                 if re.search(r"\bCalc_Hess\s+true\b", bcontent, re.IGNORECASE):
                     self.opt_calcfc.setChecked(True)
                 if re.search(r"MaxIter\s+256", bcontent, re.IGNORECASE):

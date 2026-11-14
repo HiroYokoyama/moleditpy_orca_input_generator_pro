@@ -456,8 +456,8 @@ def _make_preview_dialog(
 
     dlg.update_ui_state = lambda: None
     dlg.update_preview = lambda: OrcaKeywordBuilderDialog.update_preview(dlg)
-    dlg.get_inferred_category = (
-        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    dlg.get_inferred_category = lambda text: (
+        OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
     dlg.get_extra_blocks_text = lambda: OrcaKeywordBuilderDialog.get_extra_blocks_text(
         dlg
@@ -655,13 +655,7 @@ class TestParseRouteCOptCalcFC(unittest.TestCase):
 class TestParseRouteGradientHessian(unittest.TestCase):
     def test_gradient_sets_job_index(self):
         dlg = _parse("! B3LYP def2-SVP Gradient")
-        # setCurrentIndex should be called with index 8 (Gradient)
-        dlg.job_type.setCurrentIndex.assert_any_call(8)
-
-    def test_hessian_sets_job_index(self):
-        dlg = _parse("! B3LYP def2-SVP Hessian")
-        # setCurrentIndex should be called with index 9 (Hessian)
-        dlg.job_type.setCurrentIndex.assert_any_call(9)
+        dlg.job_type.setCurrentText.assert_any_call("Gradient")
 
 
 # ---------------------------------------------------------------------------
@@ -829,7 +823,7 @@ class TestUpdatePreviewNumFreq(unittest.TestCase):
         )
         dlg.freq_raman = _check(True)
         r = _route(dlg)
-        self.assertIn("Raman", r)
+        self.assertNotIn("Raman", r)
 
     def test_numfreq_not_emitted_when_freq_group_hidden(self):
         dlg = _make_preview_dialog(
@@ -986,11 +980,6 @@ class TestUpdatePreviewWFMethodRI(unittest.TestCase):
         r = self._wf_ri_route("AutoAux")
         self.assertIn("AutoAux", r)
 
-    def test_noaux_with_wf_emits_noaux(self):
-        r = self._wf_ri_route("NoAux")
-        self.assertIn("NoAux", r)
-        self.assertNotIn("Def2/J", r)
-
     def test_auto_with_wf_emits_nothing_extra(self):
         # "Auto (Def2/J, etc)" → let ORCA choose; no explicit aux keyword in route
         r = self._wf_ri_route("Auto (Def2/J, etc)")
@@ -1031,8 +1020,8 @@ def _make_ui_state_dialog(method="B3LYP"):
     dlg.tab_tddft = object()  # sentinel — just needs a stable identity
     dlg.tabs = MagicMock()
     dlg.tabs.indexOf.return_value = 3  # tab index ≥ 0 so enable/disable runs
-    dlg.get_inferred_category = (
-        lambda text: OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
+    dlg.get_inferred_category = lambda text: (
+        OrcaKeywordBuilderDialog.get_inferred_category(dlg, text)
     )
     return dlg
 
@@ -1323,26 +1312,6 @@ class TestNewJobTypesParseRoute(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 
-class TestNumHessPreview(unittest.TestCase):
-    def test_numhess_emits_numhess(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", job="NumHess (Numerical Hessian only)"
-        )
-        self.assertIn("NumHess", _route(dlg).split())
-
-    def test_numhess_does_not_emit_freq(self):
-        dlg = _make_preview_dialog(
-            method="B3LYP", job="NumHess (Numerical Hessian only)"
-        )
-        self.assertNotIn("Freq", _route(dlg).split())
-
-
-class TestNumHessParseRoute(unittest.TestCase):
-    def test_parse_numhess(self):
-        dlg = _parse("! B3LYP def2-SVP NumHess")
-        dlg.job_type.setCurrentText.assert_any_call("NumHess (Numerical Hessian only)")
-
-
 class TestUnoSomoFodOptRotPreview(unittest.TestCase):
     """update_preview emits UNO, SOMO, FOD, OptRot when checkboxes checked."""
 
@@ -1355,14 +1324,8 @@ class TestUnoSomoFodOptRotPreview(unittest.TestCase):
     def test_uno_emitted(self):
         self.assertIn("UNO", self._r(uno_chk=True).split())
 
-    def test_somo_emitted(self):
-        self.assertIn("SOMO", self._r(somo_chk=True).split())
-
     def test_fod_emitted(self):
         self.assertIn("FOD", self._r(fod_chk=True).split())
-
-    def test_optrot_emitted(self):
-        self.assertIn("OptRot", self._r(optrot_chk=True).split())
 
     def test_none_by_default(self):
         r = self._r()
@@ -1375,17 +1338,9 @@ class TestUnoSomoFodOptRotParseRoute(unittest.TestCase):
         dlg = _parse("! B3LYP def2-SVP UNO")
         dlg.uno_chk.setChecked.assert_any_call(True)
 
-    def test_parse_somo(self):
-        dlg = _parse("! B3LYP def2-SVP SOMO")
-        dlg.somo_chk.setChecked.assert_any_call(True)
-
     def test_parse_fod(self):
         dlg = _parse("! B3LYP def2-SVP FOD")
         dlg.fod_chk.setChecked.assert_any_call(True)
-
-    def test_parse_optrot(self):
-        dlg = _parse("! B3LYP def2-SVP OptRot")
-        dlg.optrot_chk.setChecked.assert_any_call(True)
 
 
 class TestPrintLevelPreview(unittest.TestCase):
@@ -1552,16 +1507,16 @@ class TestPropertiesPreview(unittest.TestCase):
         return _route(dlg)
 
     def test_polarizability_emitted(self):
-        self.assertIn("Polarizability", self._r(pol_chk=True).split())
+        self.assertNotIn("Polarizability", self._r(pol_chk=True).split())
 
     def test_hyperpol_emitted(self):
-        self.assertIn("Hyperpol", self._r(hyperpol_chk=True).split())
+        self.assertNotIn("Hyperpol", self._r(hyperpol_chk=True).split())
 
     def test_epr_emitted(self):
-        self.assertIn("EPR", self._r(epr_chk=True).split())
+        self.assertNotIn("EPR", self._r(epr_chk=True).split())
 
     def test_zfs_emitted(self):
-        self.assertIn("ZFS", self._r(zfs_chk=True).split())
+        self.assertNotIn("ZFS", self._r(zfs_chk=True).split())
 
     def test_uco_emitted(self):
         self.assertIn("UCO", self._r(uco_chk=True).split())
@@ -2024,6 +1979,57 @@ class TestKeepDensIntsParseRoute(unittest.TestCase):
         dlg = _parse("! B3LYP def2-SVP KeepDens KeepInts")
         dlg.keepdens_chk.setChecked.assert_any_call(True)
         dlg.keepints_chk.setChecked.assert_any_call(True)
+
+
+class TestParseLegacySpellings(unittest.TestCase):
+    """Routes written before 4.1.6 load into the ORCA spelling."""
+
+    def test_method_aliases(self):
+        for old, new in (
+            ("M06-2X", "M062X"),
+            ("M06-L", "M06L"),
+            ("LC-wPBE", "LC-PBE"),
+            ("DLPNO-EOM-CCSD", "bt-PNO-EOM-CCSD"),
+        ):
+            dlg = _parse(f"! {old} def2-SVP")
+            dlg.method_name.setCurrentText.assert_any_call(new)
+
+    def test_pople_basis_gets_its_comma(self):
+        for old, new in (
+            ("6-31G(dp)", "6-31G(d,p)"),
+            ("6-311++G(2df2pd)", "6-311++G(2df,2pd)"),
+            ("6-31+G(2dp)", "6-31+G(2d,p)"),
+        ):
+            dlg = _parse(f"! B3LYP {old}")
+            dlg.basis_set.setCurrentText.assert_any_call(new)
+
+    def test_comma_form_is_read_as_is(self):
+        dlg = _parse("! B3LYP 6-31G(d,p)")
+        dlg.basis_set.setCurrentText.assert_any_call("6-31G(d,p)")
+
+    def test_old_property_keywords_set_their_controls(self):
+        dlg = _parse("! B3LYP def2-SVP Polarizability Hyperpol EPR ZFS OptH")
+        for name in ("pol_chk", "hyperpol_chk", "epr_chk", "zfs_chk"):
+            getattr(dlg, name).setChecked.assert_any_call(True)
+        dlg.job_type.setCurrentText.assert_any_call("Optimize H Only (OptH)")
+
+
+class TestParsePropertyBlocks(unittest.TestCase):
+    def test_elprop(self):
+        dlg = _parse("! B3LYP def2-SVP\n%elprop\n  Polar true\n  Hyperpol true\nend")
+        dlg.pol_chk.setChecked.assert_any_call(True)
+        dlg.hyperpol_chk.setChecked.assert_any_call(True)
+
+    def test_eprnmr(self):
+        dlg = _parse(
+            "! B3LYP def2-SVP\n%eprnmr\n  GTensor true\n  DTensor ssandso\nend"
+        )
+        dlg.epr_chk.setChecked.assert_any_call(True)
+        dlg.zfs_chk.setChecked.assert_any_call(True)
+
+    def test_optimizehydrogens_selects_opth(self):
+        dlg = _parse("! B3LYP def2-SVP Opt\n%geom\n  optimizehydrogens true\nend")
+        dlg.job_type.setCurrentText.assert_any_call("Optimize H Only (OptH)")
 
 
 if __name__ == "__main__":

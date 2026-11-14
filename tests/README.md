@@ -76,7 +76,7 @@ Extends `test_keyword_builder.py` with branches not covered there.
 | Tokens / branches tested |
 |---|
 | SCF convergence: `SloppySCF` … `ExtremeSCF` |
-| `NumFreq`, `Raman` |
+| `NumFreq`, Raman as `%elprop Polar true` |
 | `RIJCOSX`, `RI`, `Def2/J`, `Def2/JK` auxiliary basis tokens |
 | `NBO` |
 | Dispersion: `D3BJ`, `D3Zero`, `D4`, `D2`, `NL` |

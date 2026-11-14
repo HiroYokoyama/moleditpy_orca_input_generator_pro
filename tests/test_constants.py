@@ -340,7 +340,7 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
         self.assertIn("DFT", _cat("PBE0"))
 
     def test_m06_2x_is_dft_gga(self):
-        self.assertIn("DFT", _cat("M06-2X"))
+        self.assertIn("DFT", _cat("M062X"))
 
     def test_scan_is_dft_gga(self):
         self.assertIn("DFT", _cat("SCAN"))
@@ -387,9 +387,6 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
     def test_gfn1_xtb_is_semi_empirical(self):
         self.assertEqual(_cat("GFN1-XTB"), "Semi-Empirical")
 
-    def test_pm6_is_semi_empirical(self):
-        self.assertEqual(_cat("PM6"), "Semi-Empirical")
-
     def test_completely_unknown_returns_all_methods(self):
         self.assertEqual(_cat("TOTALLY_UNKNOWN_METHOD_XYZ"), "All Methods")
 
@@ -407,16 +404,13 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
         self.assertEqual(_cat("EOM-CCSD"), "Wavefunction (Coupled Cluster)")
 
     def test_dlpno_eom_ccsd_is_coupled_cluster(self):
-        self.assertEqual(_cat("DLPNO-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
+        self.assertEqual(_cat("bt-PNO-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
 
     def test_ip_eom_ccsd_is_coupled_cluster(self):
         self.assertEqual(_cat("IP-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
 
     def test_ea_eom_ccsd_is_coupled_cluster(self):
         self.assertEqual(_cat("EA-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
-
-    def test_sf_eom_ccsd_is_coupled_cluster(self):
-        self.assertEqual(_cat("SF-EOM-CCSD"), "Wavefunction (Coupled Cluster)")
 
     def test_steom_ccsd_is_coupled_cluster(self):
         self.assertEqual(_cat("STEOM-CCSD"), "Wavefunction (Coupled Cluster)")
@@ -447,14 +441,8 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
     def test_mn15_is_dft_gga(self):
         self.assertIn("DFT", _cat("MN15"))
 
-    def test_mn12_l_is_dft_gga(self):
-        self.assertIn("DFT", _cat("MN12-L"))
-
     def test_opbe_is_dft_gga(self):
         self.assertIn("DFT", _cat("OPBE"))
-
-    def test_ssb_d_is_dft_gga(self):
-        self.assertIn("DFT", _cat("SSB-D"))
 
     def test_wb97x_d4_is_range_separated(self):
         self.assertEqual(_cat("wB97X-D4"), "DFT (Range-Separated)")
@@ -467,9 +455,7 @@ class TestGetInferredCategoryExtended(unittest.TestCase):
             "revPBE",
             "revPBE0",
             "MN15",
-            "MN12-L",
             "OPBE",
-            "SSB-D",
             "wB97X-D4",
         ]:
             self.assertIn(m, ALL_ORCA_METHODS, f"{m} missing from ALL_ORCA_METHODS")

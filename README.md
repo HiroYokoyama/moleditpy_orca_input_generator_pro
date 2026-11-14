@@ -144,7 +144,6 @@ editor for the new project.
 | Damping | SlowConv, VerySlowConv |
 | Initial guess | Default / PModel / Hueckel / HCore / PAtom / MOREAD |
 | RI approximation | RIJCOSX, RI |
-| Chain-of-spheres exchange | COSX (without RI Coulomb) |
 | Broken-symmetry DFT | UKS + `%scf BrokenSym n,m end` |
 
 ---

@@ -294,7 +294,6 @@ def _make_parse_dialog():
         "somf_chk",
         "keepdens_chk",
         "keepints_chk",
-        "cosx_chk",
         "tddft_enable",
         "tddft_triplets",
         "tddft_tda",
@@ -447,7 +446,6 @@ def _make_preview_dialog(
     dlg.somf_chk = _check(False)
     dlg.keepdens_chk = _check(False)
     dlg.keepints_chk = _check(False)
-    dlg.cosx_chk = _check(False)
     dlg.tddft_enable = _check(False)
     dlg.iter256_chk = _check(False)
     dlg.constraint_table = MagicMock()
@@ -1885,34 +1883,6 @@ class TestScfGuessParseRoute(unittest.TestCase):
     def test_parse_patom(self):
         dlg = _parse("! B3LYP def2-SVP\n\n%scf\n  Guess PAtom\nend")
         dlg.scf_guess.setCurrentText.assert_any_call("PAtom")
-
-
-class TestCosxPreview(unittest.TestCase):
-    """update_preview emits COSX when cosx_chk is checked."""
-
-    def _r(self, cosx=False):
-        dlg = _make_preview_dialog(method="B3LYP")
-        dlg.cosx_chk = _check(cosx)
-        return _route(dlg)
-
-    def test_cosx_emitted(self):
-        self.assertIn("COSX", self._r(cosx=True).split())
-
-    def test_cosx_not_emitted_by_default(self):
-        self.assertNotIn("COSX", self._r().split())
-
-
-class TestCosxParseRoute(unittest.TestCase):
-    """parse_route sets cosx_chk for COSX keyword."""
-
-    def test_parse_cosx(self):
-        dlg = _parse("! B3LYP def2-SVP COSX")
-        dlg.cosx_chk.setChecked.assert_any_call(True)
-
-    def test_no_cosx_not_set_true(self):
-        dlg = _parse("! B3LYP def2-SVP RIJCOSX Def2/J Opt")
-        calls = [c for c in dlg.cosx_chk.setChecked.call_args_list if c.args == (True,)]
-        self.assertEqual(calls, [])
 
 
 class TestRiSomfPreview(unittest.TestCase):

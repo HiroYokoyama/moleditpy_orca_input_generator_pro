@@ -493,7 +493,6 @@ class TestSetupUiStructural(unittest.TestCase):
         self.assertTrue(hasattr(dlg, "grid_combo"))
         self.assertTrue(hasattr(dlg, "bs_chk"))
         self.assertTrue(hasattr(dlg, "moread_file"))
-        self.assertTrue(hasattr(dlg, "cosx_chk"))
 
     def test_setup_tddft_tab_populates_widgets(self):
         with _patch_builder(**_STRUCTURAL_PATCH):
@@ -1307,7 +1306,6 @@ def _preview_dialog(**overrides):
         "somf_chk",
         "keepdens_chk",
         "keepints_chk",
-        "cosx_chk",
     ]:
         setattr(dlg, name, _check(False))
 
@@ -1434,11 +1432,6 @@ class TestUpdatePreviewMethodOptions(unittest.TestCase):
     def test_frozen_core(self):
         dlg = _preview_dialog(frozen_core_combo=_combo("FrozenCore"))
         self.assertIn("FrozenCore", _preview_route(dlg))
-
-    def test_cosx_flag(self):
-        dlg = _preview_dialog()
-        dlg.cosx_chk = _check(True)
-        self.assertIn("COSX", _preview_route(dlg))
 
     def test_somf_flag(self):
         dlg = _preview_dialog()

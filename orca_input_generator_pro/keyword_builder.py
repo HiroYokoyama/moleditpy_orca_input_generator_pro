@@ -32,6 +32,7 @@ from . import orca_blocks
 from .constants import (
     ALL_ORCA_BASIS_SETS,
     ALL_ORCA_METHODS,
+    ALPB_UNSUPPORTED_SOLVENTS,
     LEGACY_METHOD_ALIASES,
     ORCA_SEARCH_CATALOG,
 )
@@ -113,6 +114,21 @@ def _compute_route_residual(dialog, route):
         if missing:
             body = "\n".join(line for unit in missing for line in unit)
             dialog._route_passthrough_blocks.append(f"%{name}\n{body}\nend")
+
+
+def _restrict_solvents_to_model(dialog, model):
+    """Grey out the solvents ALPB lacks, and leave none of them selected."""
+    is_alpb = model == "ALPB"
+    items = getattr(dialog.solvent, "model", lambda: None)()
+    if items is not None and hasattr(items, "item"):
+        for i in range(dialog.solvent.count()):
+            item = items.item(i)
+            if item is not None:
+                item.setEnabled(
+                    not (is_alpb and item.text() in ALPB_UNSUPPORTED_SOLVENTS)
+                )
+    if is_alpb and dialog.solvent.currentText() in ALPB_UNSUPPORTED_SOLVENTS:
+        dialog.solvent.setCurrentText("Water")
 
 
 class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
@@ -1437,6 +1453,7 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
         solv = self.solv_model.currentText()
         is_solvated = solv != "None"
         self.solvent.setEnabled(is_solvated)
+        _restrict_solvents_to_model(self, solv)
         if "CPC(Water)" in solv:
             self.solvent.setEnabled(False)  # Water is implied
 
@@ -2009,6 +2026,12 @@ class OrcaKeywordBuilderDialog(Dialog3DPickingMixin, QDialog):
             if "(" in tu and any(x in tu for x in ["CPCM", "SMD", "ALPB"]):
                 s_model = tu.split("(")[0]
                 s_name = t.split("(")[1].split(")")[0]
+                # ALPB has no such solvent: keep the token as typed
+                # rather than load it into a combination ORCA refuses.
+                if s_model == "ALPB" and s_name.upper() in {
+                    name.upper() for name in ALPB_UNSUPPORTED_SOLVENTS
+                }:
+                    continue
 
                 if s_model == "CPCM":
                     self.solv_model.setCurrentText("CPCM")

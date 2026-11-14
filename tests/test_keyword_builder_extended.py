@@ -669,6 +669,21 @@ class TestUpdateUiState(unittest.TestCase):
         _run_update_ui_state(dlg)
         self.assertEqual(dlg.solv_model.currentText(), "ALPB")
 
+    def test_alpb_moves_off_a_solvent_it_lacks(self):
+        for solvent in ("Cyclohexane", "CCl4", "Pyridine"):
+            dlg = _ui_dialog(method="XTB2", solv_model="ALPB")
+            dlg.solvent = _FakeCombo(["Water", solvent])
+            dlg.solvent.setCurrentText(solvent)
+            _run_update_ui_state(dlg)
+            self.assertEqual(dlg.solvent.currentText(), "Water", solvent)
+
+    def test_cpcm_keeps_every_solvent(self):
+        dlg = _ui_dialog(method="B3LYP", solv_model="CPCM")
+        dlg.solvent = _FakeCombo(["Water", "CCl4"])
+        dlg.solvent.setCurrentText("CCl4")
+        _run_update_ui_state(dlg)
+        self.assertEqual(dlg.solvent.currentText(), "CCl4")
+
     def test_cpc_water_disables_solvent(self):
         dlg = _ui_dialog(solv_model="CPC(Water) (Short)")
         _run_update_ui_state(dlg)
